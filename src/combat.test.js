@@ -50,7 +50,7 @@ test("four fighters have independently authored commands, startup and recovery",
     4,
   );
   for (const id of CHARACTER_IDS) {
-    assert.equal(Object.keys(character(id).moves).length, 30);
+    assert.equal(Object.keys(character(id).moves).length, 32);
     for (const move of Object.values(character(id).moves)) {
       assert.equal(
         move.duration,
@@ -166,6 +166,8 @@ test("sidestepping orbits the opponent while maintaining a left/right fighting a
   const m = setup();
   m.fighters[0].x = -2;
   m.fighters[1].x = 2;
+  feed(m, { z: 1 });
+  feed(m);
   feed(m, { z: 1 }, 120);
   assert.ok(Math.abs(m.axisAngle) > 0.3);
   const [a, b] = m.fighters,
@@ -187,11 +189,11 @@ test("walking is moderated; all-world movement is still unbounded", () => {
   m.fighters[1].x = 10;
   for (let n = 0; n < 900; n++)
     step(m, [
-      { ...emptyInput(), z: 1 },
-      { ...emptyInput(), z: 1 },
+      { ...emptyInput(), x: 1 },
+      { ...emptyInput(), x: 1 },
     ]);
-  assert.ok(m.fighters[0].z > 50);
-  assert.ok(m.fighters[1].z > 50);
+  assert.ok(m.fighters[0].x > 50);
+  assert.ok(m.fighters[1].x > 50);
 });
 test("displayed startup and active windows are the real attack timing", () => {
   const m = setup();
@@ -570,6 +572,8 @@ test("hellsweep beats standing back guard, knocks down and cannot be hit again w
         index,
         { x: -target.facing },
       );
+      feed(m, { action: id === "kai" ? "u" : "k" }, 1, index);
+      feed(m, {}, 28, index);
       assert.ok(target.hp < MAX_HP);
       assert.ok(target.downTime > 0);
       assert.ok(target.wakeUp > target.stun);
@@ -741,34 +745,30 @@ test("MIRA low-profile palm evades a high jab but can be stopped by a mid", () =
     assert.equal(m.fighters[1].hp < MAX_HP, key === "i");
   }
 });
-test("practice dummy stays still with infinite HP/time while keeping real combos and hitstun", () => {
+test("training HP drops then regenerates after three idle seconds, while time stays infinite", () => {
   const m = setup();
-  const target = m.fighters[1],
-    initialX = target.x;
-  for (let n = 0; n < 700; n++)
-    stepPractice(
-      m,
-      { ...emptyInput(), action: n % 50 === 0 ? "u" : null },
-      { behavior: "dummy", infiniteHealth: true },
-    );
-  assert.equal(target.hp, MAX_HP);
+  stepPractice(m, { ...emptyInput(), action: "u" }, { behavior: "dummy" });
+  for (let n = 0; n < 25; n++)
+    stepPractice(m, emptyInput(), { behavior: "dummy" });
+  assert.ok(m.fighters[1].hp < MAX_HP);
+  const hp = m.fighters[1].hp;
+  for (let n = 0; n < 100; n++)
+    stepPractice(m, emptyInput(), { behavior: "dummy" });
+  assert.equal(m.fighters[1].hp, hp);
+  for (let n = 0; n < 240; n++)
+    stepPractice(m, emptyInput(), { behavior: "dummy" });
+  assert.equal(m.fighters[1].hp, MAX_HP);
   assert.equal(m.time, 60);
-  assert.equal(m.phase, "fight");
-  assert.equal(target.lastMove, "");
-  assert.ok(target.x >= initialX);
   const other = setup();
-  stepPractice(
-    other,
-    { ...emptyInput(), action: "u" },
-    { behavior: "dummy", infiniteHealth: false },
-  );
-  for (let n = 0; n < 15; n++)
-    stepPractice(other, emptyInput(), {
-      behavior: "dummy",
-      infiniteHealth: false,
-    });
-  assert.ok(other.fighters[1].hp < MAX_HP);
-  assert.ok(other.time < 60);
+  other.fighters[1].hp = 1;
+  for (let n = 0; n < 100; n++)
+    stepPractice(
+      other,
+      { ...emptyInput(), action: n % 35 === 0 ? "u" : null },
+      { behavior: "dummy" },
+    );
+  assert.equal(other.fighters[1].hp, 1);
+  assert.equal(other.phase, "fight");
 });
 
 test("airborne hits beyond seven remain hittable with increasing recoil and less lift on either side", () => {
@@ -804,4 +804,105 @@ test("infinite practice clock does not keep the fight announcement alive", () =>
   assert.equal(m.phase, "fight");
   assert.equal(m.time, 60);
   assert.equal(m.phaseTime, 0);
+});
+
+test("sidestep requires a double tap, release finishes a short step, holding circles behind a stationary foe", () => {
+  for (const index of [0, 1])
+    for (const side of [-1, 1]) {
+      const m = setup(["kai", "kai"]),
+        a = m.fighters[index],
+        b = m.fighters[1 - index];
+      const original = [a.x, a.z];
+      feed(m, { z: side }, 40, index);
+      assert.deepEqual([a.x, a.z], original);
+      feed(m, {}, 1, index);
+      feed(m, { z: side }, 1, index); // The first long hold is too old to count as a double tap.
+      assert.equal(a.sideTime, 0);
+      feed(m, {}, 1, index);
+      feed(m, { z: side }, 1, index);
+      feed(m, {}, 30, index);
+      const afterStep = [a.x, a.z];
+      feed(m, {}, 30, index);
+      assert.deepEqual([a.x, a.z], afterStep);
+      feed(m, { z: side }, 1, index);
+      feed(m, {}, 1, index);
+      feed(m, { z: side }, 45, index);
+      assert.ok(
+        Math.cos(Math.atan2(a.z - b.z, a.x - b.x) - b.angle) < 0,
+        "can reach the back",
+      );
+      assert.ok(
+        Math.abs(Math.hypot(a.x - b.x, a.z - b.z) - 1) < 1e-8,
+        "orbit radius stays fixed",
+      );
+    }
+});
+test("KAI's low starter only completes its knockdown with a separate U, and all fighters have button strings", () => {
+  for (const id of CHARACTER_IDS) {
+    const m = setup([id, "kai"]),
+      f = m.fighters[0],
+      p = character(id);
+    for (const [from, button, to] of p.followUps) {
+      f.attack = { key: from, t: p.moves[from].windup, angle: 0 };
+      assert.equal(resolveMove(f, button), to);
+      f.attack = null;
+      f.lastMove = from;
+      f.lastMoveAge = p.moves[from].duration + 0.5;
+      assert.notEqual(
+        resolveMove(f, button),
+        to,
+        "expired strings cannot start a follow-up",
+      );
+    }
+  }
+  const m = setup(["kai", "kai"]);
+  feed(m, commandInputFor(m, 0, "hellSweep"), 22);
+  assert.ok(m.fighters[1].hp < 120);
+  assert.equal(m.fighters[1].downTime, 0);
+  feed(m, { action: "u" });
+  feed(m, {}, 35);
+  assert.equal(m.fighters[0].lastMove, "hellFollow");
+  assert.ok(m.fighters[1].downTime > 0);
+});
+test("combo damage scales down progressively for the same move on the ground", () => {
+  const damage = [];
+  for (const count of [0, 1, 2, 4, 8]) {
+    const m = setup(["kai", "kai"]),
+      a = m.fighters[0],
+      b = m.fighters[1];
+    a.combo = count;
+    if (count) {
+      b.stun = 0.5;
+      b.lastHitBy = 0;
+    }
+    a.attack = {
+      key: "i",
+      t: character("kai").moves.i.windup - 1 / 60,
+      angle: 0,
+    };
+    feed(m);
+    damage.push(120 - b.hp);
+  }
+  for (let n = 1; n < damage.length; n++) assert.ok(damage[n] < damage[n - 1]);
+  assert.equal(character("kai").moves.upper.damage, 16);
+});
+
+test("every added button follow-up is a real reachable second hit", () => {
+  for (const id of CHARACTER_IDS)
+    for (const [from, button, to] of character(id).followUps) {
+      const m = setup([id, "kai"]),
+        a = m.fighters[0],
+        p = character(id);
+      a.attack = { key: from, t: p.moves[from].windup - 1 / 60, angle: 0 };
+      feed(m);
+      const hp = m.fighters[1].hp;
+      assert.ok(hp < MAX_HP, id + " " + from);
+      feed(m, { action: button });
+      feed(m, {}, 45);
+      assert.equal(a.lastMove, to, id + " " + to);
+      assert.ok(
+        m.fighters[1].hp < hp,
+        id + " " + to + " follow-up must connect",
+      );
+    }
 });

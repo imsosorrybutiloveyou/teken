@@ -97,7 +97,7 @@ func run() error {
 	fmt.Println("  Your browser will open the game automatically.")
 	fmt.Println("  Keep this window open while playing.")
 	fmt.Println("  To quit: close this window or press Ctrl+C.")
-	fmt.Println("\n  Move: A/D | Sidestep: W/S | U: Left Punch | I: Right Punch | J: Left Kick | K: Right Kick")
+	fmt.Println("\n  Move: A/D | Sidestep: W/W or S/S (hold second to circle) | U: Left Punch | I: Right Punch | J: Left Kick | K: Right Kick")
 	fmt.Print("  Guard: Hold Back | Crouch: Shift | 4 unique fighters | Check each fighter frame list\n")
 	fmt.Print("  Online: PLAYER MATCH uses the first LAN host automatically; internet: run EXE --host http://HOST-IP:8787\n\n")
 	if !*noBrowser {

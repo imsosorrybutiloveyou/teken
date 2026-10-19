@@ -1,0 +1,49 @@
+{
+  "characters": {
+    "kai": {
+      "rig": {
+        "head": {
+          "src": "/mods/rig-template/head.svg",
+          "width": 24,
+          "height": 29
+        },
+        "torso": {
+          "src": "/mods/rig-template/torso.svg",
+          "width": 28,
+          "height": 32
+        },
+        "upperArm": {
+          "src": "/mods/rig-template/upperArm.svg",
+          "width": 9,
+          "height": 19
+        },
+        "forearm": {
+          "src": "/mods/rig-template/forearm.svg",
+          "width": 8,
+          "height": 20
+        },
+        "hand": {
+          "src": "/mods/rig-template/hand.svg",
+          "width": 11,
+          "height": 11
+        },
+        "thigh": {
+          "src": "/mods/rig-template/thigh.svg",
+          "width": 12,
+          "height": 24
+        },
+        "shin": {
+          "src": "/mods/rig-template/shin.svg",
+          "width": 10,
+          "height": 25
+        },
+        "foot": {
+          "src": "/mods/rig-template/foot.svg",
+          "width": 19,
+          "height": 10
+        }
+      }
+    }
+  },
+  "sounds": {}
+}

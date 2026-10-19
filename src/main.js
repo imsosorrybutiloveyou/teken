@@ -153,7 +153,7 @@ function updateMode() {
       : connected
         ? "캐릭터 선택 대기 · P2P 연결 완료"
         : "매칭 완료 · P2P 연결 중"
-    : `연습 · ${practiceBehavior === "cpu" ? "CPU 공격" : "정지 샌드백"} · ${infiniteHealth ? "무한 체력" : "일반 체력"}`;
+    : `연습 · ${practiceBehavior === "cpu" ? "CPU 공격" : "정지 샌드백"} · ${infiniteHealth ? "3초 뒤 체력 회복" : "일반 체력"}`;
   $("practice-button").classList.toggle("selected", !activePair);
   $("pvp-button").classList.toggle("selected", !!activePair);
   $("pause-button").innerHTML = paused
@@ -685,7 +685,9 @@ function updateHUD() {
       .querySelectorAll("i")
       .forEach((dot, n) => dot.classList.toggle("won", match.wins[i] > n));
   });
-  $("timer").textContent = String(Math.ceil(match.time)).padStart(2, "0");
+  $("timer").textContent = activePair
+    ? String(Math.ceil(match.time)).padStart(2, "0")
+    : "∞";
   $("round-number").textContent = String(match.round).padStart(2, "0");
   let title = "",
     sub = "";

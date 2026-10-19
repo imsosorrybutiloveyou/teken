@@ -677,6 +677,128 @@ for (const [id, p] of Object.entries(profileData)) {
     }
   }
 }
+const followData = {
+  kai: [
+    [
+      "hellSweep",
+      "u",
+      "hellFollow",
+      "나락 이연장",
+      "rushStrike",
+      12,
+      3,
+      22,
+      -14,
+      8,
+      12,
+      true,
+    ],
+    [
+      "qcfPunch",
+      "k",
+      "styleFollow",
+      "뇌격 회전각",
+      "qcfKick",
+      16,
+      3,
+      24,
+      -12,
+      9,
+      17,
+      true,
+    ],
+  ],
+  ren: [
+    [
+      "hellSweep",
+      "k",
+      "hellFollow",
+      "시저스 힐 피니시",
+      "axeKick",
+      14,
+      3,
+      23,
+      -15,
+      9,
+      15,
+      true,
+    ],
+    [
+      "j",
+      "i",
+      "styleFollow",
+      "티프 니 스트라이크",
+      "kneeStrike",
+      13,
+      2,
+      20,
+      -8,
+      7,
+      13,
+      false,
+    ],
+  ],
+  mira: [
+    [
+      "hellSweep",
+      "i",
+      "hellFollow",
+      "복호 연환장",
+      "palm",
+      12,
+      2,
+      19,
+      -9,
+      8,
+      12,
+      true,
+    ],
+    [
+      "palm",
+      "u",
+      "styleFollow",
+      "회신 연화수",
+      "hook",
+      11,
+      2,
+      18,
+      -6,
+      6,
+      11,
+      false,
+    ],
+  ],
+  goro: [
+    [
+      "kneeStrike",
+      "u",
+      "hellFollow",
+      "철산 접신 팔꿈치",
+      "elbow",
+      14,
+      3,
+      24,
+      -12,
+      9,
+      17,
+      true,
+    ],
+    [
+      "i",
+      "k",
+      "styleFollow",
+      "거암 장화 피니시",
+      "sideKick",
+      16,
+      3,
+      25,
+      -14,
+      9,
+      20,
+      true,
+    ],
+  ],
+};
 export const CHARACTERS = Object.fromEntries(
   Object.entries(profileData).map(([id, p]) => {
     const moves = Object.fromEntries(
@@ -835,7 +957,71 @@ export const CHARACTERS = Object.fromEntries(
       m.stun = (m.active + m.recovery + m.onHit) / 60;
       m.blockStun = Math.max(1, m.active + m.recovery + m.onBlock) / 60;
     }
-    return [id, { id, ...p, moves }];
+    for (const m of Object.values(moves))
+      if (m.launch)
+        m.damage = Math.max(1, m.damage - (m === moves.upper ? 3 : 2));
+    // The opening sweep is a low starter; the separate left-hand input completes KAI's string.
+    if (["kai", "ren"].includes(id))
+      Object.assign(moves.hellSweep, {
+        damage: 16,
+        knockdown: false,
+        onHit: 4,
+        stun: (moves.hellSweep.active + moves.hellSweep.recovery + 4) / 60,
+      });
+    const followUps = followData[id].map(
+      ([
+        from,
+        button,
+        key,
+        name,
+        template,
+        startup,
+        active,
+        recovery,
+        onBlock,
+        onHit,
+        damage,
+        knockdown,
+      ]) => {
+        const source = moves[template];
+        moves[key] = {
+          ...source,
+          name,
+          command: `${moves[from].command} › ${button.toUpperCase()}`,
+          side: ["u", "j"].includes(button) ? 1 : 0,
+          level: "mid",
+          damage,
+          launch: false,
+          bound: false,
+          knockdown,
+          justFrames: null,
+          highCrushFrom: null,
+          armorFrom: null,
+          hop: 0,
+          startup,
+          active,
+          recovery,
+          onBlock,
+          onHit,
+          windup: startup / 60,
+          duration: (startup + active + recovery) / 60,
+          stun: (active + recovery + onHit) / 60,
+          blockStun: Math.max(1, active + recovery + onBlock) / 60,
+          lunge: 0.3,
+          visual: {
+            ...source.visual,
+            angle: source.visual.angle + 0.47,
+            step: source.visual.step + 2,
+            arc: source.visual.arc - 5,
+            lean: source.visual.lean + 3,
+            coil: source.visual.coil * 0.82,
+            size: source.visual.size + 0.17,
+          },
+        };
+        return [from, button, key];
+      },
+    );
+    return [id, { id, ...p, moves, followUps }];
   }),
 );
 export const CHARACTER_IDS = Object.keys(CHARACTERS);

@@ -1,5 +1,9 @@
 import { STYLE_MOTIONS, styleStance, styleAttack } from "./style-motion.js";
-import { paintCustomSprite, customPortrait } from "./custom-assets.js";
+import {
+  paintCustomSprite,
+  customPortrait,
+  paintCustomRig,
+} from "./custom-assets.js";
 import { character, moveFor } from "./characters.js";
 const W = 480,
   H = 270,
@@ -583,6 +587,10 @@ function paintSprite(c, f, index, t) {
     c.rotate((-Math.PI / 2) * prone);
     c.translate(-68, -82);
   }
+  if (paintCustomRig(c, f, pose)) {
+    c.restore();
+    return;
+  }
   const hip = pose.hip,
     head = [pose.head[0] + pose.lean, pose.head[1]],
     shoulders = pose.shoulders.map((a) => [a[0] + pose.lean, a[1]]);
@@ -1085,7 +1093,14 @@ export function createScene(canvas) {
         paintSprite(sprites[i].context, f, i, clock);
         c.save();
         c.translate(Math.round(p.x), Math.round(p.y));
-        c.scale(f.facing, 1);
+        c.scale(
+          f.facing *
+            (Math.cos(f.angle - match.axisAngle - (i === 1 ? Math.PI : 0)) <
+            -0.1
+              ? -1
+              : 1),
+          1,
+        );
         c.drawImage(
           sprites[i].image,
           Math.round(-64 * s),

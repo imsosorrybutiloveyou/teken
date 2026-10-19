@@ -48,6 +48,20 @@ export function matchesCommand(
   );
 }
 function recordDirection(f, input, dt) {
+  const side =
+    !input.crouch && Math.abs(input.x) < 0.25 ? Math.sign(input.z) : 0;
+  if (side && side !== f.sideInput) {
+    if (side === f.sideLast && f.commandTime - f.sideTapAt <= 0.28) {
+      f.sideDir = side;
+      f.sideTime = 0.18;
+      f.sideHold = 0;
+      f.sideLast = 0;
+    } else {
+      f.sideLast = side;
+      f.sideTapAt = f.commandTime;
+    }
+  }
+  f.sideInput = side;
   const dir = inputDirection(input, f.facing);
   f.commandTime += dt;
   f.commands = f.commands.filter((e) => f.commandTime - e.at < 1.4);
@@ -62,6 +76,20 @@ export function resolveMove(f, action) {
   if (action === "u+i") return "throw";
   if (action === "j+k") return "sweep";
   const p = character(f.character);
+  const source = f.attack?.key ?? f.lastMove;
+  const prior = p.moves[source];
+  const follow = p.followUps.find(
+    ([from, button]) => from === source && button === action,
+  );
+  if (
+    follow &&
+    prior &&
+    (f.attack
+      ? f.attack.t >= 0.08
+      : f.lastMoveAge >= prior.duration &&
+        f.lastMoveAge <= prior.duration + 0.18)
+  )
+    return follow[2];
   for (const [key, button, sequence] of [...p.commands].sort(
     (a, b) => b[2].length - a[2].length,
   )) {
@@ -88,6 +116,12 @@ export function resolveMove(f, action) {
 function fighter(x, id, index) {
   return {
     character: id,
+    sideInput: 0,
+    sideLast: 0,
+    sideTapAt: -10,
+    sideDir: 0,
+    sideTime: 0,
+    sideHold: 0,
     statusTick: -1,
     vx: 0,
     vz: 0,
@@ -132,7 +166,7 @@ function fighter(x, id, index) {
 }
 export function createMatch(ids = ["kai", "ren"]) {
   return {
-    version: 8,
+    version: 9,
     axisAngle: 0,
     hitstop: 0,
     fighters: [
@@ -158,6 +192,9 @@ function startAttack(m, index, key) {
   f.chain =
     key === character(f.character).chain[0] ? 1 : key === "oneTwo" ? 2 : 0;
   f.chainAge = 0;
+  f.sideTime = 0;
+  f.sideHold = 0;
+  f.sideDir = 0;
   f.attack = { key, t: 0, hit: false, connected: false, angle: f.angle };
   if (moveFor(f, key).hop) {
     f.y = 0.02;
@@ -172,7 +209,7 @@ function startAttack(m, index, key) {
     f.commands = [{ dir: f.direction, at: f.commandTime }];
   emit(m, "move", { index, key });
 }
-function resolveHit(m, index) {
+function resolveHit(m, index, training) {
   const a = m.fighters[index],
     b = m.fighters[1 - index],
     atk = a.attack,
@@ -208,7 +245,8 @@ function resolveHit(m, index) {
     b.guard &&
     b.y === 0 &&
     (move.level === "low" ? b.crouch : !b.crouch) &&
-    move.level !== "throw";
+    move.level !== "throw" &&
+    Math.cos(Math.atan2(a.z - b.z, a.x - b.x) - b.angle) > -0.15;
   if (blocked) {
     atk.blocked = true;
     b.stun = move.blockStun;
@@ -244,14 +282,14 @@ function resolveHit(m, index) {
     1,
     Math.round(
       move.damage *
-        (airborne ? Math.max(0.3, 0.72 - b.airHits * 0.08) : 1) *
-        (continuing && a.combo >= 3 ? 0.85 : 1),
+        (airborne ? 0.8 : 1) *
+        (continuing ? Math.max(0.2, 1 - a.combo * 0.12) : 1),
     ),
   );
   b.hitLevel = move.level;
   b.hitKind = move.kind;
   b.lastHitBy = index;
-  b.hp = Math.max(0, b.hp - damage);
+  b.hp = Math.max(training ? 1 : 0, b.hp - damage);
   const armored =
     defendingMove?.armorFrom != null &&
     b.attack.t >= defendingMove.armorFrom &&
@@ -281,6 +319,8 @@ function resolveHit(m, index) {
   b.statusTick = m.tick;
   b.blockstun = false;
   m.hitstop = Math.max(m.hitstop, move.hitstop / 60);
+  b.sideDir = 0;
+  b.sideTime = 0;
   b.attack = null;
   b.buffer = null;
   b.guard = false;
@@ -353,7 +393,7 @@ function finishRound(m) {
   m.phaseTime = 3;
   emit(m, "roundEnd", { winner, ko: m.time > 0 });
 }
-export function step(m, rawInputs, dt = 1 / 60) {
+export function step(m, rawInputs, dt = 1 / 60, training = false) {
   dt = clamp(dt, 0, 0.05);
   m.events = [];
   m.tick++;
@@ -391,6 +431,8 @@ export function step(m, rawInputs, dt = 1 / 60) {
       input = sanitizeInput(rawInputs[i]),
       back = input.x * f.facing < -0.25,
       recovered = !f.attack || f.attack.t + dt + 1e-9 >= moveFor(f).duration;
+    if (!f.attack && (input.action || Math.abs(input.x) > 0.25 || input.crouch))
+      f.angle = m.axisAngle + (i === 1 ? Math.PI : 0);
     // Guard becomes available on the recovery boundary for BOTH player orders.
     f.guard =
       back && recovered && (f.stun <= dt + 1e-9 || f.blockstun) && f.y === 0;
@@ -463,7 +505,15 @@ export function step(m, rawInputs, dt = 1 / 60) {
       }
     }
     if (!f.attack) {
-      f.angle = m.axisAngle + (i === 1 ? Math.PI : 0);
+      // A stationary fighter keeps their heading; movement/guard/attack turns toward the foe.
+      if (
+        input.action ||
+        Math.abs(input.x) > 0.25 ||
+        input.crouch ||
+        f.move > 0 ||
+        f.sideTime > 0
+      )
+        f.angle = m.axisAngle + (i === 1 ? Math.PI : 0);
       f.facing = i === 0 ? 1 : -1;
     }
     recordDirection(f, input, dt);
@@ -516,7 +566,7 @@ export function step(m, rawInputs, dt = 1 / 60) {
       }
       if (!f.attack.hit && f.attack.t + 1e-9 >= move.windup) {
         if (f.attack.t < move.windup + move.active / 60 - 1e-9)
-          f.attack.hit = resolveHit(m, i);
+          f.attack.hit = resolveHit(m, i, training);
         else f.attack.hit = true;
       }
       const juggleCancel =
@@ -528,11 +578,15 @@ export function step(m, rawInputs, dt = 1 / 60) {
         f.attack.t >= move.windup + move.juggleCancel / 60;
       const chainCancel =
         f.attack &&
-        f.attack.connected &&
+        (f.attack.connected || f.attack.blocked) &&
         f.buffer &&
         ((f.attack.key === character(f.character).chain[0] &&
           f.buffer === "oneTwo") ||
-          (f.attack.key === "oneTwo" && f.buffer === "finish"));
+          (f.attack.key === "oneTwo" && f.buffer === "finish") ||
+          (f.attack.connected &&
+            character(f.character).followUps.some(
+              ([from, , to]) => f.attack.key === from && f.buffer === to,
+            )));
       if (
         f.attack &&
         (f.attack.t + 1e-9 >= move.duration ||
@@ -547,30 +601,46 @@ export function step(m, rawInputs, dt = 1 / 60) {
         const forward = input.x * f.facing;
         if (forward < -0.1) f.dash = 0;
         const dashing = f.dash > 0 && forward > 0.25;
-        const len = Math.max(1, Math.hypot(input.x, input.z)),
-          speed = f.crouch
+        const holdingSide = f.sideInput === f.sideDir && f.sideDir !== 0;
+        f.sideHold = holdingSide ? f.sideHold + dt : 0;
+        if (holdingSide && f.sideHold >= 0.14) f.sideTime = 0.06;
+        const side = f.sideTime > 0 && !f.crouch ? f.sideDir : 0;
+        const adjusted =
+          (f.crouch
             ? 1.45
             : dashing
               ? DASH_SPEED
-              : Math.abs(input.z) > 0.1
-                ? SIDESTEP_SPEED
-                : WALK_SPEED;
-        const directional = dashing
-          ? 1
-          : forward > 0.1
-            ? FORWARD_SPEED / WALK_SPEED
-            : forward < -0.1
-              ? BACKWARD_SPEED / WALK_SPEED
-              : 1;
-        const adjusted = speed * character(f.character).speed * directional,
-          c = Math.cos(m.axisAngle),
-          s = Math.sin(m.axisAngle);
-        const dx = ((input.x * c - input.z * s) / len) * adjusted * dt,
-          dz = ((input.x * s + input.z * c) / len) * adjusted * dt;
+              : forward > 0.1
+                ? FORWARD_SPEED
+                : forward < -0.1
+                  ? BACKWARD_SPEED
+                  : WALK_SPEED) * character(f.character).speed;
+        const radial = input.x * adjusted * dt;
+        const dx = Math.cos(m.axisAngle) * radial,
+          dz = Math.sin(m.axisAngle) * radial;
         f.x += dx;
         f.z += dz;
-        f.move = Math.min(1, Math.hypot(input.x, input.z));
-        f.travel += Math.hypot(dx, dz);
+        if (side) {
+          // Rotate the offset exactly instead of Euler-stepping a growing circle.
+          const rx = f.x - other.x,
+            rz = f.z - other.z,
+            distance = Math.max(0.85, Math.hypot(rx, rz));
+          const angle =
+            (side *
+              (i === 0 ? -1 : 1) *
+              SIDESTEP_SPEED *
+              character(f.character).speed *
+              dt) /
+            distance;
+          const co = Math.cos(angle),
+            si = Math.sin(angle);
+          f.x = other.x + rx * co - rz * si;
+          f.z = other.z + rx * si + rz * co;
+        }
+        f.move = Math.min(1, Math.abs(input.x) + Math.abs(side));
+        f.travel += Math.hypot(dx, dz) + (side ? SIDESTEP_SPEED * dt : 0);
+        f.sideTime = Math.max(0, f.sideTime - dt);
+        if (f.sideTime === 0) f.sideDir = 0;
       }
     }
     // No ring boundary, coordinate wrapping, or invisible walls: positions remain in world space.
@@ -675,30 +745,34 @@ export function cpuInput(m, index = 1) {
       );
     }
   }
-  if (o.attack && m.tick % 140 < 24 && input.x * f.facing >= 0) input.z = 0.8;
+  if (o.attack && m.tick % 140 < 24 && input.x * f.facing >= 0) {
+    input.x = 0;
+    input.z = Math.floor(o.attack.t * 60) === 2 ? 0 : 0.8;
+  }
   return input;
 }
 
-// Local practice keeps the real hit/stun/launch/combo simulation. Only HP and the clock are restored.
+// Training keeps real damage and hit reactions; lethal damage stops at 1 HP.
 export function stepPractice(
   m,
   input,
   { behavior = "cpu", infiniteHealth = true } = {},
 ) {
+  m.time = 60;
+  step(
+    m,
+    [input, behavior === "cpu" ? cpuInput(m) : emptyInput()],
+    1 / 60,
+    infiniteHealth,
+  );
+  m.time = 60;
   if (infiniteHealth) {
-    m.time = 60;
-    for (const f of m.fighters) f.hp = MAX_HP;
-  }
-  step(m, [input, behavior === "cpu" ? cpuInput(m) : emptyInput()]);
-  if (infiniteHealth) {
-    for (const f of m.fighters) f.hp = MAX_HP;
-    m.time = 60;
-    // A lethal hit must not end an infinite-health training session.
-    if (m.phase === "roundEnd" || m.phase === "matchEnd") {
-      m.phase = "fight";
-      m.winner = null;
-      m.wins = [0, 0];
-      m.events = m.events.filter((e) => e.type !== "roundEnd");
-    }
-  }
+    const active =
+      m.fighters.some((f) => f.attack || f.stun > 0 || f.downTime > 0) ||
+      m.events.some((e) => e.type === "move" || e.type === "hit");
+    m.practiceIdle = active ? 0 : (m.practiceIdle ?? 0) + 1 / 60;
+    if (m.practiceIdle >= 3)
+      for (const f of m.fighters)
+        f.hp = Math.min(MAX_HP, f.hp + MAX_HP / 1.5 / 60);
+  } else m.practiceIdle = 0;
 }

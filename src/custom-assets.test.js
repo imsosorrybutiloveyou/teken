@@ -36,3 +36,27 @@ test("custom assets accept local portraits, animation rows and per-move sound ov
     undefined,
   );
 });
+
+test("a complete eight-part rig is accepted, incomplete or remote rigs use the normal renderer", () => {
+  const keys = [
+    "head",
+    "torso",
+    "upperArm",
+    "forearm",
+    "hand",
+    "thigh",
+    "shin",
+    "foot",
+  ];
+  const rig = Object.fromEntries(
+    keys.map((key) => [key, { src: `/mods/${key}.png`, width: 12 }]),
+  );
+  const parsed = parseAssetConfig({ characters: { kai: { rig } } });
+  assert.equal(Object.keys(parsed.characters.kai.rig).length, 8);
+  assert.equal(parsed.characters.kai.rig.upperArm.width, 12);
+  delete rig.head;
+  assert.equal(
+    parseAssetConfig({ characters: { kai: { rig } } }).characters.kai.rig,
+    undefined,
+  );
+});

@@ -23,6 +23,9 @@ func TestVersionComparison(t *testing.T) {
 	}
 }
 func TestUpdatePromptDownloadAndChecksum(t *testing.T) {
+	original := currentVersion
+	currentVersion = "3.6.0"
+	defer func() { currentVersion = original }()
 	payload := []byte("verified EXE test fixture")
 	hash := fmt.Sprintf("%x", sha256.Sum256(payload))
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

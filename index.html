@@ -14,7 +14,7 @@
         >
         <div class="top-center">
           <span class="live-dot"></span> PIXEL FIGHTERS / FREE AXIS
-          <span class="version">/ VOL. 03.6</span>
+          <span class="version">/ VOL. 03.7</span>
         </div>
         <button id="online-button" class="button small">
           <span class="connection-icon">⌁</span> 온라인 대전 <span>↗</span>
@@ -103,7 +103,8 @@
           </div>
           <div id="stage-depth" class="stage-depth">X 0 / Z 0 · ∞</div>
           <div class="key-hint">
-            W / S <span>횡이동</span> <b>↔</b> A / D <span>앞뒤 이동</span>
+            W / S 두 번 <span>횡신 · 유지하면 횡보</span> <b>↔</b> A / D
+            <span>앞뒤 이동</span>
           </div>
           <div id="loading" class="loading">경기장을 준비하고 있습니다…</div>
         </section>
@@ -121,7 +122,9 @@
                 </div>
                 <div>
                   <b>MOVE & SIDESTEP</b>
-                  <p>A / D 이동 · W / S 횡이동 · →→ 대시</p>
+                  <p>
+                    A / D 이동 · W/W 또는 S/S 횡신 · 두 번째를 유지하면 횡보
+                  </p>
                 </div>
               </div>
               <div class="control-group">
@@ -246,11 +249,12 @@
           <option value="dummy">정지 샌드백 · 공격하지 않음</option>
         </select>
         <label class="health-option"
-          ><input id="infinite-health" type="checkbox" checked /> 무한 체력 ·
-          제한 시간 없음 (양쪽)</label
+          ><input id="infinite-health" type="checkbox" checked /> 체력 자동 회복
+          (양쪽)</label
         >
         <p class="network-note">
-          무한 체력에서도 경직·다운·콤보 대미지는 그대로 표시됩니다.
+          체력은 실제로 감소합니다. 3초간 전투가 끊기면 회복하며, 켜면 체력
+          1에서 버팁니다. 연습 시간은 항상 무한입니다.
         </p>
       </fieldset>
       <div id="character-detail" class="character-detail"></div>
@@ -289,11 +293,12 @@
       </p>
       <p class="network-note">
         연습전은 P1을 조작합니다. 온라인 호스트는 P1, 참가자는 P2입니다. A/D는
-        화면 좌우 이동, W/S는 상대 중심 횡이동입니다. 카메라는 두 캐릭터를
-        양쪽에 유지하며 돌아갑니다. 커맨드의 →/←는 상대 기준 전진/후퇴로, P2는
-        A/D가 반대입니다. ↓는 S, ↑는 W이며 ↘는 전진+S입니다. 방향을 0.85초 안에
-        순서대로 입력한 뒤 공격하세요. →→ 대시는 전진-떼기-전진으로 입력합니다.
-        경기장에는 벽이나 낭떠러지가 없습니다.
+        화면 좌우 이동, W/W 또는 S/S는 횡신, 두 번째를 유지하면 상대 중심
+        횡보입니다. 카메라는 두 캐릭터를 양쪽에 유지하며 돌아갑니다. 커맨드의
+        →/←는 상대 기준 전진/후퇴로, P2는 A/D가 반대입니다. ↓는 S, ↑는 W이며 ↘는
+        전진+S입니다. 방향을 0.85초 안에 순서대로 입력한 뒤 공격하세요. →→
+        대시는 전진-떼기-전진으로 입력합니다. 경기장에는 벽이나 낭떠러지가
+        없습니다.
       </p>
     </dialog>
     <div id="toast" role="status" hidden></div>

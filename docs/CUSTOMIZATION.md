@@ -1,5 +1,7 @@
 # GitHub에서 캐릭터 이미지·애니메이션·타격음 바꾸기
 
+**v3.7의 권장 방식은 [팔·다리 부품으로 자동 애니메이션 만들기](BODY_PARTS.md)입니다.** 8개 그림을 한 번 등록하면 기존 관절 모션으로 전 기술이 움직입니다. 아래 스프라이트 시트 방식은 선택 기능입니다.
+
 v3.5부터 `public/custom-assets.json`으로 그림·소리를 교체합니다. 기본 설정은 빈 객체이며 기본 관절 애니메이션과 합성 타격음을 사용합니다. 외부 라이브러리나 원격 스크립트는 필요 없습니다. 사용 권한이 있는 파일을 준비하세요.
 
 ## 1. GitHub에 파일 올리기
@@ -59,7 +61,7 @@ v3.5부터 `public/custom-assets.json`으로 그림·소리를 교체합니다. 
 ```text
 u i j k oneTwo finish upper low sweep qcfPunch dragon qcfKick
  dashPunch palm backKick hopKick throw hook elbow bodyBlow toeKick
- sideKick axeKick kneeStrike bound rushStrike windGod electric hellSweep runningKick
+ sideKick axeKick kneeStrike bound rushStrike windGod electric hellSweep runningKick hellFollow styleFollow
 ```
 
 ## 4. 타격음 교체
@@ -85,9 +87,9 @@ u i j k oneTwo finish upper low sweep qcfPunch dragon qcfKick
 
 ## 5. 실제 기술과 관절 모션 수정
 
-- `src/fighter-kits.js`: 캐릭터별 30개 기술의 이름·타격 모션·상중하단/잡기·피해·리치, 특수 판정. 각 행 순서는 `src/characters.js`의 `keys`와 같습니다.
+- `src/fighter-kits.js`: 캐릭터별 기본 30개 기술의 이름·타격 모션·상중하단/잡기·피해·리치, 특수 판정. 각 행 순서는 `src/characters.js`의 `keys`와 같습니다.
 - `src/characters.js`: 캐릭터별 커맨드와 `[S,A,R,G,H]` 프레임, 연계 순서, 실제 전투 데이터 조립. REN/MIRA/GORO 특수 커맨드는 `specialCommands`에 있습니다.
-- `src/style-motion.js`: REN/MIRA/GORO의 대기 자세와 손·발·어깨 공격의 준비/접촉 좌표. KAI의 카라테 모션은 `src/scene.js`에 있습니다. 마지막에 IK가 관절 길이와 무릎 방향을 고정합니다.
+- `src/style-motion.js`: REN/MIRA/GORO의 대기 자세와 손·발·어깨 공격의 준비/접촉 좌표. KAI의 카라테 모션은 `src/scene.js`에 있습니다. 공격 버튼 파생기 2개는 `src/characters.js`의 `followData`에 있습니다. 마지막에 IK가 관절 길이와 무릎 방향을 고정합니다.
 - `src/scene.js`: 기본 팔레트·의상·외형·히트 이펙트.
 - `src/main.js`: 에셋을 지정하지 않았을 때의 합성 타격음.
 

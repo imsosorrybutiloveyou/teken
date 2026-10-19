@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-var currentVersion = "3.6.0"
+var currentVersion = "3.7.0"
 
 const updateManifestURL = "https://raw.githubusercontent.com/imsosorrybutiloveyou/teken/main/downloads/latest.json"
 const updateDownloadURL = "https://raw.githubusercontent.com/imsosorrybutiloveyou/teken/main/downloads/AXIS-Windows-x64.exe"

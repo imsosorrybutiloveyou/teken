@@ -1,6 +1,6 @@
 {
   "name": "axis-arena",
-  "version": "3.6.0",
+  "version": "3.7.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -12,7 +12,8 @@
     "package:windows": "node scripts/package-windows.mjs",
     "start": "node server/start.js",
     "docs:frames": "node scripts/export-frames.mjs",
-    "test:assets": "node scripts/custom-assets-smoke.mjs"
+    "test:assets": "node scripts/custom-assets-smoke.mjs",
+    "test:rig": "node scripts/rig-smoke.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.55.1",

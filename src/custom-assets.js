@@ -15,6 +15,52 @@ export function parseAssetConfig(input) {
     const entry = input?.characters?.[id];
     if (!entry || typeof entry !== "object") continue;
     const p = {};
+    if (entry.rig && typeof entry.rig === "object") {
+      const rig = {};
+      for (const key of [
+        "head",
+        "torso",
+        "upperArm",
+        "forearm",
+        "hand",
+        "thigh",
+        "shin",
+        "foot",
+      ]) {
+        const part = entry.rig[key];
+        if (part && localPath(part.src))
+          rig[key] = {
+            src: part.src,
+            width: Math.max(
+              2,
+              Math.min(
+                64,
+                Number(part.width) ||
+                  {
+                    head: 24,
+                    torso: 28,
+                    upperArm: 9,
+                    forearm: 8,
+                    hand: 11,
+                    thigh: 12,
+                    shin: 10,
+                    foot: 19,
+                  }[key],
+              ),
+            ),
+            height: Math.max(
+              2,
+              Math.min(
+                64,
+                Number(part.height) ||
+                  { head: 29, hand: 11, foot: 10 }[key] ||
+                  20,
+              ),
+            ),
+          };
+      }
+      if (Object.keys(rig).length === 8) p.rig = rig;
+    }
     if (localPath(entry.portrait)) p.portrait = entry.portrait;
     if (
       localPath(entry.sheet) &&
@@ -73,7 +119,11 @@ export async function loadCustomAssets() {
     config = parseAssetConfig(await response.json());
     const paths = new Set(
       Object.values(config.characters)
-        .flatMap((p) => [p.portrait, p.sheet])
+        .flatMap((p) => [
+          p.portrait,
+          p.sheet,
+          ...Object.values(p.rig ?? {}).map((part) => part.src),
+        ])
         .filter(Boolean),
     );
     await Promise.allSettled(
@@ -108,6 +158,7 @@ export function customPortrait(id) {
   return images.get(config.characters[id]?.portrait);
 }
 export function paintCustomSprite(c, f) {
+  if (rigReady(f.character)) return false;
   const p = config.characters[f.character],
     sheet = images.get(p?.sheet);
   if (!sheet) return false;
@@ -195,5 +246,78 @@ export function playCustomHit(audio, event) {
   source.connect(gain);
   gain.connect(audio.destination);
   source.start();
+  return true;
+}
+
+function rigReady(id) {
+  const rig = config.characters[id]?.rig;
+  return rig && Object.values(rig).every((part) => images.has(part.src));
+}
+// Draw each vertical limb from joint to joint. IK supplies all attack/guard/walk poses.
+export function paintCustomRig(c, f, pose) {
+  if (!rigReady(f.character)) return false;
+  const rig = config.characters[f.character].rig;
+  const limb = (key, a, b) => {
+    const part = rig[key],
+      length = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    c.save();
+    c.translate(...a);
+    c.rotate(Math.atan2(b[1] - a[1], b[0] - a[0]) - Math.PI / 2);
+    c.drawImage(
+      images.get(part.src),
+      -part.width / 2,
+      -1,
+      part.width,
+      length + 2,
+    );
+    c.restore();
+  };
+  const stamp = (key, at, angle = 0) => {
+    const part = rig[key];
+    c.save();
+    c.translate(...at);
+    c.rotate(angle);
+    c.drawImage(
+      images.get(part.src),
+      -part.width / 2,
+      -part.height / 2,
+      part.width,
+      part.height,
+    );
+    c.restore();
+  };
+  const shoulder = pose.shoulders.map((a) => [a[0] + pose.lean, a[1]]);
+  const leg = (i) => {
+    const root = [pose.hip[0] + (i ? 5 : -5), pose.hip[1]];
+    limb("thigh", root, pose.knees[i]);
+    limb("shin", pose.knees[i], pose.feet[i]);
+    stamp("foot", [pose.feet[i][0] + 2, pose.feet[i][1]]);
+  };
+  const arm = (i) => {
+    limb("upperArm", shoulder[i], pose.elbows[i]);
+    limb("forearm", pose.elbows[i], pose.hands[i]);
+    stamp("hand", pose.hands[i]);
+  };
+  leg(0);
+  arm(0);
+  limb(
+    "torso",
+    [
+      (shoulder[0][0] + shoulder[1][0]) / 2,
+      (shoulder[0][1] + shoulder[1][1]) / 2 - 5,
+    ],
+    pose.hip,
+  );
+  leg(1);
+  stamp("head", [pose.head[0] + pose.lean, pose.head[1] + 1]);
+  arm(1);
+  if (f.hitFlash > 0) {
+    c.save();
+    c.globalCompositeOperation = "source-atop";
+    c.globalAlpha = 0.5;
+    c.fillStyle = "#fff3c9";
+    c.fillRect(-30, -30, 220, 190);
+    c.restore();
+  }
   return true;
 }
