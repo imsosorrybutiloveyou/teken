@@ -1,4 +1,4 @@
-import { MOVES } from "./combat.js";
+import { character, moveFor } from "./characters.js";
 const W = 480,
   H = 270,
   OUTLINE = "#171827";
@@ -33,6 +33,33 @@ const palettes = [
     glove: "#d79a56",
   },
 ];
+palettes.push({
+  ...palettes[0],
+  cloth: "#28796a",
+  shade: "#1c464c",
+  light: "#6dbb95",
+  pants: "#34384e",
+  pantShade: "#222b3d",
+  hair: "#283342",
+  hairLight: "#647480",
+  belt: "#e3b97a",
+  glove: "#658e82",
+});
+palettes.push({
+  ...palettes[1],
+  cloth: "#6e548d",
+  shade: "#342e53",
+  light: "#b395b9",
+  pants: "#42404a",
+  pantShade: "#262b3a",
+  skin: "#a97859",
+  skinDark: "#674e46",
+  skinLight: "#d2a277",
+  hair: "#382f37",
+  hairLight: "#61505a",
+  belt: "#d6bb86",
+  glove: "#5a506f",
+});
 function polygon(c, points, color) {
   c.fillStyle = color;
   c.beginPath();
@@ -154,7 +181,7 @@ function spritePose(f, t) {
     pose.lean = -9;
   }
   if (f.attack) {
-    const m = MOVES[f.attack.key],
+    const m = moveFor(f),
       at = f.attack.t,
       e = Math.max(
         0,
@@ -216,11 +243,14 @@ function spritePose(f, t) {
   return pose;
 }
 function paintSprite(c, f, index, t) {
-  const p = palettes[index],
+  const profile = character(f.character),
+    p = palettes[{ kai: 0, ren: 1, mira: 2, goro: 3 }[profile.id]],
     pose = spritePose(f, t);
-  c.clearRect(0, 0, 136, 128);
+  c.clearRect(0, 0, c.canvas.width, c.canvas.height);
   c.save();
-  c.translate(16, 6);
+  c.translate(64, 6);
+  c.scale(profile.build, profile.id === "mira" ? 0.98 : 1);
+  c.translate(-48, 0);
   const hip = pose.hip,
     head = [pose.head[0] + pose.lean, pose.head[1]],
     shoulders = pose.shoulders.map((a) => [a[0] + pose.lean, a[1]]);
@@ -384,6 +414,34 @@ function paintSprite(c, f, index, t) {
     ],
     p.hairLight,
   );
+  if (f.character === "mira") {
+    polygon(
+      c,
+      [
+        [head[0] - 7, head[1] - 10],
+        [head[0] - 17, head[1] - 8],
+        [head[0] - 24, head[1] + 18],
+        [head[0] - 16, head[1] + 14],
+        [head[0] - 11, head[1] - 2],
+      ],
+      p.hair,
+    );
+    rect(c, head[0] - 13, head[1] - 7, 5, 4, p.belt);
+  }
+  if (f.character === "goro") {
+    rect(c, head[0] - 9, head[1] - 16, 20, 13, p.skinDark);
+    rect(c, head[0] - 5, head[1] - 17, 12, 11, p.skin);
+    polygon(
+      c,
+      [
+        [head[0] - 7, head[1] + 5],
+        [head[0] + 10, head[1] + 6],
+        [head[0] + 5, head[1] + 15],
+        [head[0] - 5, head[1] + 12],
+      ],
+      p.hair,
+    );
+  }
   c.restore();
   arm(1);
   if (f.hitFlash > 0) {
@@ -401,7 +459,7 @@ export function createScene(canvas) {
   canvas.height = H;
   const sprites = [0, 1].map(() => {
     const image = document.createElement("canvas");
-    image.width = 136;
+    image.width = 160;
     image.height = 128;
     return { image, context: image.getContext("2d") };
   });
@@ -414,12 +472,19 @@ export function createScene(canvas) {
     last = performance.now(),
     clock = 0,
     shake = 0;
-  let cameraDistance = 13;
+  let cameraDistance = 13,
+    axisAngle = 0,
+    impactFlash = 0;
   const rgba = (r, g, b) => ((255 << 24) | (b << 16) | (g << 8) | r) >>> 0;
   function project(x, y, z) {
-    const d = cameraDistance - z + centerZ,
-      s = 600 / Math.max(1, d);
-    return { x: W / 2 + (x - centerX) * s, y: 91 + 2.6 * s - y * s, scale: s };
+    const dx = x - centerX,
+      dz = z - centerZ,
+      co = Math.cos(axisAngle),
+      si = Math.sin(axisAngle),
+      u = dx * co + dz * si,
+      v = -dx * si + dz * co;
+    const scale = 600 / Math.max(1, cameraDistance - v);
+    return { x: W / 2 + u * scale, y: 91 + 2.6 * scale - y * scale, scale };
   }
   function background() {
     c.fillStyle = "#282e4d";
@@ -436,7 +501,13 @@ export function createScene(canvas) {
     sky.forEach((color, i) => rect(c, 0, i * 15, W, 16, color));
     c.fillStyle = "#f1c68e";
     c.beginPath();
-    c.arc(352 - ((centerX * 0.2) % 30), 58, 28, 0, Math.PI * 2);
+    c.arc(
+      352 - ((((centerX * 0.2 + axisAngle * 30) % 30) + 30) % 30),
+      58,
+      28,
+      0,
+      Math.PI * 2,
+    );
     c.fill();
     for (let i = 0; i < 5; i++)
       rect(c, 310, 64 + i * 6, 80, 2, sky[Math.min(6, 4 + Math.floor(i / 2))]);
@@ -481,7 +552,7 @@ export function createScene(canvas) {
       "#424859",
     );
     for (let i = -1; i < 13; i++) {
-      const parallax = (((centerX * 2) % 46) + 46) % 46,
+      const parallax = (((centerX * 2 + axisAngle * 70) % 46) + 46) % 46,
         x = i * 46 - parallax,
         h = 15 + (((i + 12) * 17) % 25);
       rect(c, x, 96 - h, 25, h, "#373f50");
@@ -504,20 +575,22 @@ export function createScene(canvas) {
     rect(c, 0, 105, W, 3, "#b8ab95");
   }
   function ground() {
-    // Inverse projection samples world coordinates for every row: there is no finite floor mesh or edge.
-    const start = 108;
+    const start = 108,
+      co = Math.cos(axisAngle),
+      si = Math.sin(axisAngle);
     for (let y = start; y < H; y++) {
       const depth = (600 * 2.6) / (y - 91),
-        z = cameraDistance - depth + centerZ,
-        wx = centerX - ((W / 2) * depth) / 600,
-        step = depth / 600;
-      const tz = Math.floor(z / 2),
-        fz = z / 2 - tz,
+        v = cameraDistance - depth,
+        step = depth / 600,
         fade = Math.min(1, (y - start) / 150);
       for (let x = 0; x < W; x++) {
-        const worldX = wx + x * step,
-          tx = Math.floor(worldX / 2),
-          fx = worldX / 2 - tx;
+        const u = (x - W / 2) * step,
+          wx = centerX + u * co - v * si,
+          wz = centerZ + u * si + v * co;
+        const tx = Math.floor(wx / 2),
+          tz = Math.floor(wz / 2),
+          fx = wx / 2 - tx,
+          fz = wz / 2 - tz;
         const tile = (tx + tz) & 1,
           grid = Math.min(fx, 1 - fx, fz, 1 - fz) < step * 0.22;
         const stripe = ((tx % 8) + 8) % 8 === 0 && ((tz % 8) + 8) % 8 === 0,
@@ -552,8 +625,9 @@ export function createScene(canvas) {
       const [a, b] = match.fighters,
         tx = (a.x + b.x) / 2,
         tz = (a.z + b.z) / 2;
-      centerX = mix(centerX, tx, Math.min(1, dt * 10));
-      centerZ = mix(centerZ, tz, Math.min(1, dt * 10));
+      centerX = tx;
+      centerZ = tz;
+      axisAngle = match.axisAngle;
       const separation = Math.hypot(a.x - b.x, a.z - b.z);
       cameraDistance = mix(
         cameraDistance,
@@ -581,11 +655,16 @@ export function createScene(canvas) {
         c.fillRect(Math.round(p.x) - 4, Math.round(p.y) + 5, 8, 1);
       });
       const order = [0, 1].sort(
-        (i, j) => match.fighters[i].z - match.fighters[j].z,
+        (i, j) =>
+          project(match.fighters[i].x, 0, match.fighters[i].z).y -
+          project(match.fighters[j].x, 0, match.fighters[j].z).y,
       );
       c.save();
       if (shake > 0) {
-        c.translate((Math.random() - 0.5) * 3, (Math.random() - 0.5) * 2);
+        c.translate(
+          (Math.random() - 0.5) * (shake > 0.12 ? 7 : 4),
+          (Math.random() - 0.5) * 3,
+        );
         shake -= dt;
       }
       for (const i of order) {
@@ -600,7 +679,7 @@ export function createScene(canvas) {
           sprites[i].image,
           Math.round(-64 * s),
           Math.round(-115 * s),
-          Math.round(136 * s),
+          Math.round(160 * s),
           Math.round(128 * s),
         );
         c.restore();
@@ -618,7 +697,7 @@ export function createScene(canvas) {
           f.attack &&
           ["qcfPunch", "dragon", "qcfKick", "palm"].includes(f.attack.key)
         ) {
-          const m = MOVES[f.attack.key],
+          const m = moveFor(f),
             v = Math.max(0, 1 - Math.abs(f.attack.t - m.windup) * 7);
           if (v > 0) {
             c.strokeStyle = "#f8d58a";
@@ -643,9 +722,16 @@ export function createScene(canvas) {
           continue;
         }
         const p = project(e.x, e.y, e.z),
-          expand = e.age * 80;
+          expand = e.age * (e.heavy ? 130 : 90);
         c.strokeStyle = e.type === "block" ? "#c4ecf2" : "#ffe2a0";
-        c.lineWidth = e.age < 0.1 ? 3 : 1;
+        c.lineWidth = e.age < 0.1 ? (e.heavy ? 4 : 3) : 1;
+        if (e.type === "hit") {
+          c.strokeStyle = e.heavy ? "#ffc26b" : "#ffe9be";
+          c.beginPath();
+          c.ellipse(p.x, p.y, 4 + expand, 3 + expand * 0.55, 0, 0, Math.PI * 2);
+          c.stroke();
+        }
+
         for (let n = 0; n < 8; n++) {
           const a = (n * Math.PI) / 4;
           c.beginPath();
@@ -665,13 +751,31 @@ export function createScene(canvas) {
         }
       }
       c.restore();
+      if (impactFlash > 0) {
+        c.fillStyle = "#ffe9c5";
+        c.globalAlpha = Math.min(0.13, impactFlash * 2);
+        c.fillRect(0, 0, W, H);
+        c.globalAlpha = 1;
+        impactFlash -= dt;
+      }
+    },
+    projectFighters(match) {
+      return match.fighters.map((f) => project(f.x, f.y, f.z));
     },
     event(e) {
       effects.push({ ...e, age: 0 });
-      if (e.type === "hit") shake = 0.07;
+      if (e.type === "hit") {
+        shake = e.heavy ? 0.18 : 0.1;
+        impactFlash = e.heavy ? 0.065 : 0.035;
+      }
     },
     toggleCamera() {
       wide = !wide;
     },
   };
+}
+export function paintPortrait(canvas, fighter) {
+  canvas.width = 160;
+  canvas.height = 128;
+  paintSprite(canvas.getContext("2d"), fighter, 0, 0);
 }

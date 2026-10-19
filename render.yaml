@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: axis-advance-matchmaking
+    runtime: docker
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: PORT
+        value: 8787

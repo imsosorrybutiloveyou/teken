@@ -11,7 +11,7 @@ export function keyName(event) {
   if (event.code?.startsWith("Shift")) return "shift";
   return event.key.toLowerCase();
 }
-const STATE_KEYS = ["w", "a", "s", "d", "l", "shift"];
+const STATE_KEYS = ["w", "a", "s", "d", "shift"];
 const ATTACK_KEYS = ["u", "i", "j", "k"];
 export class KeyboardInput {
   constructor() {
@@ -24,7 +24,7 @@ export class KeyboardInput {
     return {
       x: (this.held.has("d") ? 1 : 0) - (this.held.has("a") ? 1 : 0),
       z: (this.held.has("s") ? 1 : 0) - (this.held.has("w") ? 1 : 0),
-      guard: this.held.has("l"),
+      guard: false,
       crouch: this.held.has("shift"),
       action: null,
     };

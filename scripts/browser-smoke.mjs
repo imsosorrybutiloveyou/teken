@@ -5,178 +5,188 @@ const browser = await chromium.launch({
   executablePath: process.env.CHROMIUM_PATH || undefined,
   args: [
     "--no-sandbox",
-    "--enable-webgl",
-    "--use-gl=angle",
-    "--use-angle=swiftshader",
-    "--enable-unsafe-swiftshader",
+    "--disable-background-timer-throttling",
+    "--disable-renderer-backgrounding",
   ],
 });
-const errors = [];
-const host = await browser.newPage({ viewport: { width: 1440, height: 1080 } });
-const guest = await browser.newPage({
-  viewport: { width: 1440, height: 1080 },
-});
+const host = await browser.newPage({ viewport: { width: 1440, height: 1080 } }),
+  guest = await browser.newPage({ viewport: { width: 1440, height: 1080 } }),
+  errors = [];
 for (const page of [host, guest])
   page.on("pageerror", (e) => errors.push(e.message));
-const base = process.env.TEST_BASE_URL || "http://127.0.0.1:5173";
+const base = process.env.TEST_BASE_URL || "http://127.0.0.1:8787",
+  lobby = process.env.TEST_LOBBY_URL || base;
+async function openLobby(page, name) {
+  await page.locator("#online-button").click();
+  await page.locator("#server-url").fill(lobby);
+  await page.locator("#player-name").fill(name);
+}
+async function choose(page, id) {
+  await page.locator(`#character-grid [data-character="${id}"]`).click();
+  await page.locator("#confirm-character").click();
+}
 try {
   await host.goto(base);
+  await guest.goto(base);
   await host.waitForFunction(
     () => window.axis && document.getElementById("loading").hidden,
   );
-  await host.waitForFunction(() => window.axis.state.phase === "fight");
-  const z = await host.evaluate(() => window.axis.state.fighters[0].z);
-  await host.keyboard.down("w");
-  await host.waitForTimeout(500);
-  await host.keyboard.up("w");
-  assert.ok(
-    (await host.evaluate(() => window.axis.state.fighters[0].z)) < z - 0.1,
-    "W moves fighter in depth",
-  );
-  await host.locator("#reset-button").click();
-  await host.waitForTimeout(200);
-  await host.screenshot({ path: "/tmp/axis-desktop.png", fullPage: true });
-  await host.locator("#pause-button").click();
-  const time = await host.evaluate(() => window.axis.state.time);
-  await host.waitForTimeout(200);
-  assert.equal(await host.evaluate(() => window.axis.state.time), time);
   await host.locator("#moves-button").click();
   assert.equal(await host.locator(".move-item").count(), 17);
+  await host.locator('#move-character-tabs [data-character="goro"]').click();
+  assert.ok(
+    (await host.locator(".frame-data").first().innerText()).includes("14"),
+  );
   await host.locator("#moves-dialog .close").click();
-  await host.locator("#online-button").click();
-  await host.locator("#create-offer").click();
+  await openLobby(host, "ALPHA");
+  await host.locator("#quick-match").click();
+  await host.waitForFunction(() =>
+    document
+      .getElementById("online-status")
+      .textContent.includes("상대를 찾고"),
+  );
+  assert.equal(
+    await host.locator("#select-dialog").isVisible(),
+    false,
+    "no character selection before pairing",
+  );
+  await openLobby(guest, "BETA");
+  await guest.locator("#quick-match").click();
+  await host.locator("#select-dialog").waitFor({ state: "visible" });
+  await guest.locator("#select-dialog").waitFor({ state: "visible" });
+  await host.screenshot({ path: "/tmp/axis-v3-select.png", fullPage: true });
+  assert.equal(await host.locator(".character-card").count(), 4);
+  assert.equal(await host.evaluate(() => window.axis.battleActive), false);
+  await choose(host, "mira");
+  assert.equal(
+    await host.evaluate(() => window.axis.battleActive),
+    false,
+    "one confirmed character cannot start a match",
+  );
+  await choose(guest, "goro");
   await host.waitForFunction(
-    () => document.getElementById("local-code").value.startsWith("AXIS2."),
+    () => window.axis.battleActive && window.axis.connected,
     {},
-    { timeout: 25000 },
-  );
-  const offer = await host.locator("#local-code").inputValue();
-  await guest.goto(base);
-  await guest.locator("#online-button").click();
-  await guest.locator("#guest-tab").click();
-  await guest.locator("#remote-code").fill(offer);
-  await guest.locator("#apply-code").click();
-  await guest.waitForFunction(
-    () => document.getElementById("local-code").value.startsWith("AXIS2."),
-    {},
-    { timeout: 25000 },
-  );
-  const answer = await guest.locator("#local-code").inputValue();
-  await host.locator("#remote-code").fill(answer);
-  await host.locator("#apply-code").click();
-  await host.waitForFunction(
-    () => window.axis.connected,
-    {},
-    { timeout: 20000 },
+    { timeout: 30000 },
   );
   await guest.waitForFunction(
-    () => window.axis.connected,
+    () => window.axis.battleActive && window.axis.connected,
     {},
-    { timeout: 20000 },
+    { timeout: 30000 },
   );
-  assert.equal(await host.evaluate(() => window.axis.role), "host");
-  assert.equal(await guest.evaluate(() => window.axis.role), "guest");
+  assert.deepEqual(
+    await host.evaluate(() =>
+      window.axis.state.fighters.map((f) => f.character),
+    ),
+    ["mira", "goro"],
+  );
   await host.waitForFunction(() => window.axis.state.phase === "fight");
   await guest.waitForFunction(() => window.axis.state.phase === "fight");
-  const oldZ = await host.evaluate(() => window.axis.state.fighters[1].z);
-  await guest.keyboard.down("w");
+  console.log(
+    "Quick match → two-sided character confirmation → automatic P2P passed",
+  );
+  await host.keyboard.down("w");
   await host.waitForFunction(
-    (z) => window.axis.state.fighters[1].z < z - 0.2,
-    oldZ,
-    { timeout: 10000 },
+    () => Math.abs(window.axis.state.axisAngle) > 0.35,
+    {},
+    { timeout: 12000 },
   );
-  await guest.keyboard.up("w");
-  await guest.waitForTimeout(200);
-  const hostState = await host.evaluate(() => window.axis.state),
-    guestState = await guest.evaluate(() => window.axis.state);
+  await host.keyboard.up("w");
+  await host.waitForTimeout(200);
+  const projections = await host.evaluate(() => window.axis.projection);
+  assert.ok(projections[0].x < projections[1].x);
   assert.ok(
-    Math.abs(hostState.fighters[1].z - guestState.fighters[1].z) < 0.2,
-    "P2 input and host snapshots synchronize",
+    Math.abs(projections[0].y - projections[1].y) < 2,
+    "orbit camera keeps both fighters on one 2D fighting line",
   );
-  await host.locator("#reset-button").click();
-  await host.waitForFunction(() => window.axis.state.phase === "fight");
+  await guest.waitForFunction(
+    () => Math.abs(window.axis.state.axisAngle) > 0.3,
+  );
   await host.keyboard.down("d");
   await host.waitForFunction(
-    () =>
-      Math.abs(
-        window.axis.state.fighters[1].x - window.axis.state.fighters[0].x,
-      ) < 1.35,
+    () => {
+      const [a, b] = window.axis.state.fighters;
+      return Math.hypot(a.x - b.x, a.z - b.z) < 1.1;
+    },
     {},
-    { timeout: 10000 },
+    { timeout: 12000 },
   );
   await host.keyboard.up("d");
-  await guest.waitForTimeout(200);
-  const initialHP = await host.evaluate(() => window.axis.state.fighters[0].hp);
-  await guest.keyboard.press("u");
+  await host.keyboard.press("u");
   await host.waitForFunction(
-    (hp) => window.axis.state.fighters[0].hp < hp,
-    initialHP,
-    { timeout: 10000 },
+    () => window.axis.state.fighters[1].hp < 120,
+    {},
+    { timeout: 12000 },
   );
   await guest.waitForFunction(
-    (hp) => window.axis.state.fighters[0].hp < hp,
-    initialHP,
-    { timeout: 10000 },
-  );
-  console.log("P2P basic movement and damage passed");
-  // Exercise physical, mirrored command input on the remote P2 keyboard.
-  await host.locator("#reset-button").click();
-  await host.waitForFunction(() => window.axis.state.phase === "fight");
-  await guest.waitForTimeout(150);
-  await guest.keyboard.down("s");
-  await guest.waitForTimeout(65);
-  await guest.keyboard.down("a");
-  await guest.waitForTimeout(65);
-  await guest.keyboard.up("s");
-  await guest.waitForTimeout(50);
-  await guest.keyboard.press("i");
-  await guest.waitForTimeout(80);
-  await guest.keyboard.up("a");
-  await host.waitForFunction(
-    () => window.axis.state.fighters[1].lastMove === "qcfPunch",
+    () => window.axis.state.fighters[1].hp < 120,
     {},
-    { timeout: 5000 },
+    { timeout: 12000 },
   );
-  await guest.waitForFunction(
-    () => window.axis.state.fighters[1].lastMove === "qcfPunch",
-    {},
-    { timeout: 5000 },
+  console.log(
+    "Opponent-centered sidestep, stable left/right composition, remote damage and roster synchronization passed",
   );
-  console.log("P2 mirrored command passed");
-  // Simultaneous left/right hand buttons must survive P2P input transmission.
-  await guest.waitForTimeout(550);
-  await Promise.all([guest.keyboard.down("u"), guest.keyboard.down("i")]);
-  await guest.keyboard.up("u");
-  await guest.keyboard.up("i");
-  await host.waitForFunction(
-    () => window.axis.state.fighters[1].lastMove === "throw",
-    {},
-    { timeout: 5000 },
-  );
-  // Cross the former arena edge and confirm guest snapshots are still accepted.
-  await host.keyboard.down("a");
-  await host.waitForFunction(
-    () => window.axis.state.fighters[0].x < -10,
-    {},
-    { timeout: 15000 },
-  );
-  await host.keyboard.up("a");
-  await guest.waitForFunction(() => window.axis.state.fighters[0].x < -10);
+  await host.screenshot({ path: "/tmp/axis-v3-online.png", fullPage: true });
   await host.locator("#online-button").click();
   await host.locator("#disconnect-button").click();
-  await guest.waitForFunction(() => !window.axis.connected);
-  assert.equal(await host.evaluate(() => window.axis.connected), false);
+  await guest.waitForFunction(() => !window.axis.matched);
+  await host.waitForFunction(() => !window.axis.matched);
+  await openLobby(host, "ALPHA");
+  await host.locator("#rooms-tab").click();
+  await host.locator("#room-name").fill("FRAME LAB");
+  await host.locator("#create-room").click();
+  await host.waitForFunction(() =>
+    document
+      .getElementById("online-status")
+      .textContent.includes("방을 만들었"),
+  );
+  assert.equal(await host.locator("#select-dialog").isVisible(), false);
+  await openLobby(guest, "BETA");
+  await guest.locator("#rooms-tab").click();
+  await guest.locator("#connect-lobby").click();
+  const room = guest.locator(".room-row").filter({ hasText: "FRAME LAB" });
+  await room.locator("button").click();
+  await host.locator("#select-dialog").waitFor();
+  await guest.locator("#select-dialog").waitFor();
+  await choose(host, "kai");
+  await choose(guest, "ren");
+  await host.waitForFunction(
+    () => window.axis.battleActive && window.axis.connected,
+    {},
+    { timeout: 30000 },
+  );
+  await guest.waitForFunction(
+    () => window.axis.battleActive && window.axis.connected,
+    {},
+    { timeout: 30000 },
+  );
+  assert.deepEqual(
+    await guest.evaluate(() =>
+      window.axis.state.fighters.map((f) => f.character),
+    ),
+    ["kai", "ren"],
+  );
+  console.log(
+    "Player room creation, live room list, selected room entry, post-pair selection and second P2P match passed",
+  );
+  await host.locator("#online-button").click();
+  await host.locator("#disconnect-button").click();
+  await guest.waitForFunction(() => !window.axis.matched);
+  await host.locator("#character-button").click();
+  await choose(host, "goro");
+  await host.waitForFunction(
+    () => window.axis.state.fighters[0].character === "goro",
+  );
   await host.setViewportSize({ width: 390, height: 844 });
-  await host.screenshot({ path: "/tmp/axis-mobile.png", fullPage: true });
+  await host.screenshot({ path: "/tmp/axis-v3-mobile.png", fullPage: true });
   assert.ok(
     await host.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
-    "mobile has no horizontal overflow",
   );
   assert.deepEqual(errors, []);
   console.log(
-    "PASS: pixel sprite render, movement, pause, move list, real WebRTC offer/answer, P2 remote input, synchronized snapshots, mirrored directional commands, simultaneous punches, infinite-world snapshots, disconnect, responsive layout; no page errors.",
+    "PASS: v3 quick match, player rooms, matched-only character selection, 4 characters, unique frame tables, automatic P2P, orbit camera, remote combat, practice selection, responsive layout; no page errors.",
   );
 } catch (error) {
   for (const [name, page] of [
@@ -185,23 +195,18 @@ try {
   ])
     console.error(
       name,
-      JSON.stringify(
-        await page
-          .evaluate(() => ({
-            state: window.axis?.state,
-            role: window.axis?.role,
-            connected: window.axis?.connected,
-            paused: window.axis?.paused,
-            inputs: window.axis?.inputs,
-            active: document.activeElement?.id,
-            dialogs: document.querySelectorAll("dialog[open]").length,
-          }))
-          .catch(() => null),
-        null,
-        2,
-      ),
+      await page
+        .evaluate(() => ({
+          state: window.axis?.state,
+          connected: window.axis?.connected,
+          matched: window.axis?.matched,
+          battleActive: window.axis?.battleActive,
+          status: document.getElementById("online-status")?.textContent,
+          selection: document.getElementById("selection-status")?.textContent,
+        }))
+        .catch(() => null),
     );
-  console.error("Page errors:", errors);
+  console.error("Page errors", errors);
   throw error;
 } finally {
   await browser.close();

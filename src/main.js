@@ -1,137 +1,203 @@
 import "./style.css";
-import { createMatch, step, cpuInput, MOVES, MAX_HP } from "./combat.js";
+import { createMatch, step, cpuInput, MAX_HP } from "./combat.js";
+import { CHARACTERS, CHARACTER_IDS, character, moveFor } from "./characters.js";
 import { KeyboardInput, RemoteInput, keyName } from "./input.js";
-import { createScene } from "./scene.js";
+import { createScene, paintPortrait } from "./scene.js";
 import { PeerSession, validSnapshot } from "./network.js";
-const $ = (id) => document.getElementById(id);
-let match = createMatch(),
+import { LobbyClient } from "./lobby.js";
+const $ = (id) => document.getElementById(id),
+  keyboard = new KeyboardInput(),
+  remoteInput = new RemoteInput(),
+  remoteEvents = [];
+let practiceIds = ["kai", "ren"],
+  match = createMatch(practiceIds),
   role = null,
-  paused = false,
   connected = false,
+  battleActive = false,
+  paused = false,
   connectionLost = false,
-  sound = false,
+  sound = true,
   audio = null,
   lastInputAt = 0,
   lastStateAt = 0,
-  tab = "host",
-  networkBusy = false;
+  activePair = null,
+  lockedRoster = null,
+  selectionMode = "practice",
+  chosen = "kai",
+  ownLocked = false,
+  lobbyReady = false,
+  busy = false;
 let scene;
 try {
   scene = createScene($("game"));
   $("loading").hidden = true;
 } catch (error) {
   $("loading").textContent =
-    "픽셀 화면을 시작할 수 없습니다. 최신 브라우저에서 다시 열어 주세요.";
+    "픽셀 화면을 열 수 없습니다. 최신 브라우저를 사용하세요.";
   console.error(error);
 }
-const keyboard = new KeyboardInput(),
-  remoteInput = new RemoteInput(),
-  remoteEvents = [];
 let toastTimer;
 function toast(message) {
   $("toast").textContent = message;
   $("toast").hidden = false;
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => ($("toast").hidden = true), 3500);
+  toastTimer = setTimeout(() => ($("toast").hidden = true), 4000);
+}
+function status(message) {
+  $("online-status").textContent = message;
 }
 function unlockAudio() {
-  if (!audio) audio = new (window.AudioContext || window.webkitAudioContext)();
-  if (audio.state === "suspended") audio.resume();
-}
-function playHit(blocked = false) {
   if (!sound) return;
-  unlockAudio();
-  const oscillator = audio.createOscillator(),
-    gain = audio.createGain();
-  oscillator.type = blocked ? "triangle" : "sawtooth";
-  oscillator.frequency.setValueAtTime(blocked ? 460 : 125, audio.currentTime);
-  oscillator.frequency.exponentialRampToValueAtTime(
-    40,
-    audio.currentTime + 0.11,
-  );
-  gain.gain.setValueAtTime(0.065, audio.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + 0.13);
-  oscillator.connect(gain);
-  gain.connect(audio.destination);
-  oscillator.start();
-  oscillator.stop(audio.currentTime + 0.14);
+  audio ??= new (window.AudioContext || window.webkitAudioContext)();
+  if (audio.state === "suspended") audio.resume().catch(() => {});
 }
-function resetMatch() {
-  match = createMatch();
+function playHit(event) {
+  if (!sound || !audio || audio.state !== "running") return;
+  const now = audio.currentTime,
+    blocked = event.type === "block",
+    heavy = event.heavy;
+  const bass = audio.createOscillator(),
+    gain = audio.createGain();
+  bass.type = "sine";
+  bass.frequency.setValueAtTime(blocked ? 180 : heavy ? 100 : 145, now);
+  bass.frequency.exponentialRampToValueAtTime(35, now + 0.16);
+  gain.gain.setValueAtTime(blocked ? 0.06 : heavy ? 0.24 : 0.16, now);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+  bass.connect(gain);
+  gain.connect(audio.destination);
+  bass.start(now);
+  bass.stop(now + 0.26);
+  const buffer = audio.createBuffer(
+      1,
+      Math.floor(audio.sampleRate * 0.09),
+      audio.sampleRate,
+    ),
+    data = buffer.getChannelData(0);
+  for (let i = 0; i < data.length; i++)
+    data[i] = (Math.random() * 2 - 1) * (1 - i / data.length);
+  const noise = audio.createBufferSource(),
+    filter = audio.createBiquadFilter(),
+    snap = audio.createGain();
+  noise.buffer = buffer;
+  filter.type = "lowpass";
+  filter.frequency.value = blocked ? 2500 : heavy ? 1100 : 1800;
+  snap.gain.setValueAtTime(blocked ? 0.05 : 0.11, now);
+  snap.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+  noise.connect(filter);
+  filter.connect(snap);
+  snap.connect(audio.destination);
+  noise.start(now);
+}
+function effects(events) {
+  for (const event of events)
+    if (["hit", "block"].includes(event.type)) {
+      scene?.event(event);
+      playHit(event);
+    }
+}
+function resetMatch(
+  ids = activePair && lockedRoster ? lockedRoster : practiceIds,
+) {
+  match = createMatch(ids);
   paused = false;
   connectionLost = false;
   keyboard.clear();
   remoteInput.clear();
+  remoteEvents.length = 0;
   lastInputAt = performance.now();
-  setPauseLabel();
-}
-function setPauseLabel() {
-  $("pause-button").innerHTML = paused
-    ? "▶ <span>계속하기</span>"
-    : "Ⅱ <span>일시정지</span>";
-  $("pause-button").disabled = connected;
-  $("reset-button").disabled = connected && role === "guest";
-}
-function localInput() {
-  return keyboard.sample(performance.now());
-}
-function eventEffects(events) {
-  for (const e of events) {
-    if (e.type === "hit" || e.type === "block") {
-      scene?.event(e);
-      playHit(e.type === "block");
-    }
-  }
+  updateMode();
+  updateRecommendations();
 }
 function updateMode() {
-  $("p1-role").textContent = connected
+  $("p1-role").textContent = activePair
     ? role === "host"
       ? "YOU · HOST"
       : "OPPONENT"
     : "YOU";
-  $("p2-role").textContent = connected
+  $("p2-role").textContent = activePair
     ? role === "guest"
       ? "YOU · PEER"
       : "OPPONENT"
     : "CPU · NORMAL";
-  $("arena-mode").textContent = connected
+  $("arena-mode").textContent = activePair
     ? "ONLINE P2P MATCH"
     : "PRACTICE MATCH";
-  $("connection-status").textContent = connected
-    ? "P2P 연결됨 · " + (role === "host" ? "P1 호스트" : "P2 참가자")
+  $("connection-status").textContent = activePair
+    ? battleActive
+      ? "P2P 대전 중"
+      : connected
+        ? "캐릭터 선택 대기 · P2P 연결 완료"
+        : "매칭 완료 · P2P 연결 중"
     : "로컬 연습 · CPU 활성";
-  $("practice-button").classList.toggle("selected", !connected);
-  $("pvp-button").classList.toggle("selected", connected);
-  setPauseLabel();
+  $("practice-button").classList.toggle("selected", !activePair);
+  $("pvp-button").classList.toggle("selected", !!activePair);
+  $("pause-button").innerHTML = paused
+    ? "▶ <span>계속하기</span>"
+    : "Ⅱ <span>일시정지</span>";
+  $("pause-button").disabled = !!activePair;
+  $("reset-button").disabled =
+    !!activePair && (!battleActive || role === "guest");
+  $("character-button").disabled = !!activePair;
+  for (const id of ["quick-match", "create-room"])
+    $(id).disabled = !!activePair || busy;
+}
+function startBattle() {
+  if (!connected || !lockedRoster || battleActive) return;
+  battleActive = true;
+  resetMatch(lockedRoster);
+  $("select-dialog").close();
+  $("online-dialog").close();
+  lastStateAt = performance.now();
+  toast(
+    "대전 시작 · " +
+      (role === "host" ? "P1" : "P2") +
+      " " +
+      character(lockedRoster[role === "host" ? 0 : 1]).name,
+  );
+}
+async function leaveOnline(message = "연습 대전으로 돌아왔습니다.") {
+  activePair = null;
+  lockedRoster = null;
+  battleActive = false;
+  connected = false;
+  role = null;
+  peer.close();
+  if (lobbyReady) await lobby.action("cancel").catch(() => {});
+  $("cancel-queue").hidden = true;
+  if ($("select-dialog").open) $("select-dialog").close();
+  resetMatch(practiceIds);
+  status(message);
 }
 const peer = new PeerSession({
   onStatus(message) {
-    $("online-status").textContent = message;
+    status(message);
+    if (activePair && !battleActive)
+      $("connection-status").textContent = message;
   },
   onOpen(side) {
     connected = true;
     role = side;
-    resetMatch();
-    lastStateAt = performance.now();
     updateMode();
-    $("online-dialog").close();
-    toast(
-      side === "host"
-        ? "상대 연결 완료! P1 KAI를 조작하세요."
-        : "대전 시작! P2 REN을 조작하세요.",
-    );
+    startBattle();
   },
   onMessage(msg) {
+    if (!battleActive) return;
     if (role === "host" && msg.type === "input") {
       remoteInput.receive(msg.input);
       lastInputAt = performance.now();
     }
-    if (role === "guest" && msg.type === "state" && validSnapshot(msg.state)) {
+    if (
+      role === "guest" &&
+      msg.type === "state" &&
+      validSnapshot(msg.state) &&
+      lockedRoster &&
+      msg.state.fighters.every((f, i) => f.character === lockedRoster[i])
+    ) {
       match = msg.state;
       lastStateAt = performance.now();
       connectionLost = false;
-      if (Array.isArray(msg.events)) {
-        eventEffects(
+      if (Array.isArray(msg.events))
+        effects(
           msg.events
             .filter(
               (e) =>
@@ -142,285 +208,498 @@ const peer = new PeerSession({
             )
             .slice(0, 20),
         );
-      }
     }
   },
   onClose(wasOpen, message) {
-    if (wasOpen) {
-      connected = false;
-      role = null;
-      connectionLost = true;
-      paused = true;
-      keyboard.clear();
-      $("connection-status").textContent =
-        "연결 종료 · 연습 대전으로 돌아가세요";
-      setPauseLabel();
+    if (activePair) {
       toast(message);
+      leaveOnline(message);
     }
   },
 });
-window.addEventListener("keydown", (e) => {
-  if (e.ctrlKey || e.metaKey || e.altKey) return;
+const lobby = new LobbyClient(
+  (event) => {
+    switch (event.type) {
+      case "rooms":
+        renderRooms(event.rooms);
+        $("lobby-count").textContent =
+          `${event.online} ONLINE / ${event.rooms.length} ROOMS`;
+        break;
+      case "queued":
+        $("cancel-queue").hidden = false;
+        status(
+          event.mode === "quick"
+            ? "QUICK MATCH · 상대를 찾고 있습니다…"
+            : "PLAYER MATCH · 방을 만들었습니다. 참가자를 기다립니다…",
+        );
+        break;
+      case "idle":
+        $("cancel-queue").hidden = true;
+        status("대기를 취소했습니다.");
+        break;
+      case "paired": {
+        activePair = event;
+        role = event.role;
+        lockedRoster = null;
+        battleActive = false;
+        connected = false;
+        paused = true;
+        keyboard.clear();
+        ownLocked = false;
+        chosen = role === "host" ? "kai" : "ren";
+        selectionMode = "online";
+        $("cancel-queue").hidden = true;
+        $("online-dialog").close();
+        openSelection();
+        updateMode();
+        peer
+          .connect(role, (data) => lobby.action("signal", { data }))
+          .catch((error) => {
+            toast(error.message);
+            leaveOnline(error.message);
+          });
+        break;
+      }
+      case "signal":
+        if (activePair) peer.receive(event.data);
+        break;
+      case "selection":
+        if (activePair) {
+          const index = role === "host" ? 0 : 1;
+          ownLocked = !!event.picks[index];
+          $("your-pick").textContent =
+            "내 선택: " +
+            (event.picks[index] ? character(event.picks[index]).name : "미정");
+          $("opponent-pick").textContent =
+            "상대 선택: " +
+            (event.picks[1 - index]
+              ? character(event.picks[1 - index]).name
+              : "선택 중");
+          $("confirm-character").disabled = ownLocked;
+          $("selection-status").textContent = ownLocked
+            ? "상대 선택 및 P2P 연결을 기다리는 중…"
+            : "원하는 격투가를 선택하고 확정하세요.";
+          renderCharacters();
+        }
+        break;
+      case "rosterLocked":
+        if (
+          activePair &&
+          Array.isArray(event.characters) &&
+          event.characters.length === 2 &&
+          event.characters.every((id) => CHARACTER_IDS.includes(id))
+        ) {
+          lockedRoster = event.characters;
+          startBattle();
+        }
+        break;
+      case "opponentLeft":
+        if (activePair) {
+          toast(event.message);
+          leaveOnline(event.message);
+        }
+        break;
+    }
+  },
+  (message) => status(message),
+);
+async function job(task) {
+  if (busy) return;
+  busy = true;
+  for (const id of ["connect-lobby", "quick-match", "create-room"])
+    $(id).disabled = true;
+  try {
+    await task();
+  } catch (error) {
+    status(error.message);
+    toast(error.message);
+  } finally {
+    busy = false;
+    updateMode();
+    $("connect-lobby").disabled = false;
+  }
+}
+async function ensureLobby() {
+  const address = $("server-url").value.trim();
   if (
-    e.target instanceof HTMLTextAreaElement ||
-    e.target instanceof HTMLInputElement ||
-    document.querySelector("dialog[open]")
+    lobbyReady &&
+    lobby.session &&
+    lobby.source?.readyState === 1 &&
+    lobby.base === new URL(address).origin
   )
     return;
-  const key = keyName(e);
-  if (["w", "a", "s", "d", "u", "i", "j", "k", "l", "shift"].includes(key)) {
-    e.preventDefault();
-    if (!e.repeat) keyboard.down(key, performance.now(), !paused);
-  }
-  if (key === "escape" && !connected) {
-    paused = !paused;
-    keyboard.clear();
-    setPauseLabel();
-  }
-});
-window.addEventListener("keyup", (e) =>
-  keyboard.up(keyName(e), performance.now()),
-);
-window.addEventListener("blur", () => {
-  keyboard.clear();
-});
-document.addEventListener("visibilitychange", () => {
-  keyboard.clear();
-  if (document.hidden && !connected) {
-    paused = true;
-    setPauseLabel();
-  }
-});
-$("camera-button").onclick = () => scene?.toggleCamera();
-$("pause-button").onclick = () => {
-  if (connected) return;
-  paused = !paused;
-  keyboard.clear();
-  setPauseLabel();
-};
-$("reset-button").onclick = () => {
-  if (connected && role !== "host") return;
-  resetMatch();
-  toast("새 대전을 시작합니다.");
-};
-$("sound-button").onclick = () => {
-  sound = !sound;
-  if (sound) unlockAudio();
-  $("sound-button").innerHTML = `♫ <span>사운드 ${sound ? "ON" : "OFF"}</span>`;
-  $("sound-button").setAttribute("aria-pressed", String(sound));
-};
-function practice() {
-  if (connected && !confirm("온라인 연결을 종료하고 연습 대전으로 돌아갈까요?"))
-    return;
-  peer.close();
-  connected = false;
-  role = null;
-  resetMatch();
-  updateMode();
+  if (activePair) throw Error("서버를 바꾸기 전에 현재 대전을 종료하세요.");
+  status("매칭 서버에 연결 중…");
+  lobbyReady = false;
+  await lobby.connect(address, $("player-name").value.trim() || "PLAYER");
+  lobbyReady = true;
+  localStorage.setItem("axis-match-server", address);
+  localStorage.setItem("axis-player-name", $("player-name").value);
+  status("서버 연결 완료 · 퀵 매치 또는 방을 선택하세요.");
 }
-$("practice-button").onclick = practice;
-function openOnline() {
-  if (!connected) {
-    paused = true;
-    setPauseLabel();
+$("server-url").value =
+  localStorage.getItem("axis-match-server") ||
+  import.meta.env.VITE_MATCH_SERVER_URL ||
+  (document.querySelector('meta[name="axis-desktop"]') ? "" : location.origin);
+$("player-name").value = localStorage.getItem("axis-player-name") || "PLAYER";
+$("connect-lobby").onclick = () => job(ensureLobby);
+$("quick-match").onclick = () =>
+  job(async () => {
+    await ensureLobby();
+    await lobby.action("quick");
+  });
+$("create-room").onclick = () =>
+  job(async () => {
+    await ensureLobby();
+    await lobby.action("createRoom", { name: $("room-name").value });
+  });
+$("cancel-queue").onclick = () =>
+  job(async () => {
+    await lobby.action("cancel");
+  });
+$("disconnect-button").onclick = async () => {
+  await leaveOnline();
+  $("online-dialog").close();
+};
+function renderRooms(rooms) {
+  const root = $("room-list");
+  root.replaceChildren();
+  if (!Array.isArray(rooms) || !rooms.length) {
+    const text = document.createElement("p");
+    text.className = "network-note";
+    text.textContent = "참가 가능한 방이 없습니다. 새 방을 만들어 보세요.";
+    root.append(text);
+    return;
   }
+  for (const room of rooms.slice(0, 100)) {
+    const row = document.createElement("div");
+    row.className = "room-row";
+    const label = document.createElement("div"),
+      title = document.createElement("strong"),
+      details = document.createElement("small"),
+      button = document.createElement("button");
+    title.textContent = room.name;
+    details.textContent = `${room.host} · 1 / 2`;
+    button.className = "button";
+    button.textContent = "참가";
+    button.disabled = !!activePair;
+    button.onclick = () =>
+      job(async () => {
+        await ensureLobby();
+        await lobby.action("joinRoom", { roomId: room.id });
+      });
+    label.append(title, details);
+    row.append(label, button);
+    root.append(row);
+  }
+}
+function onlineTab(tab) {
+  $("quick-tab").classList.toggle("selected", tab === "quick");
+  $("rooms-tab").classList.toggle("selected", tab === "rooms");
+  $("quick-panel").hidden = tab !== "quick";
+  $("rooms-panel").hidden = tab !== "rooms";
+}
+$("quick-tab").onclick = () => onlineTab("quick");
+$("rooms-tab").onclick = () => onlineTab("rooms");
+function openOnline() {
+  unlockAudio();
   keyboard.clear();
+  if (!activePair) {
+    paused = true;
+    updateMode();
+  }
   $("online-dialog").showModal();
 }
 $("online-button").onclick = openOnline;
 $("pvp-button").onclick = openOnline;
-$("online-dialog").addEventListener("close", () => {
-  keyboard.clear();
-});
-function setTab(value) {
-  if (networkBusy || connected) return;
-  if (tab !== value) {
-    peer.close();
-    $("local-code-panel").hidden = true;
-    $("remote-code").value = "";
-    $("local-code").value = "";
-    $("online-status").textContent = "연결 대기 중";
+function renderCharacters() {
+  const grid = $("character-grid");
+  grid.replaceChildren();
+  for (const id of CHARACTER_IDS) {
+    const p = character(id),
+      button = document.createElement("button");
+    button.type = "button";
+    button.className = "character-card" + (chosen === id ? " selected" : "");
+    button.style.setProperty("--fighter-color", p.color);
+    button.dataset.character = id;
+    button.disabled = ownLocked && selectionMode === "online";
+    const canvas = document.createElement("canvas"),
+      name = document.createElement("b"),
+      style = document.createElement("small");
+    name.textContent = p.name;
+    style.textContent = p.style;
+    paintPortrait(canvas, createMatch([id, "kai"]).fighters[0]);
+    button.append(canvas, name, style);
+    button.onclick = () => {
+      chosen = id;
+      renderCharacters();
+    };
+    grid.append(button);
   }
-  tab = value;
-  $("host-panel").hidden = value !== "host";
-  $("guest-panel").hidden = value !== "guest";
-  $("host-tab").classList.toggle("selected", value === "host");
-  $("guest-tab").classList.toggle("selected", value === "guest");
-  $("remote-label").textContent =
-    value === "host" ? "상대의 응답 코드" : "상대의 초대 코드";
-  $("apply-code").textContent =
-    value === "host" ? "응답 적용 · 연결" : "응답 코드 생성 ↗";
+  const p = character(chosen);
+  $("character-detail").textContent =
+    `${p.name} · ${p.style} | LP ${p.moves.u.startup}F / RP ${p.moves.i.startup}F / LK ${p.moves.j.startup}F / RK ${p.moves.k.startup}F · 고유기: ${p.moves.qcfPunch.command} ${p.moves.qcfPunch.name}`;
 }
-$("host-tab").onclick = () => setTab("host");
-$("guest-tab").onclick = () => setTab("guest");
-async function networking(job) {
-  networkBusy = true;
-  for (const id of ["create-offer", "apply-code", "host-tab", "guest-tab"])
-    $(id).disabled = true;
-  try {
-    await job();
-  } catch (e) {
-    $("online-status").textContent = e.message;
-    toast(e.message);
-  } finally {
-    networkBusy = false;
-    for (const id of ["create-offer", "apply-code", "host-tab", "guest-tab"])
-      $(id).disabled = false;
-  }
+function openSelection() {
+  const online = selectionMode === "online";
+  $("select-eyebrow").textContent = online
+    ? "MATCH FOUND / SELECT FIGHTER"
+    : "PRACTICE / SELECT FIGHTER";
+  $("select-title").textContent = online
+    ? "상대가 정해졌습니다. 캐릭터를 선택하세요."
+    : "연습할 격투가를 선택하세요.";
+  $("select-opponent").textContent = online
+    ? `VS ${activePair.opponent} · ${activePair.mode === "quick" ? "QUICK MATCH" : "PLAYER MATCH"}`
+    : "내 캐릭터와 CPU 상대를 고를 수 있습니다.";
+  $("cpu-character").hidden = online;
+  $("cpu-label").hidden = online;
+  $("opponent-pick").hidden = !online;
+  $("your-pick").textContent = "내 선택: 미정";
+  $("opponent-pick").textContent = "상대 선택: 미정";
+  $("confirm-character").disabled = false;
+  $("selection-status").textContent = online
+    ? "양쪽 모두 선택 확정 후 P2P 연결이 완료되면 시작됩니다."
+    : "각 캐릭터의 기술표는 경기 화면에서 확인할 수 있습니다.";
+  renderCharacters();
+  if (!$("select-dialog").open) $("select-dialog").showModal();
 }
-$("create-offer").onclick = () =>
-  networking(async () => {
-    if (connected)
-      throw new Error("새 방을 만들려면 먼저 현재 연결을 해제하세요.");
-    $("online-status").textContent =
-      "연결 경로 수집 중… 최대 12초 정도 걸립니다.";
-    $("local-code-panel").hidden = true;
-    $("remote-code").value = "";
-    const code = await peer.offer();
-    $("local-code").value = code;
-    $("local-label").textContent = "나의 초대 코드 · 상대에게 보내세요";
-    $("local-code-panel").hidden = false;
-    $("online-status").textContent =
-      "초대 코드를 상대에게 보내고, 상대의 응답 코드를 적용하세요.";
-  });
-$("apply-code").onclick = () =>
-  networking(async () => {
-    if (connected) throw new Error("이미 대전에 연결되어 있습니다.");
-    if (tab === "host") {
-      await peer.accept($("remote-code").value);
-      $("online-status").textContent = "상대와 연결 중…";
-    } else {
-      $("online-status").textContent = "응답 코드 생성 중…";
-      const code = await peer.answer($("remote-code").value);
-      $("local-code").value = code;
-      $("local-label").textContent = "나의 응답 코드 · 방장에게 보내세요";
-      $("local-code-panel").hidden = false;
-      $("online-status").textContent =
-        "응답 코드를 방장에게 보내세요. 방장이 적용하면 대전이 시작됩니다.";
+for (const id of CHARACTER_IDS) {
+  const option = document.createElement("option");
+  option.value = id;
+  option.textContent = character(id).name;
+  $("cpu-character").append(option);
+}
+$("cpu-character").value = "ren";
+$("confirm-character").onclick = async () => {
+  unlockAudio();
+  if (selectionMode === "online") {
+    if (ownLocked) return;
+    $("confirm-character").disabled = true;
+    try {
+      await lobby.action("select", { character: chosen });
+    } catch (error) {
+      toast(error.message);
+      $("confirm-character").disabled = false;
     }
-  });
-$("copy-code").onclick = async () => {
-  try {
-    await navigator.clipboard.writeText($("local-code").value);
-    toast("연결 코드를 복사했습니다.");
-  } catch {
-    $("local-code").select();
-    toast("코드가 선택되었습니다. Ctrl+C / ⌘C로 복사하세요.");
+  } else {
+    practiceIds = [chosen, $("cpu-character").value];
+    $("select-dialog").close();
+    resetMatch(practiceIds);
   }
 };
-$("disconnect-button").onclick = () => {
-  peer.close();
-  connected = false;
-  role = null;
-  resetMatch();
-  updateMode();
-  $("online-dialog").close();
-  $("online-status").textContent = "연결을 해제했습니다.";
-  $("local-code-panel").hidden = true;
-  $("remote-code").value = "";
-};
-const levels = { high: "상단", mid: "중단", low: "하단", throw: "잡기" };
-$("move-list").innerHTML = Object.entries(MOVES)
-  .map(
-    ([key, m]) =>
-      `<div class="move-item"><kbd>${m.command.split(" · ")[0]}</kbd><div>${m.name}<p>${levels[m.level]} · ${m.launch ? "공중으로 띄우기" : m.level === "throw" ? "근접 · 가드 불가" : `사거리 ${m.range.toFixed(1)}m`}</p></div><small>${m.damage} DMG</small></div>`,
-  )
-  .join("");
-$("moves-button").onclick = () => {
-  if (!connected) {
-    paused = true;
-    setPauseLabel();
+async function cancelSelection() {
+  if (selectionMode === "online") {
+    await leaveOnline("매칭을 취소했습니다.");
+    $("online-dialog").showModal();
+  } else {
+    $("select-dialog").close();
+    paused = false;
+    updateMode();
   }
+}
+$("cancel-selection").onclick = cancelSelection;
+$("select-dialog").addEventListener("cancel", (event) => {
+  event.preventDefault();
+  cancelSelection();
+});
+async function practice() {
+  if (activePair) await leaveOnline();
+  selectionMode = "practice";
+  ownLocked = false;
+  chosen = practiceIds[0];
+  paused = true;
   keyboard.clear();
+  updateMode();
+  openSelection();
+}
+$("practice-button").onclick = practice;
+$("character-button").onclick = practice;
+$("camera-button").onclick = () => scene?.toggleCamera();
+$("pause-button").onclick = () => {
+  if (activePair) return;
+  paused = !paused;
+  keyboard.clear();
+  updateMode();
+};
+$("reset-button").onclick = () => {
+  if (activePair && (!battleActive || role !== "host")) return;
+  resetMatch();
+};
+$("sound-button").onclick = () => {
+  sound = !sound;
+  unlockAudio();
+  $("sound-button").innerHTML = `♫ <span>사운드 ${sound ? "ON" : "OFF"}</span>`;
+  $("sound-button").setAttribute("aria-pressed", String(sound));
+};
+window.addEventListener("keydown", (event) => {
+  if (
+    event.ctrlKey ||
+    event.metaKey ||
+    event.altKey ||
+    event.target instanceof HTMLInputElement ||
+    event.target instanceof HTMLTextAreaElement ||
+    event.target instanceof HTMLSelectElement ||
+    document.querySelector("dialog[open]")
+  )
+    return;
+  const key = keyName(event);
+  if (["w", "a", "s", "d", "u", "i", "j", "k", "shift"].includes(key)) {
+    event.preventDefault();
+    unlockAudio();
+    if (!event.repeat) keyboard.down(key, performance.now(), !paused);
+  }
+  if (key === "escape" && !activePair) {
+    paused = !paused;
+    keyboard.clear();
+    updateMode();
+  }
+});
+window.addEventListener("keyup", (event) =>
+  keyboard.up(keyName(event), performance.now()),
+);
+window.addEventListener("blur", () => keyboard.clear());
+document.addEventListener("visibilitychange", () => {
+  keyboard.clear();
+  if (document.hidden && !activePair) {
+    paused = true;
+    updateMode();
+  }
+});
+const levels = { high: "상단", mid: "중단", low: "하단", throw: "잡기" };
+function renderMoves(id) {
+  const p = character(id);
+  $("move-list").replaceChildren();
+  for (const [key, m] of Object.entries(p.moves)) {
+    const row = document.createElement("div");
+    row.className = "move-item";
+    const command = document.createElement("kbd"),
+      info = document.createElement("div"),
+      name = document.createElement("strong"),
+      desc = document.createElement("p"),
+      frames = document.createElement("div");
+    command.textContent = m.command;
+    name.textContent = m.name;
+    desc.textContent = `${levels[m.level]} · ${m.damage} DMG · ${m.launch ? "띄우기" : m.range.toFixed(2) + "m"}`;
+    frames.className = "frame-data";
+    const sign = (n) => (n > 0 ? "+" + n : String(n));
+    frames.textContent = `S ${m.startup} / A ${m.active} / R ${m.recovery} | G ${m.level === "throw" ? "—" : sign(m.onBlock)} / H ${m.launch ? "L" : sign(m.onHit)}`;
+    info.append(name, desc);
+    row.append(command, info, frames);
+    $("move-list").append(row);
+  }
+  for (const button of $("move-character-tabs").children)
+    button.classList.toggle("selected", button.dataset.character === id);
+}
+for (const id of CHARACTER_IDS) {
+  const button = document.createElement("button");
+  button.dataset.character = id;
+  button.textContent = character(id).name;
+  button.onclick = () => renderMoves(id);
+  $("move-character-tabs").append(button);
+}
+$("moves-button").onclick = () => {
+  keyboard.clear();
+  if (!activePair) {
+    paused = true;
+    updateMode();
+  }
+  renderMoves(match.fighters[role === "guest" ? 1 : 0].character);
   $("moves-dialog").showModal();
 };
-for (const dialog of document.querySelectorAll("dialog"))
-  dialog.addEventListener("click", (e) => {
-    if (e.target === dialog) {
+function updateRecommendations() {
+  const p = character(match.fighters[role === "guest" ? 1 : 0].character);
+  $("recommended-string").textContent = p.chain.join(" › ").toUpperCase();
+  $("recommended-name").textContent = p.name;
+  $("recommended-special").textContent = p.moves.qcfPunch.command;
+  $("special-name").textContent = p.moves.qcfPunch.name;
+}
+for (const dialog of [$("online-dialog"), $("moves-dialog")])
+  dialog.addEventListener("click", (event) => {
+    if (event.target === dialog) {
       const r = dialog.getBoundingClientRect();
       if (
-        e.clientX < r.left ||
-        e.clientX > r.right ||
-        e.clientY < r.top ||
-        e.clientY > r.bottom
+        event.clientX < r.left ||
+        event.clientX > r.right ||
+        event.clientY < r.top ||
+        event.clientY > r.bottom
       )
         dialog.close();
     }
   });
 function updateHUD() {
   match.fighters.forEach((f, i) => {
-    $(`health-${i}`).style.width = `${Math.max(0, (f.hp / MAX_HP) * 100)}%`;
-    const dots = $(`rounds-${i}`).querySelectorAll("i");
-    dots.forEach((dot, n) => dot.classList.toggle("won", match.wins[i] > n));
+    const p = character(f.character);
+    $(`p${i + 1}-name`).textContent = p.name;
+    $(`rounds-${i}`).querySelector("span").textContent = p.title;
+    $(`health-${i}`).style.width = Math.max(0, (f.hp / MAX_HP) * 100) + "%";
+    $(`rounds-${i}`)
+      .querySelectorAll("i")
+      .forEach((dot, n) => dot.classList.toggle("won", match.wins[i] > n));
   });
   $("timer").textContent = String(Math.ceil(match.time)).padStart(2, "0");
   $("round-number").textContent = String(match.round).padStart(2, "0");
   let title = "",
     sub = "";
-  if (connectionLost) {
-    title = "DISCONNECTED";
-    sub = "연결 종료 · 연습 대전을 선택하세요";
+  if (activePair && !battleActive) {
+    title = "SELECT FIGHTER";
+    sub = "매칭 완료 · 캐릭터 선택 대기";
   } else if (
-    connected &&
+    battleActive &&
     role === "guest" &&
-    performance.now() - lastStateAt > 2000
+    performance.now() - lastStateAt > 2500
   ) {
     title = "WAITING";
     sub = "호스트의 응답을 기다리는 중";
   } else if (paused) {
     title = "PAUSED";
-    sub = "계속하려면 ▶ 버튼 또는 ESC";
+    sub = "▶ 또는 ESC로 계속하기";
   } else if (match.phase === "ready") {
     title = match.phaseTime > 0.5 ? `ROUND ${match.round}` : "READY";
-    sub = connected ? "P2P ONLINE MATCH" : "PRACTICE MATCH";
+    sub = activePair ? "ONLINE P2P MATCH" : "PRACTICE MATCH";
   } else if (match.phase === "fight" && match.time > 59.4) {
     title = "FIGHT";
-    sub = "";
   } else if (match.phase === "roundEnd") {
     title = match.time > 0 ? "K.O." : "TIME UP";
     sub =
       match.winner === -1
         ? "DRAW"
-        : `${match.winner === 0 ? "KAI" : "REN"} WINS THE ROUND`;
+        : `${character(match.fighters[match.winner].character).name} WINS THE ROUND`;
   } else if (match.phase === "matchEnd") {
     title =
       match.winner === -1
         ? "DRAW"
-        : `${match.winner === 0 ? "KAI" : "REN"} WINS`;
-    sub =
-      connected && role === "guest"
-        ? "호스트가 다음 대전을 시작할 수 있습니다"
-        : "다시 시작 ↻ 버튼으로 다음 대전";
+        : `${character(match.fighters[match.winner].character).name} WINS`;
+    sub = "다시 시작 ↻ 또는 로비로 돌아가기";
   }
   $("announcement").classList.toggle("hidden", !title);
   $("announcement-text").textContent = title;
   $("announcement-sub").textContent = sub;
-  const f = match.fighters[connected && role === "guest" ? 1 : 0];
-  const arrows = {
-    1: "↙",
-    2: "↓",
-    3: "↘",
-    4: "←",
-    5: "·",
-    6: "→",
-    7: "↖",
-    8: "↑",
-    9: "↗",
-  };
+  const f = match.fighters[role === "guest" ? 1 : 0],
+    arrows = {
+      1: "↙",
+      2: "↓",
+      3: "↘",
+      4: "←",
+      5: "·",
+      6: "→",
+      7: "↖",
+      8: "↑",
+      9: "↗",
+    };
   $("input-history").textContent =
     f.commands
       .filter((e) => f.commandTime - e.at < 1.2)
       .slice(-8)
       .map((e) => arrows[e.dir])
       .join(" ") || "·";
+  const move = moveFor(f, f.lastMove);
   $("current-move").textContent =
-    f.lastMoveAge < 1.5 && MOVES[f.lastMove]
-      ? MOVES[f.lastMove].name
+    f.lastMoveAge < 1.8 && move
+      ? `${move.name} · ${move.startup}F`
       : "U LP / I RP / J LK / K RK";
   $("stage-depth").textContent =
-    `X ${f.x.toFixed(1)} / Z ${f.z.toFixed(1)} · ∞`;
-
-  $("combo-display").hidden = f.combo < 2 || f.comboAge > 1.3;
+    `AXIS ${((match.axisAngle * 180) / Math.PI).toFixed(0)}° · ∞`;
+  $("combo-display").hidden = f.combo < 2 || f.comboAge > 1.5;
   $("combo-count").textContent = f.combo;
   $("combo-damage").textContent = `${f.comboDamage} DAMAGE`;
 }
@@ -433,28 +712,27 @@ function frame(now) {
   accumulator += delta;
   while (accumulator >= 1 / 60) {
     accumulator -= 1 / 60;
-    if (connected && role === "guest") {
-      peer.send({ type: "input", input: localInput() });
-    } else if (!paused && !connectionLost) {
-      const input = localInput();
+    if (battleActive && role === "guest")
+      peer.send({ type: "input", input: keyboard.sample(performance.now()) });
+    else if (!paused && (!activePair || battleActive)) {
+      const input = keyboard.sample(performance.now());
       if (
-        connected &&
+        battleActive &&
         performance.now() - lastInputAt > 500 &&
-        remoteInput.queue.length === 0
+        !remoteInput.queue.length
       )
         remoteInput.clear();
-      const opponent = connected ? remoteInput.sample() : cpuInput(match);
+      const opponent = battleActive ? remoteInput.sample() : cpuInput(match);
       step(match, [input, opponent]);
-      eventEffects(match.events);
-      if (connected) {
+      effects(match.events);
+      if (battleActive) {
         remoteEvents.push(...match.events);
-        if (++netTick % 3 === 0) {
+        if (++netTick % 3 === 0)
           peer.send({
             type: "state",
             state: { ...match, events: [] },
             events: remoteEvents.splice(0),
           });
-        }
       }
     }
   }
@@ -463,17 +741,9 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 updateMode();
+updateRecommendations();
 requestAnimationFrame(frame);
-// Read-only inspection hooks for smoke tests and debugging, with no network credentials.
 window.axis = {
-  get inputs() {
-    return {
-      held: [...keyboard.held],
-      remote: structuredClone(remoteInput.latest),
-      remoteAge: performance.now() - lastInputAt,
-      queued: remoteInput.queue.length,
-    };
-  },
   get state() {
     return structuredClone(match);
   },
@@ -485,5 +755,20 @@ window.axis = {
   },
   get paused() {
     return paused;
+  },
+  get battleActive() {
+    return battleActive;
+  },
+  get matched() {
+    return !!activePair;
+  },
+  get projection() {
+    return scene?.projectFighters(match);
+  },
+  get inputs() {
+    return {
+      held: [...keyboard.held],
+      remote: structuredClone(remoteInput.latest),
+    };
   },
 };

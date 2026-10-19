@@ -4,17 +4,18 @@ import {
   createMatch,
   step,
   emptyInput,
-  sanitizeInput,
   MAX_HP,
   WALK_SPEED,
+  SIDESTEP_SPEED,
   DASH_SPEED,
-  MOVES,
+  resolveMove,
 } from "./combat.js";
-function setup() {
-  const m = createMatch();
+import { CHARACTERS, CHARACTER_IDS, character, moveFor } from "./characters.js";
+function setup(ids = ["kai", "ren"]) {
+  const m = createMatch(ids);
   m.phase = "fight";
-  m.fighters[0].x = -0.6;
-  m.fighters[1].x = 0.6;
+  m.fighters[0].x = -0.5;
+  m.fighters[1].x = 0.5;
   return m;
 }
 function feed(m, input = {}, frames = 1, index = 0, defense = {}) {
@@ -30,168 +31,209 @@ function feed(m, input = {}, frames = 1, index = 0, defense = {}) {
   }
   return m.fighters[index];
 }
-function sequence(m, dirs, action, index = 0) {
-  for (const dir of dirs) feed(m, dir, 3, index);
-  feed(m, { ...dirs.at(-1), action }, 1, index);
-  return m.fighters[index];
+function dirInput(dir, index = 0) {
+  const f = dir % 3 === 1 ? -1 : dir % 3 === 0 ? 1 : 0;
+  return { x: f * (index === 0 ? 1 : -1), z: dir <= 3 ? 1 : dir >= 7 ? -1 : 0 };
 }
-test("four limb buttons map to left punch, right punch, left kick and right kick", () => {
-  for (const [key, kind] of Object.entries({
-    u: "leftPunch",
-    i: "rightPunch",
-    j: "leftKick",
-    k: "rightKick",
-  })) {
-    const m = setup();
-    feed(m, { action: key });
-    assert.equal(MOVES[m.fighters[0].attack.key].kind, kind);
+test("four fighters have independently authored commands, startup and recovery", () => {
+  assert.equal(CHARACTER_IDS.length, 4);
+  const signatures = CHARACTER_IDS.map(
+    (id) => character(id).moves.qcfPunch.command,
+  );
+  assert.equal(new Set(signatures).size, 4);
+  assert.equal(
+    new Set(CHARACTER_IDS.map((id) => character(id).moves.u.startup)).size,
+    4,
+  );
+  for (const id of CHARACTER_IDS) {
+    assert.equal(Object.keys(character(id).moves).length, 17);
+    for (const move of Object.values(character(id).moves)) {
+      assert.equal(
+        move.duration,
+        (move.startup + move.active + move.recovery) / 60,
+      );
+      assert.ok(move.blockStun > 0);
+    }
   }
 });
-test("standing guard blocks mids; low kick needs low guard; crouch evades highs", () => {
+test("all four basic buttons keep their limb identity", () => {
+  for (const id of CHARACTER_IDS)
+    for (const [key, kind] of Object.entries({
+      u: "leftPunch",
+      i: "rightPunch",
+      j: "leftKick",
+      k: "rightKick",
+    })) {
+      const m = setup([id, "kai"]);
+      feed(m, { action: key });
+      assert.equal(moveFor(m.fighters[0]).kind, kind);
+    }
+});
+test("backward input guards mids while retreating; an obsolete guard flag does not block", () => {
   let m = setup();
-  feed(m, { action: "k" }, 40, 0, { guard: true });
+  const x = m.fighters[1].x;
+  feed(m, { action: "i" }, 70, 0, { x: 1 });
   assert.equal(m.fighters[1].hp, MAX_HP);
+  assert.ok(m.fighters[1].x > x);
   m = setup();
-  feed(m, { z: 1, action: "j" }, 40, 0, { guard: true });
-  assert.equal(m.fighters[1].hp, MAX_HP - 13);
-  m = setup();
-  feed(m, { z: 1, action: "j" }, 40, 0, { guard: true, crouch: true });
-  assert.equal(m.fighters[1].hp, MAX_HP);
-  m = setup();
-  feed(m, { action: "u" }, 40, 0, { crouch: true });
-  assert.equal(m.fighters[1].hp, MAX_HP);
+  feed(m, { action: "i" }, 70, 0, { guard: true });
+  assert.ok(m.fighters[1].hp < MAX_HP);
 });
-test("simultaneous punches throw through guard, simultaneous kicks sweep low", () => {
+test("back+shift guards lows but loses to mids; standing back loses to lows", () => {
   let m = setup();
-  feed(m, { action: "u+i" }, 55, 0, { guard: true });
-  assert.equal(m.fighters[1].hp, MAX_HP - 25);
+  feed(m, { z: 1, action: "j" }, 80, 0, { x: 1 });
+  assert.ok(m.fighters[1].hp < MAX_HP);
   m = setup();
-  feed(m, { action: "j+k" }, 45, 0, { guard: true });
-  assert.equal(m.fighters[1].hp, MAX_HP - 22);
+  feed(m, { z: 1, action: "j" }, 80, 0, { x: 1, crouch: true });
+  assert.equal(m.fighters[1].hp, MAX_HP);
+  m = setup();
+  feed(m, { action: "i" }, 80, 0, { x: 1, crouch: true });
+  assert.ok(m.fighters[1].hp < MAX_HP);
 });
-test("quarter circle forward is mirrored relative to each fighter", () => {
-  for (const index of [0, 1]) {
-    const m = setup(),
-      forward = index === 0 ? 1 : -1;
-    const f = sequence(
-      m,
-      [{ z: 1 }, { x: forward, z: 1 }, { x: forward }],
-      "i",
-      index,
-    );
-    assert.equal(f.attack.key, "qcfPunch");
-  }
+test("retreat guard works identically when P1 is defending", () => {
+  const m = setup();
+  feed(m, { action: "i" }, 70, 1, { x: -1 });
+  assert.equal(m.fighters[0].hp, MAX_HP);
 });
-test("dragon punch, qcf kick, back-forward palm and directional moves work", () => {
-  const cases = [
-    [[{ x: 1 }, { z: 1 }, { x: 1, z: 1 }], "i", "dragon"],
-    [[{ z: 1 }, { x: 1, z: 1 }, { x: 1 }], "k", "qcfKick"],
-    [[{ x: -1 }, { x: 1 }], "u", "palm"],
-    [[{ x: 1, z: 1 }], "i", "upper"],
-    [[{ z: -1 }], "j", "hopKick"],
-    [[{ x: -1 }], "k", "backKick"],
+test("hitstop freezes attack clock and round time, then releases with recoil", () => {
+  const m = setup();
+  feed(m, { action: "i" });
+  for (let n = 0; n < 30 && !m.events.some((e) => e.type === "hit"); n++)
+    feed(m);
+  assert.ok(m.hitstop > 0);
+  const t = m.time,
+    at = m.fighters[0].attack.t,
+    x = m.fighters[1].x;
+  feed(m, {}, 3);
+  assert.equal(m.time, t);
+  assert.equal(m.fighters[0].attack.t, at);
+  feed(m, {}, 30);
+  assert.ok(m.time < t);
+  assert.ok(m.fighters[1].x > x);
+});
+test("each character resolves its unique signature and launcher with mirrored commands", () => {
+  for (const id of CHARACTER_IDS)
+    for (const index of [0, 1]) {
+      const m = setup(index === 0 ? [id, "kai"] : ["kai", id]),
+        f = m.fighters[index];
+      for (const [key, button, seq] of character(id).commands) {
+        f.commands = [];
+        f.commandTime = 0;
+        f.direction = 5;
+        for (const dir of seq) {
+          f.commandTime += 0.04;
+          f.commands.push({ dir, at: f.commandTime });
+          f.direction = dir;
+        }
+        assert.equal(resolveMove(f, button), key, `${id} ${key} P${index + 1}`);
+      }
+    }
+});
+test("stale command histories expire and incomplete circles stay basic", () => {
+  const m = setup(),
+    f = m.fighters[0];
+  f.commands = [
+    { dir: 2, at: 0 },
+    { dir: 3, at: 0.1 },
+    { dir: 6, at: 0.2 },
   ];
-  for (const [dirs, key, expected] of cases) {
-    const m = setup();
-    assert.equal(sequence(m, dirs, key).attack.key, expected);
-  }
+  f.direction = 6;
+  f.commandTime = 1.2;
+  assert.equal(resolveMove(f, "i"), "i");
 });
-test("commands expire and invalid partial sequences do not activate a special", () => {
-  let m = setup();
-  feed(m, { z: 1 }, 4);
-  feed(m, { x: 1, z: 1 }, 4);
-  feed(m, {}, 60);
-  feed(m, { x: 1, action: "i" });
-  assert.equal(m.fighters[0].attack.key, "i");
-  m = setup();
-  assert.equal(sequence(m, [{ z: 1 }, { x: 1 }], "i").attack.key, "i");
-});
-test("double forward dashes and f,f+RP produces dash impact", () => {
+test("sidestepping orbits the opponent while maintaining a left/right fighting axis", () => {
   const m = setup();
-  feed(m, { x: 1 }, 2);
-  feed(m, {}, 2);
-  feed(m, { x: 1 }, 1);
-  assert.ok(m.fighters[0].dash > 0);
-  const x = m.fighters[0].x;
-  feed(m, { x: 1 }, 1);
-  assert.ok(m.fighters[0].x - x > WALK_SPEED / 60);
-  feed(m, { x: 1, action: "i" });
-  assert.equal(m.fighters[0].attack.key, "dashPunch");
-  assert.ok(DASH_SPEED > WALK_SPEED);
+  m.fighters[0].x = -2;
+  m.fighters[1].x = 2;
+  feed(m, { z: 1 }, 120);
+  assert.ok(Math.abs(m.axisAngle) > 0.3);
+  const [a, b] = m.fighters,
+    co = Math.cos(m.axisAngle),
+    si = Math.sin(m.axisAngle);
+  const depth = (b.z - a.z) * co - (b.x - a.x) * si;
+  assert.ok(Math.abs(depth) < 1e-8);
+  assert.equal(a.facing, 1);
+  assert.equal(b.facing, -1);
+  const d = Math.hypot(b.x - a.x, b.z - a.z);
+  assert.ok(d < 8);
 });
-test("walk speed is increased and the world has no old radius clamp", () => {
-  const m = setup();
-  m.fighters[0].x = 10;
-  m.fighters[1].x = 50;
-  feed(m, { x: -1 }, 60);
-  assert.ok(Math.abs(m.fighters[0].x - (10 - WALK_SPEED)) < 0.001);
+test("walking is moderated; all-world movement is still unbounded", () => {
+  assert.equal(WALK_SPEED, 3.2);
+  assert.ok(SIDESTEP_SPEED < 4);
+  assert.ok(DASH_SPEED < 6);
+  const m = setup(["kai", "kai"]);
+  m.fighters[0].x = 0;
+  m.fighters[1].x = 10;
   for (let n = 0; n < 900; n++)
     step(m, [
-      { ...emptyInput(), x: 1, z: 1 },
-      { ...emptyInput(), x: 1, z: 1 },
-    ]);
-  assert.ok(m.fighters[0].x > 50);
-  assert.ok(m.fighters[0].z > 50);
-  assert.ok(m.fighters[1].x > 90);
-});
-test("directional command is resolved at input time while buffered during recovery", () => {
-  const m = setup();
-  feed(m, { action: "k" }, 3);
-  sequence(m, [{ z: 1 }, { x: 1, z: 1 }, { x: 1 }], "i");
-  assert.equal(m.fighters[0].buffer, "qcfPunch");
-  feed(m, {}, 28);
-  assert.equal(m.fighters[0].lastMove, "qcfPunch");
-});
-test("U I K string and df+I U I K air combo connect", () => {
-  const m = setup();
-  feed(m, { action: "u" }, 7);
-  feed(m, { action: "i" }, 9);
-  feed(m, { action: "k" }, 35);
-  assert.equal(m.fighters[0].combo, 3);
-  assert.ok(m.fighters[0].comboDamage >= 35);
-  const air = setup();
-  feed(air, { x: 1, z: 1, action: "i" }, 16);
-  assert.ok(air.fighters[1].y > 0);
-  feed(air, { action: "u" }, 15);
-  feed(air, { action: "i" }, 14);
-  feed(air, { action: "k" }, 30);
-  assert.equal(air.fighters[0].combo, 4);
-});
-test("depth movement evades an attack locked to its initial axis", () => {
-  const m = setup();
-  for (let n = 0; n < 35; n++)
-    step(m, [
-      { ...emptyInput(), action: n === 0 ? "k" : null },
+      { ...emptyInput(), z: 1 },
       { ...emptyInput(), z: 1 },
     ]);
-  assert.equal(m.fighters[1].hp, MAX_HP);
-  assert.ok(m.fighters[1].z > 2);
+  assert.ok(m.fighters[0].z > 50);
+  assert.ok(m.fighters[1].z > 50);
 });
-test("rounds and first-to-two match outcome still work", () => {
+test("displayed startup and active windows are the real attack timing", () => {
   const m = setup();
+  feed(m, { action: "u" });
+  const move = moveFor(m.fighters[0]);
+  feed(m, {}, move.startup - 1);
+  assert.equal(m.fighters[1].hp, MAX_HP);
+  feed(m, {}, 1);
+  assert.ok(m.fighters[1].hp < MAX_HP);
+});
+test("character choice persists across rounds and first-to-two concludes the match", () => {
+  const m = setup(["mira", "goro"]);
   m.fighters[1].hp = 1;
-  feed(m, { action: "u" }, 30);
+  feed(m, { action: "u" }, 50);
   assert.equal(m.wins[0], 1);
-  assert.equal(m.phase, "roundEnd");
   feed(m, {}, 300);
-  assert.equal(m.round, 2);
-  assert.equal(m.phase, "fight");
+  assert.deepEqual(
+    m.fighters.map((f) => f.character),
+    ["mira", "goro"],
+  );
   m.fighters[1].hp = 0;
   feed(m);
   assert.equal(m.phase, "matchEnd");
-  assert.equal(m.wins[0], 2);
 });
-test("untrusted inputs are clamped and invalid attack identifiers are rejected", () => {
-  assert.deepEqual(
-    sanitizeInput({
-      x: Infinity,
-      z: 42,
-      guard: 1,
-      crouch: true,
-      action: "qcfPunch",
-    }),
-    { x: 0, z: 1, guard: false, crouch: true, action: null },
-  );
-  assert.equal(sanitizeInput({ action: "u+i" }).action, "u+i");
-  assert.equal(sanitizeInput({ action: "o" }).action, null);
+test("each fighter can complete its own three-button string", () => {
+  for (const id of CHARACTER_IDS) {
+    const m = setup([id, "kai"]),
+      chain = character(id).chain;
+    let next = chain[0],
+      hit = 0;
+    for (let n = 0; n < 240; n++) {
+      feed(m, next ? { action: next } : {});
+      next = null;
+      if (m.events.some((e) => e.type === "hit" && e.index === 0)) {
+        hit++;
+        if (hit < 3) next = chain[hit];
+      }
+    }
+    assert.equal(m.fighters[0].combo, 3, id);
+  }
+});
+test("displayed guard disadvantage matches recovery for either player order", () => {
+  for (const index of [0, 1]) {
+    const m = setup(["kai", "kai"]);
+    feed(m, { action: "i" }, 1, index, { x: index === 0 ? 1 : -1 });
+    for (let n = 0; n < 30 && !m.events.some((e) => e.type === "block"); n++)
+      feed(m, {}, 1, index, { x: index === 0 ? 1 : -1 });
+    assert.ok(m.events.some((e) => e.type === "block"));
+    const move = moveFor(m.fighters[index]);
+    let count = 0,
+      attackerEnd = null,
+      defenderEnd = null;
+    for (let n = 0; n < 100; n++) {
+      const frozen = m.hitstop > 0;
+      feed(m, {}, 1, index, { x: index === 0 ? 1 : -1 });
+      if (frozen) continue;
+      count++;
+      if (attackerEnd === null && !m.fighters[index].attack)
+        attackerEnd = count;
+      if (defenderEnd === null && m.fighters[1 - index].stun === 0)
+        defenderEnd = count;
+      if (attackerEnd !== null && defenderEnd !== null) break;
+    }
+    assert.equal(defenderEnd - attackerEnd, move.onBlock, `P${index + 1}`);
+  }
 });

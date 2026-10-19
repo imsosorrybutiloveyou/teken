@@ -1,0 +1,8 @@
+node_modules
+dist
+.git
+release
+downloads
+desktop
+playwright-report
+test-results

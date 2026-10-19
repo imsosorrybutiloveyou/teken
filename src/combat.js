@@ -1,166 +1,12 @@
+import { CHARACTERS, character, moveFor } from "./characters.js";
+export { CHARACTERS, moveFor };
 export const MAX_HP = 120;
-export const WALK_SPEED = 5.1;
-export const SIDESTEP_SPEED = 5.7;
-export const DASH_SPEED = 8.8;
+export const WALK_SPEED = 3.2;
+export const SIDESTEP_SPEED = 3.5;
+export const DASH_SPEED = 5.2;
 export const ACTIONS = ["u", "i", "j", "k", "u+i", "j+k"];
-const move = (
-  name,
-  command,
-  level,
-  damage,
-  range,
-  windup,
-  duration,
-  kind,
-  extra = {},
-) => ({
-  name,
-  command,
-  level,
-  damage,
-  range,
-  width: 0.55,
-  windup,
-  duration,
-  stun: 0.3,
-  kind,
-  ...extra,
-});
-export const MOVES = {
-  u: move("왼손 잽", "U · LP", "high", 8, 1.7, 0.075, 0.22, "leftPunch"),
-  i: move(
-    "오른손 스트레이트",
-    "I · RP",
-    "mid",
-    12,
-    1.85,
-    0.11,
-    0.29,
-    "rightPunch",
-  ),
-  j: move("왼발 프런트 킥", "J · LK", "mid", 15, 2.05, 0.16, 0.37, "leftKick"),
-  k: move(
-    "오른발 라운드 킥",
-    "K · RK",
-    "mid",
-    18,
-    2.15,
-    0.2,
-    0.45,
-    "rightKick",
-    { width: 0.65 },
-  ),
-  oneTwo: move("원 투", "U → I", "mid", 11, 1.9, 0.09, 0.25, "rightPunch", {
-    stun: 0.36,
-  }),
-  finish: move("스핀 피니시", "U → I → K", "mid", 22, 2.3, 0.16, 0.44, "spin", {
-    width: 0.8,
-    stun: 0.45,
-  }),
-  upper: move(
-    "라이징 어퍼",
-    "↘ + I · df+RP",
-    "mid",
-    19,
-    1.85,
-    0.17,
-    0.44,
-    "upper",
-    { launch: true },
-  ),
-  low: move("로우 킥", "↓ + J · d+LK", "low", 13, 1.95, 0.16, 0.38, "low"),
-  sweep: move(
-    "더블 스윕",
-    "J + K · LK+RK",
-    "low",
-    22,
-    2.1,
-    0.29,
-    0.62,
-    "sweep",
-    { width: 0.8, stun: 0.55 },
-  ),
-  qcfPunch: move(
-    "썬더 스트라이크",
-    "↓ ↘ → + I · qcf+RP",
-    "mid",
-    26,
-    2.3,
-    0.18,
-    0.48,
-    "powerPunch",
-    { lunge: 0.42, stun: 0.43 },
-  ),
-  dragon: move(
-    "드래곤 어퍼",
-    "→ ↓ ↘ + I · f,d,df+RP",
-    "mid",
-    23,
-    1.95,
-    0.15,
-    0.48,
-    "dragon",
-    { launch: true, lunge: 0.2 },
-  ),
-  qcfKick: move(
-    "토네이도 킥",
-    "↓ ↘ → + K · qcf+RK",
-    "mid",
-    24,
-    2.35,
-    0.2,
-    0.51,
-    "spin",
-    { width: 0.9, stun: 0.4 },
-  ),
-  dashPunch: move(
-    "대시 임팩트",
-    "→ → + I · f,f+RP",
-    "mid",
-    24,
-    2.45,
-    0.17,
-    0.47,
-    "powerPunch",
-    { lunge: 0.55, stun: 0.4 },
-  ),
-  palm: move(
-    "브레이크 팜",
-    "← → + U · b,f+LP",
-    "mid",
-    27,
-    2,
-    0.24,
-    0.52,
-    "palm",
-    { stun: 0.48 },
-  ),
-  backKick: move(
-    "백 스핀 킥",
-    "← + K · b+RK",
-    "mid",
-    20,
-    2.3,
-    0.18,
-    0.45,
-    "backKick",
-  ),
-  hopKick: move("점핑 니", "↑ + J · u+LK", "mid", 18, 1.85, 0.2, 0.49, "knee", {
-    launch: true,
-  }),
-  throw: move(
-    "숄더 브레이크",
-    "U + I · LP+RP",
-    "throw",
-    25,
-    1.3,
-    0.23,
-    0.72,
-    "throw",
-    { stun: 0.65 },
-  ),
-};
-export const COMMAND_WINDOW = 0.7;
+export const MOVES = CHARACTERS.kai.moves;
+export const COMMAND_WINDOW = 0.85;
 const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
 export function emptyInput() {
   return { x: 0, z: 0, guard: false, crouch: false, action: null };
@@ -210,31 +56,37 @@ function recordDirection(f, input, dt) {
 export function resolveMove(f, action) {
   if (action === "u+i") return "throw";
   if (action === "j+k") return "sweep";
-  if (action === "i") {
-    if (matchesCommand(f, [6, 2, 3])) return "dragon";
-    if (matchesCommand(f, [2, 3, 6])) return "qcfPunch";
-    if (matchesCommand(f, [6, 5, 6], 0.4, true)) return "dashPunch";
-    if (f.direction === 3) return "upper";
-    if (f.chain === 1 && f.chainAge < 0.65) return "oneTwo";
+  const p = character(f.character);
+  for (const [key, button, sequence] of [...p.commands].sort(
+    (a, b) => b[2].length - a[2].length,
+  )) {
+    if (action !== button) continue;
+    if (
+      sequence.length === 1
+        ? f.direction === sequence[0]
+        : matchesCommand(f, sequence, COMMAND_WINDOW, sequence.includes(5))
+    )
+      return key;
   }
-  if (action === "u" && matchesCommand(f, [4, 6])) return "palm";
-  if (action === "j" && [1, 2].includes(f.direction)) return "low";
-  if (action === "j" && [7, 8, 9].includes(f.direction)) return "hopKick";
-  if (action === "k") {
-    if (matchesCommand(f, [2, 3, 6])) return "qcfKick";
-    if (f.direction === 4 || f.direction === 1) return "backKick";
-    if (f.chain === 2 && f.chainAge < 0.7) return "finish";
-  }
+  if (f.chain === 1 && action === p.chain[1] && f.chainAge < 0.85)
+    return "oneTwo";
+  if (f.chain === 2 && action === p.chain[2] && f.chainAge < 0.85)
+    return "finish";
   return action;
 }
-function fighter(x) {
+function fighter(x, id, index) {
   return {
+    character: id,
+    statusTick: -1,
+    vx: 0,
+    vz: 0,
+    blockstun: false,
     x,
     z: 0,
     y: 0,
     vy: 0,
     hp: MAX_HP,
-    facing: x < 0 ? 1 : -1,
+    facing: index === 0 ? 1 : -1,
     angle: x < 0 ? 0 : Math.PI,
     attack: null,
     stun: 0,
@@ -258,10 +110,15 @@ function fighter(x) {
     travel: 0,
   };
 }
-export function createMatch() {
+export function createMatch(ids = ["kai", "ren"]) {
   return {
-    version: 2,
-    fighters: [fighter(-1.45), fighter(1.45)],
+    version: 3,
+    axisAngle: 0,
+    hitstop: 0,
+    fighters: [
+      fighter(-1.45, character(ids[0]).id, 0),
+      fighter(1.45, character(ids[1]).id, 1),
+    ],
     wins: [0, 0],
     round: 1,
     time: 60,
@@ -278,7 +135,8 @@ function emit(m, type, data = {}) {
 }
 function startAttack(m, index, key) {
   const f = m.fighters[index];
-  f.chain = key === "u" ? 1 : key === "oneTwo" ? 2 : 0;
+  f.chain =
+    key === character(f.character).chain[0] ? 1 : key === "oneTwo" ? 2 : 0;
   f.chainAge = 0;
   f.attack = { key, t: 0, hit: false, connected: false, angle: f.angle };
   f.buffer = null;
@@ -294,7 +152,7 @@ function resolveHit(m, index) {
   const a = m.fighters[index],
     b = m.fighters[1 - index],
     atk = a.attack,
-    move = MOVES[atk.key];
+    move = moveFor(a, atk.key);
   const dx = b.x - a.x,
     dz = b.z - a.z,
     forward = dx * Math.cos(atk.angle) + dz * Math.sin(atk.angle);
@@ -307,22 +165,32 @@ function resolveHit(m, index) {
     lateral > move.width ||
     b.y > 2.15
   )
-    return;
-  if (move.level === "throw" && (b.y > 0.2 || b.crouch || b.stun > 0)) return;
-  if (move.level === "high" && b.crouch && b.y === 0) return;
+    return false;
+  if (move.level === "throw" && (b.y > 0.2 || b.crouch || b.stun > 0))
+    return false;
+  if (move.level === "high" && b.crouch && b.y === 0) return false;
   const blocked =
     b.guard &&
-    b.stun <= 0 &&
+    (b.stun <= 0 || b.blockstun) &&
     b.y === 0 &&
     !b.attack &&
     (move.level === "low" ? b.crouch : !b.crouch) &&
     move.level !== "throw";
   if (blocked) {
-    b.stun = 0.1;
-    b.x += Math.cos(atk.angle) * 0.09;
-    b.z += Math.sin(atk.angle) * 0.09;
-    emit(m, "block", { index: 1 - index, x: b.x, y: 1.1, z: b.z });
-    return;
+    b.stun = move.blockStun;
+    b.blockstun = true;
+    b.statusTick = m.tick;
+    b.vx = Math.cos(atk.angle) * 0.8;
+    b.vz = Math.sin(atk.angle) * 0.8;
+    m.hitstop = Math.max(m.hitstop, 4 / 60);
+    emit(m, "block", {
+      index: 1 - index,
+      x: b.x,
+      y: 1.1,
+      z: b.z,
+      heavy: move.damage > 23,
+    });
+    return true;
   }
   atk.connected = true;
   const airborne = b.y > 0.1,
@@ -331,14 +199,15 @@ function resolveHit(m, index) {
     );
   b.hp = Math.max(0, b.hp - damage);
   b.stun = move.stun;
+  b.statusTick = m.tick;
+  b.blockstun = false;
+  m.hitstop = Math.max(m.hitstop, move.hitstop / 60);
   b.attack = null;
   b.buffer = null;
   b.guard = false;
   b.hitFlash = 0.13;
-  const push =
-    move.level === "throw" ? 0.6 : move.kind === "spin" ? 0.32 : 0.08;
-  b.x += Math.cos(atk.angle) * push;
-  b.z += Math.sin(atk.angle) * push;
+  b.vx = Math.cos(atk.angle) * move.push;
+  b.vz = Math.sin(atk.angle) * move.push;
   if (move.launch && !airborne) {
     b.vy = 6.5;
     b.y = 0.02;
@@ -360,7 +229,10 @@ function resolveHit(m, index) {
     y: b.y + (move.level === "low" ? 0.45 : 1.25),
     z: b.z,
     launch: !!move.launch,
+    heavy: move.damage >= 23,
+    hitstop: move.hitstop,
   });
+  return true;
 }
 function finishRound(m) {
   const [a, b] = m.fighters;
@@ -385,11 +257,40 @@ export function step(m, rawInputs, dt = 1 / 60) {
       } else {
         m.round++;
         m.time = 60;
-        m.fighters = [fighter(-1.45), fighter(1.45)];
+        m.fighters = [
+          fighter(-1.45, m.fighters[0].character, 0),
+          fighter(1.45, m.fighters[1].character, 1),
+        ];
+        m.axisAngle = 0;
+        m.hitstop = 0;
         m.phase = "ready";
         m.phaseTime = 1.5;
         m.winner = null;
         emit(m, "ready");
+      }
+    }
+    return;
+  }
+  const [fa, fb] = m.fighters;
+  m.axisAngle = Math.atan2(fb.z - fa.z, fb.x - fa.x);
+  // Defense is sampled for both players before either attack resolves; player order grants no guard advantage.
+  for (let i = 0; i < 2; i++) {
+    const f = m.fighters[i],
+      input = sanitizeInput(rawInputs[i]),
+      back = input.x * f.facing < -0.25;
+    f.guard = back && !f.attack && (f.stun <= 0 || f.blockstun) && f.y === 0;
+    f.crouch =
+      (input.crouch || (back && input.z > 0.25)) && !f.attack && f.y === 0;
+  }
+  if (m.hitstop > 0) {
+    m.hitstop = Math.max(0, m.hitstop - dt);
+    for (let i = 0; i < 2; i++) {
+      const f = m.fighters[i],
+        input = sanitizeInput(rawInputs[i]);
+      recordDirection(f, input, dt);
+      if (input.action && f.stun === 0) {
+        f.buffer = resolveMove(f, input.action);
+        f.bufferAge = 0;
       }
     }
     return;
@@ -405,20 +306,28 @@ export function step(m, rawInputs, dt = 1 / 60) {
     f.lastMoveAge += dt;
     f.dash = Math.max(0, f.dash - dt);
     f.hitFlash = Math.max(0, f.hitFlash - dt);
-    f.stun = Math.max(0, f.stun - dt);
+    if (f.statusTick !== m.tick) {
+      f.stun = Math.max(0, f.stun - dt);
+      if (f.stun < 1e-9) f.stun = 0;
+    }
     f.move = 0;
+    if (f.stun === 0) f.blockstun = false;
+    if (f.statusTick !== m.tick) {
+      f.x += f.vx * dt;
+      f.z += f.vz * dt;
+      f.vx *= Math.max(0, 1 - dt * 9);
+      f.vz *= Math.max(0, 1 - dt * 9);
+    }
     if (f.y > 0 || f.vy > 0) {
       f.y = Math.max(0, f.y + f.vy * dt);
       f.vy -= 16 * dt;
       if (f.y === 0) f.vy = 0;
     }
     if (!f.attack) {
-      f.angle = Math.atan2(other.z - f.z, other.x - f.x);
-      f.facing = other.x >= f.x ? 1 : -1;
+      f.angle = m.axisAngle + (i === 1 ? Math.PI : 0);
+      f.facing = i === 0 ? 1 : -1;
     }
     recordDirection(f, input, dt);
-    f.guard = input.guard && !f.attack && f.stun === 0 && f.y === 0;
-    f.crouch = input.crouch && !f.attack && f.y === 0;
     // Resolve the command when the attack button is pressed, not after its buffered recovery.
     if (input.action && f.stun === 0 && f.y === 0) {
       f.buffer = resolveMove(f, input.action);
@@ -426,42 +335,48 @@ export function step(m, rawInputs, dt = 1 / 60) {
     }
     if (f.attack) {
       f.attack.t += dt;
-      const move = MOVES[f.attack.key];
+      const move = moveFor(f);
       if (move.lunge && f.attack.t < move.windup) {
         const amount = (move.lunge * dt) / move.windup;
         f.x += Math.cos(f.attack.angle) * amount;
         f.z += Math.sin(f.attack.angle) * amount;
       }
-      if (!f.attack.hit && f.attack.t >= move.windup) {
-        f.attack.hit = true;
-        resolveHit(m, i);
+      if (!f.attack.hit && f.attack.t + 1e-9 >= move.windup) {
+        if (f.attack.t <= move.windup + move.active / 60 + 1e-6)
+          f.attack.hit = resolveHit(m, i);
+        else f.attack.hit = true;
       }
       const chainCancel =
         f.attack &&
         f.attack.connected &&
         f.buffer &&
-        ((f.attack.key === "u" && f.buffer === "oneTwo") ||
+        ((f.attack.key === character(f.character).chain[0] &&
+          f.buffer === "oneTwo") ||
           (f.attack.key === "oneTwo" && f.buffer === "finish"));
       if (
         f.attack &&
-        (f.attack.t >= move.duration ||
+        (f.attack.t + 1e-9 >= move.duration ||
           (chainCancel && f.attack.t >= move.windup + 0.065))
       )
         f.attack = null;
     }
     if (!f.attack && f.stun === 0 && f.y === 0) {
       if (f.buffer && f.bufferAge < 0.65) startAttack(m, i, f.buffer);
-      else if (!f.guard) {
+      else {
         const len = Math.max(1, Math.hypot(input.x, input.z)),
           speed = f.crouch
-            ? 2.6
+            ? 1.45
             : f.dash > 0
               ? DASH_SPEED
               : Math.abs(input.z) > 0.1
                 ? SIDESTEP_SPEED
                 : WALK_SPEED;
-        const dx = (input.x / len) * speed * dt,
-          dz = (input.z / len) * speed * dt;
+        const adjusted =
+            speed * character(f.character).speed * (f.guard ? 0.7 : 1),
+          c = Math.cos(m.axisAngle),
+          s = Math.sin(m.axisAngle);
+        const dx = ((input.x * c - input.z * s) / len) * adjusted * dt,
+          dz = ((input.x * s + input.z * c) / len) * adjusted * dt;
         f.x += dx;
         f.z += dz;
         f.move = Math.min(1, Math.hypot(input.x, input.z));
@@ -483,6 +398,7 @@ export function step(m, rawInputs, dt = 1 / 60) {
     b.x += nx * p;
     b.z += nz * p;
   }
+  m.axisAngle = Math.atan2(b.z - a.z, b.x - a.x);
   if (m.time === 0 || m.fighters.some((f) => f.hp === 0)) finishRound(m);
 }
 export function cpuInput(m, index = 1) {
@@ -496,25 +412,26 @@ export function cpuInput(m, index = 1) {
   m.seed = (Math.imul(m.seed, 1664525) + 1013904223) >>> 0;
   const r = m.seed / 4294967296;
   if (o.attack && d < 2.4 && r < 0.53) {
-    input.guard = true;
-    input.crouch = MOVES[o.attack.key].level === "low";
+    input.x = -f.facing;
+    input.crouch = moveFor(o).level === "low";
   } else if (d > 1.65) {
-    input.x = (dx / Math.max(0.01, d)) * 0.8;
-    input.z = (dz / Math.max(0.01, d)) * 0.8;
+    input.x = f.facing * 0.75;
   } else if (m.tick % 190 < 20) {
-    input.x = -Math.sign(dx) * 0.65;
+    input.x = -f.facing * 0.65;
   }
-  if (m.tick % 25 === 0 && d < 2.2 && !input.guard) {
+  if (m.tick % 25 === 0 && d < 2.2 && input.x * f.facing >= 0) {
     input.action = ["u", "i", "j", "k", "u+i", "j+k"][Math.floor(r * 6)];
     if (r < 0.16) {
       input.x = f.facing;
       input.z = 1;
-      input.action = "i";
+      input.action = character(f.character).commands.find(
+        (r) => r[0] === "upper",
+      )[1];
     } else if (r < 0.3) {
       input.z = 1;
       input.action = "j";
     }
   }
-  if (o.attack && m.tick % 140 < 24 && !input.guard) input.z = 0.8;
+  if (o.attack && m.tick % 140 < 24 && input.x * f.facing >= 0) input.z = 0.8;
   return input;
 }
