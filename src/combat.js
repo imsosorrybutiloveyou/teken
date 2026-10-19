@@ -1,9 +1,9 @@
 import { CHARACTERS, character, moveFor } from "./characters.js";
 export { CHARACTERS, moveFor };
 export const MAX_HP = 120;
-export const WALK_SPEED = 3.2;
-export const SIDESTEP_SPEED = 3.5;
-export const DASH_SPEED = 5.2;
+export const WALK_SPEED = 3.5;
+export const SIDESTEP_SPEED = 3.8;
+export const DASH_SPEED = 5.6;
 export const ACTIONS = ["u", "i", "j", "k", "u+i", "j+k"];
 export const MOVES = CHARACTERS.kai.moves;
 export const COMMAND_WINDOW = 0.85;
@@ -182,7 +182,7 @@ function resolveHit(m, index) {
     b.statusTick = m.tick;
     b.vx = Math.cos(atk.angle) * 0.8;
     b.vz = Math.sin(atk.angle) * 0.8;
-    m.hitstop = Math.max(m.hitstop, 4 / 60);
+    m.hitstop = Math.max(m.hitstop, 2 / 60);
     emit(m, "block", {
       index: 1 - index,
       x: b.x,
@@ -330,9 +330,26 @@ export function step(m, rawInputs, dt = 1 / 60) {
     recordDirection(f, input, dt);
     // Resolve the command when the attack button is pressed, not after its buffered recovery.
     if (input.action && f.stun === 0 && f.y === 0) {
+      // Correct a split-frame chord before the basic strike becomes active.
+      if (
+        ["u+i", "j+k"].includes(input.action) &&
+        ["u", "i", "j", "k"].includes(f.attack?.key) &&
+        f.attack.t <= 2 / 60 &&
+        !f.attack.hit
+      )
+        f.attack = null;
       f.buffer = resolveMove(f, input.action);
       f.bufferAge = 0;
     }
+    // The input frame is startup frame 1, rather than an extra idle frame.
+    if (
+      !f.attack &&
+      f.stun === 0 &&
+      f.y === 0 &&
+      f.buffer &&
+      f.bufferAge < 0.65
+    )
+      startAttack(m, i, f.buffer);
     if (f.attack) {
       f.attack.t += dt;
       const move = moveFor(f);

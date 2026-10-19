@@ -55,20 +55,35 @@ func openBrowser(url string) error {
 
 func run() error {
 	noBrowser := flag.Bool("no-browser", false, "Start the local game server without opening a browser")
+	hostAddress := flag.String("host", "", "Join an existing host URL; empty automatically discovers a LAN host or becomes the host")
 	flag.Parse()
 	handler, err := gameHandler()
 	if err != nil {
 		return err
 	}
-	// A random loopback port avoids collisions and never exposes a server to the LAN.
+	api, closeHost, err := startHost(*hostAddress)
+	if err != nil {
+		fmt.Println("  Online unavailable: " + err.Error())
+		fmt.Println("  CPU practice is still available. Restart after fixing the host address or port.")
+		api = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Access-Control-Allow-Origin", "*")
+			jsonResponse(w, http.StatusServiceUnavailable, map[string]string{"error": "매칭 호스트를 시작하거나 연결할 수 없습니다. 실행 창을 확인하세요."})
+		})
+		closeHost = func() {}
+	}
+	defer closeHost()
+	mux := http.NewServeMux()
+	mux.Handle("/api/", api)
+	mux.Handle("/", handler)
+	// Keep the actual game in a localhost secure context for WebRTC.
 	listener, err := net.Listen("tcp4", "127.0.0.1:0")
 	if err != nil {
 		return fmt.Errorf("cannot start AXIS: %w", err)
 	}
 	defer listener.Close()
-	server := &http.Server{Handler: handler, ReadHeaderTimeout: 5 * time.Second}
+	server := &http.Server{Handler: mux, ReadHeaderTimeout: 5 * time.Second}
 	url := "http://" + listener.Addr().String()
-	fmt.Println("\n  AXIS ADVANCE - Pixel Fighting | v3.0.0")
+	fmt.Println("\n  AXIS ADVANCE - Pixel Fighting | v3.1.0")
 	fmt.Println("  --------------------------------")
 	fmt.Println("  Game ready: " + url)
 	fmt.Println("  Your browser will open the game automatically.")
@@ -76,7 +91,7 @@ func run() error {
 	fmt.Println("  To quit: close this window or press Ctrl+C.")
 	fmt.Println("\n  Move: A/D | Sidestep: W/S | U: Left Punch | I: Right Punch | J: Left Kick | K: Right Kick")
 	fmt.Print("  Guard: Hold Back | Crouch: Shift | 4 unique fighters | Check each fighter frame list\n")
-	fmt.Print("  Online: enter the deployed shared matchmaking server URL in the game lobby\n\n")
+	fmt.Print("  Online: QUICK MATCH uses the first LAN host automatically; internet: run EXE --host http://HOST-IP:8787\n\n")
 	if !*noBrowser {
 		go func() {
 			if err := openBrowser(url); err != nil {

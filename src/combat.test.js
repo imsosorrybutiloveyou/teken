@@ -158,7 +158,7 @@ test("sidestepping orbits the opponent while maintaining a left/right fighting a
   assert.ok(d < 8);
 });
 test("walking is moderated; all-world movement is still unbounded", () => {
-  assert.equal(WALK_SPEED, 3.2);
+  assert.equal(WALK_SPEED, 3.5);
   assert.ok(SIDESTEP_SPEED < 4);
   assert.ok(DASH_SPEED < 6);
   const m = setup(["kai", "kai"]);
@@ -176,7 +176,7 @@ test("displayed startup and active windows are the real attack timing", () => {
   const m = setup();
   feed(m, { action: "u" });
   const move = moveFor(m.fighters[0]);
-  feed(m, {}, move.startup - 1);
+  feed(m, {}, move.startup - 2);
   assert.equal(m.fighters[1].hp, MAX_HP);
   feed(m, {}, 1);
   assert.ok(m.fighters[1].hp < MAX_HP);

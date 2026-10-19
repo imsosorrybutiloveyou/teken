@@ -14,7 +14,7 @@
         >
         <div class="top-center">
           <span class="live-dot"></span> PIXEL FIGHTERS / FREE AXIS
-          <span class="version">/ VOL. 03</span>
+          <span class="version">/ VOL. 03.1</span>
         </div>
         <button id="online-button" class="button small">
           <span class="connection-icon">⌁</span> 온라인 대전 <span>↗</span>
@@ -184,12 +184,12 @@
       <div class="eyebrow">ONLINE ARENA / P2P</div>
       <h2>다음 상대를 찾으세요.</h2>
       <p class="dialog-intro">퀵 매치 또는 방 입장 → 캐릭터 선택 → P2P 대전</p>
-      <label class="field-label" for="server-url">공용 매칭 서버 URL</label>
+      <label class="field-label" for="server-url">매칭 호스트 주소</label>
       <div class="server-row">
         <input
           id="server-url"
           type="url"
-          placeholder="https://배포한-서버-주소"
+          placeholder="자동 검색 또는 http://호스트-IP:8787"
         /><button id="connect-lobby" class="button">연결</button>
       </div>
       <label class="field-label" for="player-name">플레이어 이름</label
@@ -224,13 +224,14 @@
         </div>
       </div>
       <p id="online-status" role="status">
-        공용 서버에 연결하세요. EXE 사용자는 배포된 서버 주소를 입력하세요.
+        EXE는 먼저 실행한 LAN 호스트에 자동 연결합니다. 퀵 매치 또는 방을
+        선택하세요.
       </p>
       <button id="cancel-queue" class="button" hidden>대기 취소</button>
       <p class="network-note">
-        공용 서버 배포 전에는 인터넷 매칭을 사용할 수 없습니다. 같은 서버 URL을
-        사용해야 목록과 대기열을 공유합니다. 일부 NAT 환경에서는 별도 TURN
-        중계가 필요합니다.
+        인터넷에서는 먼저 실행한 PC의 접속 주소 또는 공용 서버 URL을 사용해야
+        목록과 대기열을 공유합니다. 일부 NAT 환경에서는 별도 TURN 중계가
+        필요합니다.
       </p>
       <button id="disconnect-button" class="text-button">
         대전 종료 · 연습으로 돌아가기

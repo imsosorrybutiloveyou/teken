@@ -19,6 +19,7 @@ export class KeyboardInput {
     this.queue = [];
     this.applied = emptyInput();
     this.pending = null;
+    this.recentAttack = null;
   }
   state() {
     return {
@@ -35,10 +36,18 @@ export class KeyboardInput {
     if (STATE_KEYS.includes(key))
       this.queue.push({ ...this.state(), readyAt: at });
     if (ATTACK_KEYS.includes(key) && attacksEnabled) {
-      if (this.pending && at < this.pending.readyAt)
+      if (this.pending && at - this.pending.pressedAt <= 18)
         this.pending.buttons.push(key);
       else {
-        this.pending = { ...this.state(), buttons: [key], readyAt: at + 40 };
+        // A second hand/foot may arrive just across a simulation boundary.
+        const previous = this.recentAttack;
+        const buttons =
+          previous &&
+          at - previous.pressedAt <= 18 &&
+          previous.buttons.every((button) => this.held.has(button))
+            ? [...previous.buttons, key]
+            : [key];
+        this.pending = { ...this.state(), buttons, pressedAt: at, readyAt: at };
         this.queue.push(this.pending);
       }
     }
@@ -59,7 +68,10 @@ export class KeyboardInput {
           "+",
         );
         action = ACTIONS.includes(chord) ? chord : head.buttons.at(-1);
-        if (head === this.pending) this.pending = null;
+        if (head === this.pending) {
+          this.recentAttack = head;
+          this.pending = null;
+        }
       }
       this.applied = {
         x: head.x,
@@ -76,6 +88,7 @@ export class KeyboardInput {
     this.held.clear();
     this.queue = [];
     this.pending = null;
+    this.recentAttack = null;
     this.applied = emptyInput();
   }
 }

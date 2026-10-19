@@ -27,11 +27,11 @@ export class LobbyClient {
       .then((r) => r.json())
       .catch(() => {
         throw Error(
-          "매칭 서버에 연결할 수 없습니다. 공용 서버를 배포한 뒤 주소를 입력하세요.",
+          "호스트에 연결할 수 없습니다. 첫 PC의 EXE와 주소·방화벽을 확인하세요.",
         );
       });
     if (health.service !== "axis-matchmaking" || health.version !== 3)
-      throw Error("AXIS v3 매칭 서버가 필요합니다.");
+      throw Error("AXIS v3/v3.1 매칭 호스트가 필요합니다.");
     const response = await fetch(this.base + "/api/sessions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },

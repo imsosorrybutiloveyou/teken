@@ -60,3 +60,28 @@ test("clearing input removes held, queued and applied movement", () => {
   r.clear();
   assert.deepEqual(r.sample(), emptyInput());
 });
+
+test("a physical KAI jab hits on frame 10 without a chord waiting delay", () => {
+  const keyboard = new KeyboardInput(),
+    m = createMatch(["kai", "kai"]);
+  m.phase = "fight";
+  m.fighters[0].x = -0.5;
+  m.fighters[1].x = 0.5;
+  keyboard.down("u", 0);
+  for (let frame = 1; frame <= 10; frame++) {
+    step(m, [keyboard.sample(((frame - 1) * 1000) / 60), emptyInput()]);
+    assert.equal(m.fighters[1].hp < 120, frame === 10, `frame ${frame}`);
+  }
+});
+
+test("a split-frame chord upgrades the opening basic without delaying single attacks", () => {
+  const keyboard = new KeyboardInput(),
+    m = createMatch();
+  m.phase = "fight";
+  keyboard.down("u", 0);
+  step(m, [keyboard.sample(1), emptyInput()]);
+  assert.equal(m.fighters[0].attack.key, "u");
+  keyboard.down("i", 15);
+  step(m, [keyboard.sample(17), emptyInput()]);
+  assert.equal(m.fighters[0].attack.key, "throw");
+});

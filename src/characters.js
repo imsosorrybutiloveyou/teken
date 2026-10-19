@@ -346,7 +346,7 @@ export const CHARACTERS = Object.fromEntries(
               : key === "dragon"
                 ? 0.1
                 : 0,
-            hitstop: Math.min(14, 6 + Math.floor((damage * p.damage) / 5)),
+            hitstop: Math.min(9, 2 + Math.floor((damage * p.damage) / 5)),
             push: damage * p.damage > 25 ? 2.2 : 1.05,
           },
         ];

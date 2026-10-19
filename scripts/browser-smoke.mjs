@@ -18,7 +18,8 @@ const base = process.env.TEST_BASE_URL || "http://127.0.0.1:8787",
   lobby = process.env.TEST_LOBBY_URL || base;
 async function openLobby(page, name) {
   await page.locator("#online-button").click();
-  await page.locator("#server-url").fill(lobby);
+  if (!process.env.TEST_AUTO_HOST)
+    await page.locator("#server-url").fill(lobby);
   await page.locator("#player-name").fill(name);
 }
 async function choose(page, id) {
@@ -27,7 +28,7 @@ async function choose(page, id) {
 }
 try {
   await host.goto(base);
-  await guest.goto(base);
+  await guest.goto(process.env.TEST_GUEST_URL || base);
   await host.waitForFunction(
     () => window.axis && document.getElementById("loading").hidden,
   );

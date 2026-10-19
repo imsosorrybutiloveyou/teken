@@ -337,10 +337,11 @@ async function ensureLobby() {
   localStorage.setItem("axis-player-name", $("player-name").value);
   status("서버 연결 완료 · 퀵 매치 또는 방을 선택하세요.");
 }
-$("server-url").value =
-  localStorage.getItem("axis-match-server") ||
-  import.meta.env.VITE_MATCH_SERVER_URL ||
-  (document.querySelector('meta[name="axis-desktop"]') ? "" : location.origin);
+$("server-url").value = document.querySelector('meta[name="axis-desktop"]')
+  ? location.origin
+  : localStorage.getItem("axis-match-server") ||
+    import.meta.env.VITE_MATCH_SERVER_URL ||
+    location.origin;
 $("player-name").value = localStorage.getItem("axis-player-name") || "PLAYER";
 $("connect-lobby").onclick = () => job(ensureLobby);
 $("quick-match").onclick = () =>
@@ -727,7 +728,7 @@ function frame(now) {
       effects(match.events);
       if (battleActive) {
         remoteEvents.push(...match.events);
-        if (++netTick % 3 === 0)
+        if (++netTick % 2 === 0)
           peer.send({
             type: "state",
             state: { ...match, events: [] },
