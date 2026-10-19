@@ -83,7 +83,7 @@ func run() error {
 	defer listener.Close()
 	server := &http.Server{Handler: mux, ReadHeaderTimeout: 5 * time.Second}
 	url := "http://" + listener.Addr().String()
-	fmt.Println("\n  AXIS ADVANCE - Pixel Fighting | v3.1.0")
+	fmt.Println("\n  AXIS ADVANCE - Pixel Fighting | v3.2.0")
 	fmt.Println("  --------------------------------")
 	fmt.Println("  Game ready: " + url)
 	fmt.Println("  Your browser will open the game automatically.")

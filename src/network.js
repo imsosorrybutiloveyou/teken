@@ -3,7 +3,7 @@ import { CHARACTER_IDS, character } from "./characters.js";
 export function validSnapshot(v) {
   if (
     !v ||
-    v.version !== 3 ||
+    v.version !== 4 ||
     !["ready", "fight", "roundEnd", "matchEnd"].includes(v.phase) ||
     !Number.isFinite(v.time) ||
     v.time < 0 ||
@@ -53,6 +53,10 @@ export function validSnapshot(v) {
         "dash",
         "lastMoveAge",
         "travel",
+        "airHits",
+        "airOwner",
+        "wakeUp",
+        "lastHitBy",
       ].every((k) => Number.isFinite(f[k]) && Math.abs(f[k]) < 1e12) &&
       f.hp >= 0 &&
       f.hp <= MAX_HP &&
@@ -73,12 +77,28 @@ export function validSnapshot(v) {
           e.dir <= 9 &&
           Number.isFinite(e.at),
       ) &&
+      Number.isInteger(f.airHits) &&
+      f.airHits >= 0 &&
+      f.airHits <= 6 &&
+      [-1, 0, 1].includes(f.airOwner) &&
+      [-1, 0, 1].includes(f.lastHitBy) &&
+      f.wakeUp >= 0 &&
+      f.wakeUp <= 1 &&
+      typeof f.bounceUsed === "boolean" &&
+      typeof f.bouncePending === "boolean" &&
+      ["high", "mid", "low", "throw"].includes(f.hitLevel) &&
+      typeof f.hitKind === "string" &&
+      f.hitKind.length <= 24 &&
       typeof f.guard === "boolean" &&
       typeof f.crouch === "boolean" &&
       (!f.attack ||
         (Object.hasOwn(character(f.character).moves, f.attack.key) &&
           Number.isFinite(f.attack.t) &&
-          Number.isFinite(f.attack.angle))),
+          Number.isFinite(f.attack.angle) &&
+          (f.attack.height === undefined ||
+            (Number.isFinite(f.attack.height) &&
+              f.attack.height >= 0 &&
+              f.attack.height <= 3)))),
   );
 }
 export class PeerSession {
@@ -132,7 +152,7 @@ export class PeerSession {
     };
     if (role === "host") {
       this.attach(
-        peer.createDataChannel("axis-v3", { ordered: true }),
+        peer.createDataChannel("axis-v4", { ordered: true }),
         generation,
       );
       await peer.setLocalDescription(await peer.createOffer());

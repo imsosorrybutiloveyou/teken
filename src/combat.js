@@ -1,6 +1,8 @@
 import { CHARACTERS, character, moveFor } from "./characters.js";
 export { CHARACTERS, moveFor };
 export const MAX_HP = 120;
+export const JUGGLE_LIMIT = 6;
+const GRAVITY = 20;
 export const WALK_SPEED = 3.5;
 export const SIDESTEP_SPEED = 3.8;
 export const DASH_SPEED = 5.6;
@@ -81,6 +83,14 @@ function fighter(x, id, index) {
     vx: 0,
     vz: 0,
     blockstun: false,
+    airHits: 0,
+    airOwner: -1,
+    bounceUsed: false,
+    bouncePending: false,
+    wakeUp: 0,
+    hitLevel: "mid",
+    hitKind: "rightPunch",
+    lastHitBy: -1,
     x,
     z: 0,
     y: 0,
@@ -112,7 +122,7 @@ function fighter(x, id, index) {
 }
 export function createMatch(ids = ["kai", "ren"]) {
   return {
-    version: 3,
+    version: 4,
     axisAngle: 0,
     hitstop: 0,
     fighters: [
@@ -163,7 +173,16 @@ function resolveHit(m, index) {
     forward < 0.15 ||
     forward > move.range ||
     lateral > move.width ||
-    b.y > 2.15
+    b.wakeUp > 0
+  )
+    return false;
+  const airborne = b.y > 0.01 || b.vy !== 0;
+  if (
+    airborne &&
+    (b.airHits >= JUGGLE_LIMIT ||
+      b.bouncePending ||
+      b.y > move.airMax ||
+      b.y < move.airMin)
   )
     return false;
   if (move.level === "throw" && (b.y > 0.2 || b.crouch || b.stun > 0))
@@ -186,17 +205,29 @@ function resolveHit(m, index) {
     emit(m, "block", {
       index: 1 - index,
       x: b.x,
-      y: 1.1,
+      y: move.impactHeight,
       z: b.z,
       heavy: move.damage > 23,
+      kind: move.kind,
+      level: move.level,
     });
     return true;
   }
   atk.connected = true;
-  const airborne = b.y > 0.1,
-    damage = Math.round(
-      move.damage * (airborne ? 0.7 : 1) * (a.combo >= 3 ? 0.75 : 1),
-    );
+  const continuing = airborne
+    ? b.airOwner === index
+    : b.stun > 0 && !b.blockstun && b.lastHitBy === index;
+  const damage = Math.max(
+    1,
+    Math.round(
+      move.damage *
+        (airborne ? Math.max(0.3, 0.72 - b.airHits * 0.08) : 1) *
+        (continuing && a.combo >= 3 ? 0.85 : 1),
+    ),
+  );
+  b.hitLevel = move.level;
+  b.hitKind = move.kind;
+  b.lastHitBy = index;
   b.hp = Math.max(0, b.hp - damage);
   b.stun = move.stun;
   b.statusTick = m.tick;
@@ -206,29 +237,50 @@ function resolveHit(m, index) {
   b.buffer = null;
   b.guard = false;
   b.hitFlash = 0.13;
-  b.vx = Math.cos(atk.angle) * move.push;
-  b.vz = Math.sin(atk.angle) * move.push;
+  const push = move.push * (airborne ? 0.38 : move.launch ? 0.65 : 1);
+  b.vx = Math.cos(atk.angle) * push;
+  b.vz = Math.sin(atk.angle) * push;
   if (move.launch && !airborne) {
-    b.vy = 6.5;
+    b.vy = 8;
     b.y = 0.02;
-    b.stun = 0.8;
+    b.stun = 0.85;
+    b.airHits = 0;
+    b.airOwner = index;
+    b.bounceUsed = false;
+    b.bouncePending = false;
   } else if (airborne) {
-    b.vy = Math.max(b.vy, 2);
-    b.stun = Math.max(b.stun, 0.34);
+    b.airHits++;
+    b.airOwner = index;
+    if (move.bound && !b.bounceUsed) {
+      b.bounceUsed = true;
+      b.bouncePending = true;
+      b.vy = -6;
+    } else {
+      // Keep the target reachable without raising it indefinitely on repeated hits.
+      const lift = Math.max(2.4, 5 - b.airHits * 0.4);
+      b.vy = Math.min(lift, Math.sqrt(Math.max(0, 2 * GRAVITY * (1.85 - b.y))));
+    }
+    b.stun = Math.max(b.stun, 0.5);
   }
-  a.combo = a.comboAge < 0.95 ? a.combo + 1 : 1;
+  a.combo = continuing ? a.combo + 1 : 1;
   a.comboDamage = a.combo === 1 ? damage : a.comboDamage + damage;
   a.comboAge = 0;
   emit(m, "hit", {
     index,
     key: atk.key,
     damage,
+    kind: move.kind,
+    level: move.level,
     combo: a.combo,
     total: a.comboDamage,
     x: b.x,
-    y: b.y + (move.level === "low" ? 0.45 : 1.25),
+    y: Math.max(
+      b.y + 0.02,
+      Math.min(b.y + 1.9, atk.height ?? move.impactHeight),
+    ),
     z: b.z,
     launch: !!move.launch,
+    bound: !!move.bound && airborne && b.bouncePending,
     heavy: move.damage >= 23,
     hitstop: move.hitstop,
   });
@@ -284,6 +336,7 @@ export function step(m, rawInputs, dt = 1 / 60) {
   }
   if (m.hitstop > 0) {
     m.hitstop = Math.max(0, m.hitstop - dt);
+    if (m.hitstop < 1e-9) m.hitstop = 0;
     for (let i = 0; i < 2; i++) {
       const f = m.fighters[i],
         input = sanitizeInput(rawInputs[i]);
@@ -306,6 +359,7 @@ export function step(m, rawInputs, dt = 1 / 60) {
     f.lastMoveAge += dt;
     f.dash = Math.max(0, f.dash - dt);
     f.hitFlash = Math.max(0, f.hitFlash - dt);
+    f.wakeUp = Math.max(0, f.wakeUp - dt);
     if (f.statusTick !== m.tick) {
       f.stun = Math.max(0, f.stun - dt);
       if (f.stun < 1e-9) f.stun = 0;
@@ -318,10 +372,23 @@ export function step(m, rawInputs, dt = 1 / 60) {
       f.vx *= Math.max(0, 1 - dt * 9);
       f.vz *= Math.max(0, 1 - dt * 9);
     }
-    if (f.y > 0 || f.vy > 0) {
+    if (f.statusTick !== m.tick && (f.y > 0 || f.vy > 0)) {
       f.y = Math.max(0, f.y + f.vy * dt);
-      f.vy -= 16 * dt;
-      if (f.y === 0) f.vy = 0;
+      f.vy -= GRAVITY * dt;
+      if (f.y === 0) {
+        if (f.bouncePending) {
+          f.bouncePending = false;
+          f.y = 0.03;
+          f.vy = 6.3;
+          f.stun = Math.max(f.stun, 0.55);
+        } else {
+          f.vy = 0;
+          f.airHits = 0;
+          f.airOwner = -1;
+          f.stun = Math.max(f.stun, 0.18);
+          f.wakeUp = 0.28;
+        }
+      }
     }
     if (!f.attack) {
       f.angle = m.axisAngle + (i === 1 ? Math.PI : 0);
@@ -353,16 +420,28 @@ export function step(m, rawInputs, dt = 1 / 60) {
     if (f.attack) {
       f.attack.t += dt;
       const move = moveFor(f);
+      f.attack.height =
+        move.level === "low"
+          ? move.impactHeight
+          : Math.max(move.impactHeight, Math.min(2, other.y + 0.1));
       if (move.lunge && f.attack.t < move.windup) {
         const amount = (move.lunge * dt) / move.windup;
         f.x += Math.cos(f.attack.angle) * amount;
         f.z += Math.sin(f.attack.angle) * amount;
       }
       if (!f.attack.hit && f.attack.t + 1e-9 >= move.windup) {
-        if (f.attack.t <= move.windup + move.active / 60 + 1e-6)
+        if (f.attack.t < move.windup + move.active / 60 - 1e-9)
           f.attack.hit = resolveHit(m, i);
         else f.attack.hit = true;
       }
+      const juggleCancel =
+        f.attack?.connected &&
+        f.buffer &&
+        other.y > 0 &&
+        other.airOwner === i &&
+        other.airHits < JUGGLE_LIMIT &&
+        move.juggleCancel !== null &&
+        f.attack.t >= move.windup + move.juggleCancel / 60;
       const chainCancel =
         f.attack &&
         f.attack.connected &&
@@ -373,7 +452,8 @@ export function step(m, rawInputs, dt = 1 / 60) {
       if (
         f.attack &&
         (f.attack.t + 1e-9 >= move.duration ||
-          (chainCancel && f.attack.t >= move.windup + 0.065))
+          (chainCancel && f.attack.t >= move.windup + 0.065) ||
+          juggleCancel)
       )
         f.attack = null;
     }
@@ -436,6 +516,31 @@ export function cpuInput(m, index = 1) {
   } else if (m.tick % 190 < 20) {
     input.x = -f.facing * 0.65;
   }
+  const p = character(f.character);
+  const commandInput = (key) => {
+    const [, button, sequence] = p.commands.find((r) => r[0] === key);
+    const dir = sequence.at(-1);
+    input.x = (dir % 3 === 1 ? -1 : dir % 3 === 0 ? 1 : 0) * f.facing;
+    input.z = dir <= 3 ? 1 : dir >= 7 ? -1 : 0;
+    input.action = button;
+  };
+  if (
+    o.y > 0 &&
+    o.airOwner === index &&
+    o.airHits < JUGGLE_LIMIT &&
+    f.stun === 0 &&
+    !f.buffer &&
+    (!f.attack || f.attack.connected) &&
+    m.tick % 4 === 0
+  ) {
+    if (o.airHits >= 2 && !o.bounceUsed) commandInput("bound");
+    else {
+      input.x = 0;
+      input.z = 0;
+      input.action = p.chain[f.chain === 1 ? 1 : f.chain === 2 ? 2 : 0];
+    }
+    return input;
+  }
   if (m.tick % 25 === 0 && d < 2.2 && input.x * f.facing >= 0) {
     input.action = ["u", "i", "j", "k", "u+i", "j+k"][Math.floor(r * 6)];
     if (r < 0.16) {
@@ -445,8 +550,13 @@ export function cpuInput(m, index = 1) {
         (r) => r[0] === "upper",
       )[1];
     } else if (r < 0.3) {
-      input.z = 1;
-      input.action = "j";
+      commandInput("low");
+    } else if (r > 0.6) {
+      commandInput(
+        ["hook", "elbow", "toeKick", "sideKick", "kneeStrike"][
+          Math.min(4, Math.floor((r - 0.6) / 0.08))
+        ],
+      );
     }
   }
   if (o.attack && m.tick % 140 < 24 && input.x * f.facing >= 0) input.z = 0.8;

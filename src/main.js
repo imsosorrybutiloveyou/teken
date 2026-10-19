@@ -55,13 +55,20 @@ function playHit(event) {
   if (!sound || !audio || audio.state !== "running") return;
   const now = audio.currentTime,
     blocked = event.type === "block",
-    heavy = event.heavy;
+    heavy = event.heavy,
+    kick = /Kick|spin|sweep|knee|low/.test(event.kind || "");
   const bass = audio.createOscillator(),
     gain = audio.createGain();
   bass.type = "sine";
-  bass.frequency.setValueAtTime(blocked ? 180 : heavy ? 100 : 145, now);
+  bass.frequency.setValueAtTime(
+    blocked ? 180 : kick ? 105 : heavy ? 100 : 165,
+    now,
+  );
   bass.frequency.exponentialRampToValueAtTime(35, now + 0.16);
-  gain.gain.setValueAtTime(blocked ? 0.06 : heavy ? 0.24 : 0.16, now);
+  gain.gain.setValueAtTime(
+    blocked ? 0.06 : heavy ? 0.24 : kick ? 0.18 : 0.13,
+    now,
+  );
   gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
   bass.connect(gain);
   gain.connect(audio.destination);
@@ -80,7 +87,7 @@ function playHit(event) {
     snap = audio.createGain();
   noise.buffer = buffer;
   filter.type = "lowpass";
-  filter.frequency.value = blocked ? 2500 : heavy ? 1100 : 1800;
+  filter.frequency.value = blocked ? 2500 : kick ? 1300 : heavy ? 1100 : 2400;
   snap.gain.setValueAtTime(blocked ? 0.05 : 0.11, now);
   snap.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
   noise.connect(filter);
@@ -569,6 +576,8 @@ document.addEventListener("visibilitychange", () => {
 const levels = { high: "상단", mid: "중단", low: "하단", throw: "잡기" };
 function renderMoves(id) {
   const p = character(id);
+  $("move-air-combo").textContent =
+    `공중 5타: ${p.moves.upper.command} › ${p.chain.slice(0, 2).join(" › ").toUpperCase()} › ${p.moves.bound.command} › ${p.moves.sideKick.command}. 띄우고 적중을 확인하며 다음 버튼을 입력하세요. 방향 기술 뒤에는 방향키를 떼세요.`;
   $("move-list").replaceChildren();
   for (const [key, m] of Object.entries(p.moves)) {
     const row = document.createElement("div");
@@ -580,10 +589,10 @@ function renderMoves(id) {
       frames = document.createElement("div");
     command.textContent = m.command;
     name.textContent = m.name;
-    desc.textContent = `${levels[m.level]} · ${m.damage} DMG · ${m.launch ? "띄우기" : m.range.toFixed(2) + "m"}`;
+    desc.textContent = `${levels[m.level]} · ${m.damage} DMG · ${m.launch ? "띄우기" : m.bound ? "공중 바운드 · 콤보당 1회" : m.range.toFixed(2) + "m"}`;
     frames.className = "frame-data";
     const sign = (n) => (n > 0 ? "+" + n : String(n));
-    frames.textContent = `S ${m.startup} / A ${m.active} / R ${m.recovery} | G ${m.level === "throw" ? "—" : sign(m.onBlock)} / H ${m.launch ? "L" : sign(m.onHit)}`;
+    frames.textContent = `S ${m.startup} / A ${m.active} / R ${m.recovery} | G ${m.level === "throw" ? "—" : sign(m.onBlock)} / H ${m.launch ? "L" : m.bound ? sign(m.onHit) + " / B" : sign(m.onHit)}`;
     info.append(name, desc);
     row.append(command, info, frames);
     $("move-list").append(row);

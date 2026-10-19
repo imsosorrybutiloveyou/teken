@@ -107,7 +107,32 @@ function limb(c, a, b, width, base, light) {
   );
   c.stroke();
 }
-function spritePose(f, t) {
+const smooth = (v) => {
+  const x = Math.max(0, Math.min(1, v));
+  return x * x * (3 - 2 * x);
+};
+// Two-bone joints keep arms and legs the same length in every pose.
+function fitLimb(root, hint, end, upper, lower) {
+  const dx = end[0] - root[0],
+    dy = end[1] - root[1];
+  const raw = Math.hypot(dx, dy) || 1,
+    length = Math.max(
+      Math.abs(upper - lower) + 0.5,
+      Math.min(raw, upper + lower - 0.5),
+    );
+  const ux = dx / raw,
+    uy = dy / raw;
+  const along =
+    (upper * upper - lower * lower + length * length) / (2 * length);
+  const side =
+    Math.sign(dx * (hint[1] - root[1]) - dy * (hint[0] - root[0])) || 1;
+  const bend = Math.sqrt(Math.max(0, upper * upper - along * along)) * side;
+  return [
+    [root[0] + ux * along - uy * bend, root[1] + uy * along + ux * bend],
+    [root[0] + ux * length, root[1] + uy * length],
+  ];
+}
+export function spritePose(f, t) {
   const walk = Math.sin(f.travel * 8),
     bob = Math.round(Math.sin(t * 5) * 1.1),
     crouch = f.crouch ? 16 : 0;
@@ -158,8 +183,17 @@ function spritePose(f, t) {
     pose.lean = -2;
   }
   if (f.stun > 0 && !f.guard) {
-    pose.lean = -6;
-    pose.head[0] -= 5;
+    pose.lean = f.hitKind === "hammer" ? 5 : -6;
+    pose.head[0] -= f.hitLevel === "high" ? 8 : 4;
+    if (f.hitLevel === "low") {
+      pose.hip[1] += 6;
+      pose.head[1] += 3;
+      pose.knees = [
+        [24, 91],
+        [68, 87],
+      ];
+    }
+    if (["upper", "dragon", "knee"].includes(f.hitKind)) pose.head[1] -= 4;
     pose.hands = [
       [25, 48],
       [57, 59],
@@ -182,63 +216,180 @@ function spritePose(f, t) {
   }
   if (f.attack) {
     const m = moveFor(f),
-      at = f.attack.t,
-      e = Math.max(
-        0,
-        at < m.windup
-          ? Math.sin(((at / m.windup) * Math.PI) / 2)
-          : 1 - (at - m.windup) / (m.duration - m.windup),
+      at = f.attack.t;
+    const activeEnd = m.windup + m.active / 60;
+    const recovering = at > activeEnd;
+    const recovery = recovering ? (at - activeEnd) / (m.recovery / 60) : 0;
+    const startup = at / m.windup;
+    // Chamber first, snap through contact, then fold back before settling.
+    const chamber = recovering
+      ? 1 - smooth(recovery / 0.72)
+      : smooth(startup / 0.55);
+    const e = recovering
+      ? 1 - smooth((at - activeEnd) / Math.min(0.14, m.recovery / 60))
+      : smooth((startup - 0.55) / 0.45);
+    const aimOffset =
+      (((f.attack.height ?? m.impactHeight) - m.impactHeight) * 91) / 2.15;
+    const set = (part, index, target, weight = e) => {
+      pose[part][index] = pose[part][index].map((v, i) =>
+        mix(v, target[i], weight),
       );
-    const set = (part, index, target) => {
-      pose[part][index] = pose[part][index].map((v, i) => mix(v, target[i], e));
     };
-    if (["leftPunch", "rightPunch", "powerPunch", "palm"].includes(m.kind)) {
-      const arm = m.kind === "leftPunch" || m.kind === "palm" ? 1 : 0;
-      set("elbows", arm, [75, 43]);
-      set("hands", arm, [101, m.level === "high" ? 34 : 44]);
-      pose.lean = e * 8;
-      if (m.kind === "powerPunch") {
-        set("hands", arm, [107, 43]);
-        pose.lean = e * 12;
+    const contact = (part, index) => {
+      pose[part][index][1] -= aimOffset * e;
+    };
+    const punch = [
+      "leftPunch",
+      "rightPunch",
+      "powerPunch",
+      "palm",
+      "leftHook",
+      "rightHook",
+      "bodyBlow",
+      "elbow",
+    ].includes(m.kind);
+    if (punch) {
+      const arm = m.side;
+      const hook = m.kind.endsWith("Hook"),
+        elbow = m.kind === "elbow",
+        body = m.kind === "bodyBlow" || m.level === "low";
+      set("hands", arm, [49, body ? 60 : 43], chamber * (1 - e));
+      set("elbows", arm, [39, 58], chamber * (1 - e));
+      set("hands", 1 - arm, [67, 31], chamber);
+      set("elbows", 1 - arm, [57, 47], chamber);
+      set(
+        "elbows",
+        arm,
+        elbow ? [80, 43] : hook ? [76, 34] : [72, body ? 59 : 45],
+      );
+      set(
+        "hands",
+        arm,
+        elbow
+          ? [67, 33]
+          : hook
+            ? [84, 39]
+            : [91, body ? 65 : m.level === "high" ? 33 : 46],
+      );
+      contact("hands", arm);
+      contact("elbows", arm);
+      pose.shoulders[arm][0] += e * (arm === 0 ? 8 : 3);
+      pose.shoulders[1 - arm][0] -= e * 2;
+      pose.hip[0] += 2 * e;
+      pose.lean =
+        -2 * chamber * (1 - e) + e * (m.kind === "powerPunch" ? 9 : 5);
+      if (body) {
+        pose.hip[1] += chamber * 5;
+        pose.head[1] += chamber * 4;
       }
     }
     if (["upper", "dragon"].includes(m.kind)) {
-      set("elbows", 0, [66, 37]);
-      set("hands", 0, [68, 6]);
-      pose.head[1] -= e * 5;
+      const arm = m.side;
+      set("hands", arm, [53, 64], chamber * (1 - e));
+      set("elbows", arm, [46, 57], chamber * (1 - e));
+      set("elbows", arm, [67, 36]);
+      set("hands", arm, [70, 26]);
+      set("hands", 1 - arm, [68, 31], chamber);
+      pose.hip[1] += chamber * (1 - e) * 7 - e * 2;
+      pose.head[1] += chamber * (1 - e) * 5 - e * 3;
       pose.lean = e * 5;
     }
-    if (
-      ["leftKick", "rightKick", "spin", "low", "sweep", "backKick"].includes(
-        m.kind,
-      )
-    ) {
-      const leg = m.kind === "leftKick" || m.kind === "low" ? 1 : 0,
-        low = ["low", "sweep"].includes(m.kind);
-      set("knees", leg, [75, low ? 87 : 61]);
-      set("feet", leg, [104, low ? 102 : 53]);
-      pose.lean = -e * 9;
-      pose.hip[1] += low ? e * 7 : 0;
-      set("hands", 1, [61, 31]);
-      if (m.kind === "spin") {
-        pose.lean = -e * 14;
-        set("hands", 0, [25, 41]);
+    const kicks = [
+      "leftKick",
+      "rightKick",
+      "spin",
+      "low",
+      "sweep",
+      "backKick",
+      "toeKick",
+      "sideKick",
+      "axeKick",
+    ];
+    if (kicks.includes(m.kind)) {
+      const leg = m.side;
+      const low = ["low", "sweep", "toeKick"].includes(m.kind);
+      const side = ["sideKick", "backKick"].includes(m.kind);
+      // One foot bears the weight; the striking knee folds and the heel retracts.
+      pose.hip[0] -= chamber * 3;
+      set("knees", leg, [65, low ? 79 : 61], chamber);
+      set("feet", leg, [51, low ? 100 : 84], chamber);
+      set("hands", 1, [67, 30], chamber);
+      set("hands", 0, [49, 36], chamber);
+      if (m.kind === "axeKick") {
+        set("knees", leg, [65, 44], chamber * (1 - e));
+        set("feet", leg, [66, 23], chamber * (1 - e));
       }
-      if (m.kind === "backKick") set("feet", leg, [106, 67]);
+      set("knees", leg, [75, low ? 87 : side ? 69 : 60]);
+      set("feet", leg, [
+        m.kind === "toeKick" ? 88 : 95,
+        low ? 99 : side ? 66 : m.kind === "axeKick" ? 59 : 49,
+      ]);
+      pose.lean = -chamber * 3 - e * (side ? 5 : 3);
+      if (low) pose.hip[1] += e * 4;
+      contact("feet", leg);
+      contact("knees", leg);
+      if (m.kind === "spin") {
+        set("hands", 0, [28, 41], chamber);
+        pose.hip[0] += e * 2;
+      }
     }
     if (m.kind === "knee") {
-      set("knees", 1, [75, 53]);
-      set("feet", 1, [65, 77]);
-      pose.lean = e * 4;
-      pose.head[1] -= e * 5;
+      const leg = m.side;
+      set("knees", leg, [67, 63], chamber);
+      set("feet", leg, [48, 86], chamber);
+      set("knees", leg, [79, 49]);
+      set("feet", leg, [65, 75]);
+      set("hands", 0, [66, 30], chamber);
+      set("hands", 1, [74, 36], chamber);
+      contact("knees", leg);
+      contact("feet", leg);
+      pose.lean = e * 3;
+      pose.hip[0] += e * 3;
+    }
+    if (m.kind === "hammer") {
+      for (const arm of [0, 1]) {
+        set("hands", arm, [65 + arm * 5, 16], chamber * (1 - e));
+        set("elbows", arm, [55 + arm * 9, 30], chamber * (1 - e));
+        set("hands", arm, [83 + arm * 3, 62]);
+        set("elbows", arm, [68, 45]);
+        contact("hands", arm);
+        contact("elbows", arm);
+      }
+      pose.lean = 8 * e;
+      pose.hip[1] += 4 * e;
     }
     if (m.kind === "throw") {
-      set("elbows", 0, [66, 44]);
-      set("hands", 0, [84, 43]);
-      set("elbows", 1, [70, 57]);
-      set("hands", 1, [88, 55]);
-      pose.lean = e * 7;
+      for (const arm of [0, 1]) {
+        set("hands", arm, [86, 42 + arm * 10]);
+        set("elbows", arm, [67, 45 + arm * 8]);
+        if (recovering)
+          set(
+            "hands",
+            arm,
+            [56, 42 + arm * 7],
+            Math.sin(Math.PI * smooth(recovery)),
+          );
+      }
+      pose.lean = e * 5;
+      pose.hip[0] += e * 2;
     }
+  }
+  for (const i of [0, 1]) {
+    const shoulder = [pose.shoulders[i][0] + pose.lean, pose.shoulders[i][1]];
+    [pose.elbows[i], pose.hands[i]] = fitLimb(
+      shoulder,
+      pose.elbows[i],
+      pose.hands[i],
+      19,
+      20,
+    );
+    [pose.knees[i], pose.feet[i]] = fitLimb(
+      [pose.hip[0] + (i ? 5 : -5), pose.hip[1]],
+      pose.knees[i],
+      pose.feet[i],
+      24,
+      25,
+    );
   }
   return pose;
 }
@@ -693,24 +844,21 @@ export function createScene(canvas) {
               1,
             );
         }
-        if (
-          f.attack &&
-          ["qcfPunch", "dragon", "qcfKick", "palm"].includes(f.attack.key)
-        ) {
+        if (f.attack) {
           const m = moveFor(f),
-            v = Math.max(0, 1 - Math.abs(f.attack.t - m.windup) * 7);
-          if (v > 0) {
-            c.strokeStyle = "#f8d58a";
-            c.lineWidth = 2;
-            c.beginPath();
-            c.arc(
-              p.x + f.facing * p.scale * 0.65,
-              p.y - p.scale * 1.1,
-              p.scale * 0.5 * v,
-              -1.3,
-              1.3,
-            );
-            c.stroke();
+            delta = f.attack.t - m.windup;
+          if (delta >= -1 / 60 && delta < 3 / 60 && m.level !== "throw") {
+            const height = f.attack.height ?? m.impactHeight;
+            c.strokeStyle = character(f.character).color + "88";
+            c.lineWidth = 1;
+            for (let n = 0; n < 2; n++) {
+              const x = p.x + f.facing * p.scale * (0.45 + n * 0.12);
+              const y = p.y - p.scale * height + n * 3;
+              c.beginPath();
+              c.moveTo(x, y);
+              c.lineTo(x + f.facing * p.scale * 0.23, y - (m.launch ? 4 : 1));
+              c.stroke();
+            }
           }
         }
       }

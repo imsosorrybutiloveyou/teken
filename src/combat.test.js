@@ -46,7 +46,7 @@ test("four fighters have independently authored commands, startup and recovery",
     4,
   );
   for (const id of CHARACTER_IDS) {
-    assert.equal(Object.keys(character(id).moves).length, 17);
+    assert.equal(Object.keys(character(id).moves).length, 25);
     for (const move of Object.values(character(id).moves)) {
       assert.equal(
         move.duration,
@@ -235,5 +235,160 @@ test("displayed guard disadvantage matches recovery for either player order", ()
       if (attackerEnd !== null && defenderEnd !== null) break;
     }
     assert.equal(defenderEnd - attackerEnd, move.onBlock, `P${index + 1}`);
+  }
+});
+
+test("every fighter links a real five-hit airborne combo including one bound on either side", () => {
+  for (const id of CHARACTER_IDS)
+    for (const index of [0, 1]) {
+      const m = setup(index === 0 ? [id, "kai"] : ["kai", id]),
+        p = character(id);
+      const command = (key) => {
+        const [, button, seq] = p.commands.find((r) => r[0] === key);
+        return { ...dirInput(seq.at(-1), index), action: button };
+      };
+      const sequence = [
+        command("upper"),
+        { action: p.chain[0] },
+        { action: p.chain[1] },
+        command("bound"),
+        command("sideKick"),
+      ];
+      let next = sequence.shift();
+      const hits = [];
+      for (let frame = 0; frame < 300; frame++) {
+        feed(m, next || {}, 1, index);
+        next = null;
+        for (const hit of m.events.filter(
+          (e) => e.type === "hit" && e.index === index,
+        )) {
+          hits.push({ ...hit, airborne: m.fighters[1 - index].y > 0 });
+          next = sequence.shift();
+        }
+      }
+      assert.deepEqual(
+        hits.map((h) => h.key),
+        ["upper", p.chain[0], "oneTwo", "bound", "sideKick"],
+        `${id} P${index + 1}`,
+      );
+      assert.deepEqual(
+        hits.map((h) => h.combo),
+        [1, 2, 3, 4, 5],
+      );
+      assert.ok(hits.every((h) => h.airborne));
+      assert.equal(hits.filter((h) => h.bound).length, 1);
+    }
+});
+test("a missed or blocked launcher cannot cancel into a follow-up", () => {
+  for (const blocked of [true, false]) {
+    const m = setup(),
+      p = character("kai");
+    if (!blocked) m.fighters[1].x = 6;
+    const defense = blocked ? { x: 1 } : {};
+    feed(m, { ...dirInput(3), action: "i" }, 1, 0, defense);
+    feed(m, {}, p.moves.upper.startup + 3, 0, defense);
+    feed(m, { action: "u" }, 1, 0, defense);
+    feed(m, {}, 10, 0, defense);
+    assert.equal(m.fighters[0].attack?.key, "upper");
+    assert.equal(m.fighters[1].y, 0);
+  }
+});
+test("airborne pressure ends at six follow-ups, and landing grants recovery protection", () => {
+  const m = setup(["kai", "kai"]);
+  feed(m, { ...dirInput(3), action: "i" });
+  let launched = false,
+    landed = false,
+    hits = 0,
+    peak = 0;
+  for (let frame = 0; frame < 500; frame++) {
+    feed(m, { action: "u" });
+    const target = m.fighters[1];
+    if (target.y > 0) launched = true;
+    for (const hit of m.events.filter((e) => e.type === "hit")) {
+      hits++;
+      assert.ok(hit.combo <= 7);
+    }
+    peak = Math.max(peak, target.airHits);
+    if (launched && target.y === 0) {
+      landed = true;
+      assert.ok(target.wakeUp > target.stun);
+      assert.equal(target.airHits, 0);
+      const hp = target.hp;
+      feed(m, { action: "u" }, 10);
+      assert.equal(target.hp, hp);
+      break;
+    }
+  }
+  assert.ok(landed);
+  assert.equal(peak, 6);
+  assert.equal(hits, 7);
+});
+test("low kicks cannot juggle a high airborne opponent and throw cannot grab it", () => {
+  for (const action of ["j+k", "u+i"]) {
+    const m = setup();
+    m.fighters[1].y = 1.5;
+    m.fighters[1].vy = 3;
+    m.fighters[1].airOwner = 0;
+    feed(m, { action }, 1);
+    // Observe only the active window; later landing must not turn this into a grounded hit.
+    const move = moveFor(m.fighters[0]);
+    let damage = 0;
+    for (let frame = 0; frame < move.startup + move.active; frame++) {
+      feed(m);
+      damage += m.events.filter((e) => e.type === "hit").length;
+    }
+    assert.equal(damage, 0);
+  }
+});
+test("basic kicks are shorter and recover faster than the previous slow kicks", () => {
+  for (const id of CHARACTER_IDS) {
+    const p = character(id);
+    assert.ok(p.moves.j.startup <= 17);
+    assert.ok(p.moves.k.startup <= 20);
+    assert.ok(p.moves.j.recovery <= 21);
+    assert.ok(p.moves.k.recovery <= 25);
+    assert.ok(p.moves.j.range < 2);
+    assert.ok(p.moves.k.range <= 2.05);
+    assert.ok(p.moves.u.startup <= 14);
+  }
+});
+
+test("active frames end exactly at S + A, so a late target is not hit by an expired jab", () => {
+  const m = setup();
+  m.fighters[1].x = 4;
+  feed(m, { action: "u" }, 11);
+  const hp = m.fighters[1].hp;
+  m.fighters[1].x = 0.5;
+  feed(m);
+  assert.equal(m.fighters[1].hp, hp);
+});
+test("combo follow-ups tolerate a six-frame reaction delay after each confirmed hit", () => {
+  for (const id of CHARACTER_IDS) {
+    const m = setup([id, "kai"]),
+      p = character(id);
+    const command = (key) => {
+      const [, button, seq] = p.commands.find((r) => r[0] === key);
+      return { ...dirInput(seq.at(-1)), action: button };
+    };
+    const sequence = [
+      command("upper"),
+      { action: p.chain[0] },
+      { action: p.chain[1] },
+      command("bound"),
+      command("sideKick"),
+    ];
+    let next = sequence.shift(),
+      hits = 0;
+    for (let n = 0; n < 300; n++) {
+      feed(m, next || {});
+      next = null;
+      if (m.events.some((e) => e.type === "hit" && e.index === 0)) {
+        hits++;
+        feed(m, {}, 6);
+        next = sequence.shift();
+      }
+    }
+    assert.equal(hits, 5, id);
+    assert.equal(m.fighters[0].combo, 5, id);
   }
 });
