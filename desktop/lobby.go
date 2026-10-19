@@ -23,6 +23,8 @@ type lobbyClient struct {
 	Seen                   time.Time
 }
 type lobbyRoom struct {
+	Side     int    `json:"side"`
+	Stage    string `json:"stage"`
 	ID       string `json:"id"`
 	Name     string `json:"name"`
 	Host     string `json:"host"`
@@ -33,6 +35,8 @@ type lobbyMatch struct {
 	ID      string
 	Players [2]string
 	Picks   [2]any
+	Side    int
+	Stage   string
 }
 type lobbyRate struct {
 	At              time.Time
@@ -127,14 +131,25 @@ func (l *portableLobby) leave(c *lobbyClient) {
 	c.Match = ""
 }
 func (l *portableLobby) pair(a, b *lobbyClient, mode string) {
+	side, stage := 0, "terminal"
+	for _, room := range l.rooms {
+		if room.Host == a.ID {
+			side = room.Side
+			stage = room.Stage
+			break
+		}
+	}
 	l.leave(a)
 	l.leave(b)
-	m := &lobbyMatch{ID: randomID(), Players: [2]string{a.ID, b.ID}}
+	if stage == "random" {
+		stage = []string{"terminal", "forest", "dojo", "foundry"}[time.Now().UnixNano()%4]
+	}
+	m := &lobbyMatch{ID: randomID(), Players: [2]string{a.ID, b.ID}, Side: side, Stage: stage}
 	l.matches[m.ID] = m
 	a.Match = m.ID
 	b.Match = m.ID
-	l.send(a, map[string]any{"type": "paired", "matchId": m.ID, "role": "host", "opponent": b.Name, "mode": mode})
-	l.send(b, map[string]any{"type": "paired", "matchId": m.ID, "role": "guest", "opponent": a.Name, "mode": mode})
+	l.send(a, map[string]any{"type": "paired", "matchId": m.ID, "role": "host", "side": side, "stage": stage, "opponent": b.Name, "mode": mode})
+	l.send(b, map[string]any{"type": "paired", "matchId": m.ID, "role": "guest", "side": 1 - side, "stage": stage, "opponent": a.Name, "mode": mode})
 	l.broadcast()
 }
 func jsonResponse(w http.ResponseWriter, status int, v any) {
@@ -163,12 +178,14 @@ func (l *portableLobby) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		l.Lock()
 		n := len(l.clients)
 		l.Unlock()
-		jsonResponse(w, 200, map[string]any{"service": "axis-matchmaking", "version": 13, "online": n, "portable": true})
+		jsonResponse(w, 200, map[string]any{"service": "axis-matchmaking", "version": 14, "online": n, "portable": true})
 		return
 	}
 	var body struct {
 		ID, Name, Type, RoomID, Character string
 		Data                              json.RawMessage
+		Side                              int
+		Stage                             string
 	}
 	if r.Method == "POST" {
 		decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 100000))
@@ -308,7 +325,19 @@ func (l *portableLobby) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		l.leave(c)
 		id := randomID()
-		l.rooms[id] = lobbyRoom{ID: id, Name: name, Host: c.ID, Players: 1, Capacity: 2}
+		if body.Side != 0 && body.Side != 1 {
+			fail(400, "Invalid side")
+			return
+		}
+		stage := body.Stage
+		if stage == "" {
+			stage = "terminal"
+		}
+		if stage != "terminal" && stage != "forest" && stage != "dojo" && stage != "foundry" && stage != "random" {
+			fail(400, "Invalid stage")
+			return
+		}
+		l.rooms[id] = lobbyRoom{ID: id, Name: name, Host: c.ID, Players: 1, Capacity: 2, Side: body.Side, Stage: stage}
 		l.send(c, map[string]string{"type": "queued", "mode": "room", "roomId": id})
 		l.broadcast()
 	case "joinRoom":

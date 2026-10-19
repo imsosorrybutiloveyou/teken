@@ -1,3 +1,4 @@
+import { STAGES } from "./stages.js";
 import { STYLE_MOTIONS, styleStance, styleAttack } from "./style-motion.js";
 import {
   paintCustomSprite,
@@ -991,18 +992,11 @@ export function createScene(canvas) {
     const scale = 600 / Math.max(1, cameraDistance - v);
     return { x: W / 2 + u * scale, y: 91 + 2.6 * scale - y * scale, scale };
   }
+  let stage = STAGES.terminal;
   function background() {
     c.fillStyle = "#282e4d";
     c.fillRect(0, 0, W, H);
-    const sky = [
-      "#282e4d",
-      "#3c3653",
-      "#64455c",
-      "#915769",
-      "#b56c70",
-      "#d68d78",
-      "#e8ad85",
-    ];
+    const sky = stage.sky;
     sky.forEach((color, i) => rect(c, 0, i * 15, W, 16, color));
     c.fillStyle = "#f1c68e";
     c.beginPath();
@@ -1076,6 +1070,61 @@ export function createScene(canvas) {
         );
       }
     }
+    if (stage.id === "forest")
+      for (let i = 0; i < 12; i++) {
+        const x = i * 47 - 20;
+        rect(c, x + 14, 55, 7, 48, "#263f30");
+        polygon(
+          c,
+          [
+            [x - 4, 83],
+            [x + 18, 31],
+            [x + 43, 83],
+          ],
+          "#274f3a",
+        );
+        polygon(
+          c,
+          [
+            [x, 65],
+            [x + 18, 17],
+            [x + 38, 65],
+          ],
+          "#356248",
+        );
+      }
+    if (stage.id === "dojo") {
+      rect(c, 34, 42, 412, 64, "#3b2844");
+      for (let x = 42; x < 440; x += 49) {
+        rect(c, x, 49, 39, 41, "#d8b4a1");
+        for (let n = 0; n < 4; n++) rect(c, x + n * 10, 49, 2, 41, "#634259");
+        rect(c, x, 69, 39, 2, "#634259");
+      }
+      polygon(
+        c,
+        [
+          [10, 43],
+          [70, 18],
+          [410, 18],
+          [470, 43],
+        ],
+        "#27263b",
+      );
+    }
+    if (stage.id === "foundry")
+      for (let i = 0; i < 7; i++) {
+        rect(c, i * 76, 23, 18, 85, "#312c34");
+        rect(c, i * 76 + 2, 45, 14, 3, "#f7b062");
+        polygon(
+          c,
+          [
+            [i * 76 + 30, 105],
+            [i * 76 + 40, 72],
+            [i * 76 + 50, 105],
+          ],
+          "#ee7646",
+        );
+      }
     rect(c, 0, 99, W, 6, "#74787c");
     rect(c, 0, 105, W, 3, "#b8ab95");
   }
@@ -1100,9 +1149,9 @@ export function createScene(canvas) {
           grid = Math.min(fx, 1 - fx, fz, 1 - fz) < step * 0.22;
         const stripe = ((tx % 8) + 8) % 8 === 0 && ((tz % 8) + 8) % 8 === 0,
           detail = ((tx * 17 + tz * 13) & 15) === 0;
-        let r = (tile ? 90 : 79) + fade * 24,
-          g = (tile ? 105 : 96) + fade * 22,
-          b = (tile ? 108 : 104) + fade * 8;
+        let r = stage.floor[0] + (tile ? 8 : 0) + fade * 24,
+          g = stage.floor[1] + (tile ? 8 : 0) + fade * 22,
+          b = stage.floor[2] + (tile ? 4 : 0) + fade * 8;
         if (grid) {
           r -= 20;
           g -= 20;
@@ -1139,8 +1188,42 @@ export function createScene(canvas) {
         Math.max(wide ? 15.5 : 12.4, separation * 1.5 + 7),
         dt * 4,
       );
+      stage = STAGES[match.stage] ?? STAGES.terminal;
       background();
       ground();
+      if (stage.wall) {
+        const w = stage.wall,
+          corners = [
+            [-w, -w],
+            [w, -w],
+            [w, w],
+            [-w, w],
+          ];
+        for (let i = 0; i < 4; i++) {
+          const a = corners[i],
+            b = corners[(i + 1) % 4],
+            pa = project(a[0], 0, a[1]),
+            pb = project(b[0], 0, b[1]),
+            ta = project(a[0], 1.3, a[1]),
+            tb = project(b[0], 1.3, b[1]);
+          polygon(
+            c,
+            [
+              [pa.x, pa.y],
+              [pb.x, pb.y],
+              [tb.x, tb.y],
+              [ta.x, ta.y],
+            ],
+            stage.id === "dojo" ? "#84607966" : "#9c684c66",
+          );
+          c.strokeStyle = "#e5bf88";
+          c.lineWidth = 2;
+          c.beginPath();
+          c.moveTo(ta.x, ta.y);
+          c.lineTo(tb.x, tb.y);
+          c.stroke();
+        }
+      }
       c.imageSmoothingEnabled = false;
       match.fighters.forEach((f) => {
         const p = project(f.x, 0, f.z);

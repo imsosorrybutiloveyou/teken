@@ -53,7 +53,10 @@ test("four fighters have independently authored commands, startup and recovery",
     4,
   );
   for (const id of CHARACTER_IDS) {
-    assert.equal(Object.keys(character(id).moves).length, 42);
+    assert.equal(
+      Object.keys(character(id).moves).length,
+      ["ren", "shin"].includes(id) ? 46 : 45,
+    );
     for (const move of Object.values(character(id).moves)) {
       assert.equal(
         move.duration,
@@ -152,7 +155,11 @@ test("each character resolves its unique signature and launcher with mirrored co
           f.commands.push({ dir, at: f.commandTime });
           f.direction = dir;
         }
-        if (key === "windGod") f.commandTime += 3 / 60;
+        if (
+          key === "windGod" ||
+          (key === "signature" && character(id).moves.justStrike)
+        )
+          f.commandTime += 3 / 60;
         assert.equal(resolveMove(f, button), key, `${id} ${key} P${index + 1}`);
       }
     }
@@ -533,8 +540,9 @@ function commandInputFor(m, index, key, late = false) {
     [, button, sequence] = p.commands.find((r) => r[0] === key);
   f.commands = sequence.map((dir, n) => ({ dir, at: n * 0.035 }));
   f.commandTime = f.commands.at(-1).at + (late ? 3 / 60 : 0);
-  f.direction = sequence.at(-1);
-  return { ...dirInput(f.direction, index), action: button };
+  const dir = sequence.at(-1);
+  f.direction = !late && p.moves[key].justFrames ? 5 : dir;
+  return { ...dirInput(dir, index), action: button };
 }
 test("rush palm, sweep, electrics and running kick actually advance without crossing the opponent", () => {
   for (const id of CHARACTER_IDS)
@@ -705,7 +713,7 @@ test("CPU also performs real inputs for advancing palm, electric, hellsweep and 
 
 test("four styles have different special mechanics, not reskinned universal electrics", () => {
   const [kai, ren, mira, goro] = CHARACTER_IDS.map((id) => character(id).moves);
-  assert.equal(kai.electric.justFrames, 2);
+  assert.equal(kai.electric.justFrames, 1);
   assert.ok(ren.windGod.hop > 0 && ren.runningKick.hop > 0);
   assert.ok(mira.electric.highCrushFrom < 3 / 60 && !mira.electric.launch);
   assert.equal(goro.hellSweep.level, "throw");
@@ -829,6 +837,7 @@ test("KAI's low starter only completes its knockdown with a separate U, and all 
       f = m.fighters[0],
       p = character(id);
     for (const [from, button, to] of p.followUps) {
+      f.hopCombo = from === "runningKick";
       f.jumpActive = from.startsWith("jump");
       f.attack = { key: from, t: p.moves[from].windup, angle: 0 };
       assert.equal(resolveMove(f, button), to);
@@ -880,6 +889,11 @@ test("every added button follow-up is a real reachable second hit", () => {
       const m = setup([id, "kai"]),
         a = m.fighters[0],
         p = character(id);
+      a.hopCombo = from === "runningKick";
+      if (from === "runningKick") {
+        m.fighters[1].y = 0.6;
+        m.fighters[1].airOwner = 0;
+      }
       a.jumpActive = from.startsWith("jump");
       a.attack = { key: from, t: p.moves[from].windup - 1 / 60, angle: 0 };
       feed(m);
@@ -954,7 +968,7 @@ test("physical crouch, jump, aerial strings and while-rising inputs work", () =>
   feed(r, { action: "i" });
   assert.equal(r.fighters[0].lastMove, "risingUpper");
   const j = setup();
-  feed(j, { z: -1 });
+  feed(j, { z: -1 }, 9);
   assert.ok(j.fighters[0].y > 0);
   feed(j, { action: "j" });
   assert.equal(j.fighters[0].lastMove, "jumpKick");
@@ -1158,7 +1172,7 @@ test("launcher hit permits a buffered jump cancel for either player", () => {
       index,
     );
     assert.ok(b.y > 0);
-    feed(m, { z: -1 }, 1, index);
+    feed(m, { z: -1 }, 10, index);
     let jumped = false;
     for (let n = 0; n < 25; n++) {
       feed(m, {}, 1, index);

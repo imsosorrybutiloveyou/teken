@@ -1,3 +1,4 @@
+import { STAGES, chooseStage } from "./stages.js";
 import { createCampaign, advanceCampaign, createCPU } from "./arcade.js";
 import { STYLE_MOTIONS } from "./style-motion.js";
 import "./style.css";
@@ -12,6 +13,11 @@ const $ = (id) => document.getElementById(id),
   keyboard = new KeyboardInput(),
   remoteInput = new RemoteInput(),
   remoteEvents = [];
+let localSide = 0,
+  stageChoice = "terminal";
+const ownIndex = () =>
+  activePair ? (activePair.side ?? (role === "guest" ? 1 : 0)) : localSide;
+const localRoster = (id, foe) => (localSide === 0 ? [id, foe] : [foe, id]);
 let campaign = null,
   arcadeCPU = null;
 let practiceIds = ["kai", "ren"],
@@ -134,8 +140,11 @@ function resetMatch(
   ids = activePair && lockedRoster ? lockedRoster : practiceIds,
 ) {
   if (campaign && !activePair)
-    ids = [campaign.id, campaign.opponents[Math.min(campaign.stage, 6)]];
-  match = createMatch(ids);
+    ids = localRoster(
+      campaign.id,
+      campaign.opponents[Math.min(campaign.stage, 6)],
+    );
+  match = createMatch(ids, activePair?.stage ?? stageChoice);
   paused = false;
   connectionLost = false;
   keyboard.clear();
@@ -146,20 +155,8 @@ function resetMatch(
   updateRecommendations();
 }
 function updateMode() {
-  $("p1-role").textContent = activePair
-    ? role === "host"
-      ? "YOU · HOST"
-      : "OPPONENT"
-    : "YOU";
-  $("p2-role").textContent = activePair
-    ? role === "guest"
-      ? "YOU · PEER"
-      : "OPPONENT"
-    : campaign
-      ? "CPU · " + campaign.difficulty
-      : practiceBehavior === "cpu"
-        ? "CPU · 공격"
-        : "DUMMY · 정지";
+  $("p1-role").textContent = ownIndex() === 0 ? "YOU" : "OPPONENT";
+  $("p2-role").textContent = ownIndex() === 1 ? "YOU" : "OPPONENT";
   $("arcade-button").classList.toggle("selected", !!campaign);
   $("arena-mode").textContent = activePair
     ? "ONLINE P2P MATCH"
@@ -196,9 +193,9 @@ function startBattle() {
   lastStateAt = performance.now();
   toast(
     "대전 시작 · " +
-      (role === "host" ? "P1" : "P2") +
+      (ownIndex() === 0 ? "P1" : "P2") +
       " " +
-      character(lockedRoster[role === "host" ? 0 : 1]).name,
+      character(lockedRoster[ownIndex()]).name,
   );
 }
 async function leaveOnline(message = "연습 대전으로 돌아왔습니다.") {
@@ -337,7 +334,10 @@ const lobby = new LobbyClient(
           event.characters.length === 2 &&
           event.characters.every((id) => CHARACTER_IDS.includes(id))
         ) {
-          lockedRoster = event.characters;
+          lockedRoster =
+            activePair.side === (role === "host" ? 1 : 0)
+              ? [...event.characters].reverse()
+              : event.characters;
           startBattle();
         }
         break;
@@ -399,6 +399,8 @@ $("create-room").onclick = () =>
     await ensureLobby();
     await lobby.action("createRoom", {
       name: $("room-name").value.trim() || `${connectedName}의 대전방`,
+      side: Number($("player-side").value),
+      stage: $("stage-select").value,
     });
   });
 $("cancel-queue").onclick = () =>
@@ -427,7 +429,7 @@ function renderRooms(rooms) {
       details = document.createElement("small"),
       button = document.createElement("button");
     title.textContent = room.name;
-    details.textContent = `${room.host} · 1 / 2`;
+    details.textContent = `${room.host} · 1 / 2 · 방장 ${room.side === 1 ? "2P" : "1P"} · ${STAGES[room.stage]?.name ?? "RANDOM"}`;
     button.className = "button";
     button.textContent = room.id === ownRoomId ? "대기 중" : "입장";
     button.disabled = !!activePair || room.id === ownRoomId;
@@ -529,13 +531,17 @@ $("confirm-character").onclick = async () => {
       $("confirm-character").disabled = false;
     }
   } else if (selectionMode === "arcade") {
+    localSide = Number($("player-side").value);
+    stageChoice = $("stage-select").value;
     campaign = createCampaign(chosen, $("arcade-difficulty").value);
     arcadeCPU = createCPU(campaign.difficulty);
     $("select-dialog").close();
     resetMatch([chosen, campaign.opponents[0]]);
   } else {
     campaign = null;
-    practiceIds = [chosen, $("cpu-character").value];
+    localSide = Number($("player-side").value);
+    stageChoice = $("stage-select").value;
+    practiceIds = localRoster(chosen, $("cpu-character").value);
     practiceBehavior = $("practice-behavior").value;
     infiniteHealth = $("infinite-health").checked;
     $("select-dialog").close();
@@ -562,7 +568,7 @@ async function practice() {
   campaign = null;
   selectionMode = "practice";
   ownLocked = false;
-  chosen = practiceIds[0];
+  chosen = practiceIds[localSide];
   paused = true;
   keyboard.clear();
   updateMode();
@@ -571,7 +577,7 @@ async function practice() {
 $("arcade-button").onclick = async () => {
   if (activePair) await leaveOnline();
   selectionMode = "arcade";
-  chosen = practiceIds[0];
+  chosen = practiceIds[localSide];
   paused = true;
   openSelection();
 };
@@ -678,6 +684,12 @@ document.addEventListener("visibilitychange", () => {
     updateMode();
   }
 });
+for (const [id, stage] of Object.entries(STAGES)) {
+  const o = document.createElement("option");
+  o.value = id;
+  o.textContent = stage.name + (stage.wall ? " · 벽" : " · 무한");
+  $("stage-select").append(o);
+}
 const levels = { high: "상단", mid: "중단", low: "하단", throw: "잡기" };
 function renderMoves(id) {
   const p = character(id);
@@ -693,8 +705,15 @@ function renderMoves(id) {
       desc = document.createElement("p"),
       frames = document.createElement("div");
     command.textContent = m.command;
-    name.textContent = m.name;
+    name.textContent =
+      m.name + (m.homing ? " ◉ HOMING" : "") + (m.justFrames ? " ⚡ JUST" : "");
     desc.textContent = `${levels[m.level]} · ${m.damage} DMG · ${m.launch ? "띄우기" : m.knockdown ? "다운 · 기상 심리" : m.bound ? "공중 바운드 · 콤보당 1회" : m.range.toFixed(2) + "m"}`;
+    if (m.stepCatch) desc.textContent += " · 짧은 횡신 포착 / 긴 횡보 회피";
+    desc.textContent += m.homing
+      ? " · 양방향 호밍"
+      : m.trackSide
+        ? ` · ${m.trackSide > 0 ? "반시계" : "시계"} 방향 추적`
+        : " · 직선기";
     if (m.level !== "throw") {
       const punish = -m.onBlock;
       desc.textContent +=
@@ -737,13 +756,13 @@ function openMoves() {
     paused = true;
     updateMode();
   }
-  renderMoves(match.fighters[role === "guest" ? 1 : 0].character);
+  renderMoves(match.fighters[ownIndex()].character);
   if (!$("moves-dialog").open) $("moves-dialog").showModal();
 }
 $("moves-button").onclick = openMoves;
 $("arena-moves-button").onclick = openMoves;
 function updateRecommendations() {
-  const p = character(match.fighters[role === "guest" ? 1 : 0].character);
+  const p = character(match.fighters[ownIndex()].character);
   $("recommended-string").textContent = p.chain.join(" › ").toUpperCase();
   $("recommended-name").textContent = p.name;
   $("recommended-special").textContent = p.moves.qcfPunch.command;
@@ -772,9 +791,10 @@ function updateHUD() {
       .querySelectorAll("i")
       .forEach((dot, n) => dot.classList.toggle("won", match.wins[i] > n));
   });
-  $("timer").textContent = activePair
-    ? String(Math.ceil(match.time)).padStart(2, "0")
-    : "∞";
+  $("timer").textContent =
+    activePair || campaign
+      ? String(Math.ceil(match.time)).padStart(2, "0")
+      : "∞";
   $("round-number").textContent = String(match.round).padStart(2, "0");
   let title = "",
     sub = "";
@@ -793,7 +813,11 @@ function updateHUD() {
     sub = "▶ 또는 ESC로 계속하기";
   } else if (match.phase === "ready") {
     title = match.phaseTime > 0.5 ? `ROUND ${match.round}` : "READY";
-    sub = activePair ? "ONLINE P2P MATCH" : "PRACTICE MATCH";
+    sub = activePair
+      ? "ONLINE MATCH"
+      : campaign
+        ? "ARCADE · " + campaign.difficulty.toUpperCase()
+        : "PRACTICE MATCH";
   } else if (match.phase === "fight" && match.phaseTime > 0) {
     title = "FIGHT";
   } else if (match.phase === "roundEnd") {
@@ -816,7 +840,7 @@ function updateHUD() {
   $("announcement").classList.toggle("hidden", !title);
   $("announcement-text").textContent = title;
   $("announcement-sub").textContent = sub;
-  const f = match.fighters[role === "guest" ? 1 : 0],
+  const f = match.fighters[ownIndex()],
     arrows = {
       1: "↙",
       2: "↓",
@@ -847,8 +871,10 @@ function updateHUD() {
       return `P${i + 1}: ${level ? { high: "상단", mid: "중단", low: "하단", throw: "잡기" }[level] : "—"}`;
     })
     .join("  /  ");
+  $("arena-stage").textContent =
+    `${STAGES[match.stage]?.name} · ${STAGES[match.stage]?.wall ? "WALL" : "∞"}`;
   $("stage-depth").textContent =
-    `AXIS ${((match.axisAngle * 180) / Math.PI).toFixed(0)}° · ∞`;
+    `${STAGES[match.stage]?.name} · ${STAGES[match.stage]?.wall ? "WALL" : "∞"} · AXIS ${((match.axisAngle * 180) / Math.PI).toFixed(0)}°`;
   $("combo-display").hidden = f.combo < 2 || f.comboAge > 1.5;
   $("combo-count").textContent = f.combo;
   $("combo-damage").textContent = `${f.comboDamage} DAMAGE`;
@@ -873,10 +899,14 @@ function frame(now) {
       )
         remoteInput.clear();
       const opponent = battleActive ? remoteInput.sample() : null;
-      if (battleActive) step(match, [input, opponent]);
+      if (battleActive)
+        step(match, ownIndex() === 0 ? [input, opponent] : [opponent, input]);
       else if (campaign) {
         if (match.phase === "matchEnd" && !campaign.finished) {
-          const result = advanceCampaign(campaign, match.winner);
+          const result = advanceCampaign(
+            campaign,
+            match.winner === localSide ? 0 : 1,
+          );
           if (result === "next") {
             arcadeCPU = createCPU(campaign.difficulty);
             resetMatch([campaign.id, campaign.opponents[campaign.stage]]);
@@ -888,11 +918,18 @@ function frame(now) {
                 : "GAME OVER · 아케이드를 다시 시작하세요.",
             );
           }
-        } else step(match, [input, arcadeCPU(match)]);
+        } else
+          step(
+            match,
+            localSide === 0
+              ? [input, arcadeCPU(match, 1)]
+              : [arcadeCPU(match, 0), input],
+          );
       } else
         stepPractice(match, input, {
           behavior: practiceBehavior,
           infiniteHealth,
+          playerIndex: localSide,
         });
       effects(match.events);
       if (battleActive) {
@@ -916,6 +953,9 @@ requestAnimationFrame(frame);
 window.axis = {
   get arcade() {
     return campaign ? structuredClone(campaign) : null;
+  },
+  get playerSide() {
+    return ownIndex();
   },
   get practice() {
     return { behavior: practiceBehavior, infiniteHealth };

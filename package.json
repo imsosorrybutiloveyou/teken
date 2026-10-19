@@ -1,6 +1,6 @@
 {
   "name": "axis-arena",
-  "version": "3.11.0",
+  "version": "3.12.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -15,7 +15,9 @@
     "test:assets": "node scripts/custom-assets-smoke.mjs",
     "test:rig": "node scripts/rig-smoke.mjs",
     "test:advanced": "node scripts/advanced-smoke.mjs",
-    "test:features": "node scripts/features-smoke.mjs"
+    "test:features": "node scripts/features-smoke.mjs",
+    "docs:combos": "node scripts/build-combo-routes.mjs",
+    "test:options": "node scripts/options-smoke.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.55.1",

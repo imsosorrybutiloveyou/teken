@@ -1,3 +1,4 @@
+import { STAGES, chooseStage } from "../src/stages.js";
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { CHARACTER_IDS } from "../src/characters.js";
 const id = () => randomBytes(16).toString("hex");
@@ -59,6 +60,9 @@ export function createLobby({
   function pair(a, b, mode) {
     if (!a || !b || a === b || a.match || b.match)
       throw Error("이미 참가 중인 플레이어입니다.");
+    const room = [...rooms.values()].find((r) => r.host === a.id);
+    const side = room?.side ?? 0,
+      stage = chooseStage(room?.stage);
     leave(a, false);
     leave(b, false);
     const match = {
@@ -74,6 +78,8 @@ export function createLobby({
       type: "paired",
       matchId: match.id,
       role: "host",
+      side,
+      stage,
       opponent: b.name,
       mode,
     });
@@ -81,6 +87,8 @@ export function createLobby({
       type: "paired",
       matchId: match.id,
       role: "guest",
+      side: 1 - side,
+      stage,
       opponent: a.name,
       mode,
     });
@@ -151,7 +159,7 @@ export function createLobby({
         response.end(
           JSON.stringify({
             service: "axis-matchmaking",
-            version: 13,
+            version: 14,
             online: clients.size,
           }),
         );
@@ -236,7 +244,21 @@ export function createLobby({
                 ? body.name.trim().slice(0, 40)
                 : "";
             if (!name) throw Error("방 제목을 입력하세요.");
-            const room = { id: id(), name, host: c.id };
+            if (body.side !== undefined && ![0, 1].includes(body.side))
+              throw Error("Invalid side");
+            if (
+              body.stage &&
+              body.stage !== "random" &&
+              !Object.hasOwn(STAGES, body.stage)
+            )
+              throw Error("Invalid stage");
+            const room = {
+              id: id(),
+              name,
+              host: c.id,
+              side: body.side ?? 0,
+              stage: body.stage ?? "terminal",
+            };
             rooms.set(room.id, room);
             send(c, { type: "queued", mode: "room", roomId: room.id });
             broadcast();

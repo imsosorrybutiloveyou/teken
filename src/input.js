@@ -26,7 +26,7 @@ export class KeyboardInput {
       x: (this.held.has("d") ? 1 : 0) - (this.held.has("a") ? 1 : 0),
       z: (this.held.has("s") ? 1 : 0) - (this.held.has("w") ? 1 : 0),
       guard: false,
-      crouch: this.held.has("shift") || this.held.has("s"),
+      crouch: this.held.has("shift"),
       orbit: (this.held.has("e") ? 1 : 0) - (this.held.has("q") ? 1 : 0),
       action: null,
     };
@@ -74,7 +74,21 @@ export class KeyboardInput {
       this.queue.push({ ...this.state(), readyAt: at });
   }
   sample(at) {
-    const head = this.queue[0];
+    let head = this.queue[0];
+    const next = this.queue[1];
+    if (
+      head &&
+      !head.buttons &&
+      next?.buttons &&
+      next.readyAt <= at &&
+      next.readyAt - head.readyAt < 1000 / 60 &&
+      head.x === next.x &&
+      head.z === next.z
+    ) {
+      this.queue.shift();
+      head = next;
+    }
+
     if (head && head.readyAt <= at) {
       this.queue.shift();
       let action = null;

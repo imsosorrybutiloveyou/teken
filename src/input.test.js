@@ -108,22 +108,21 @@ test("all four fighters hit a physical jab on exactly frame 10 from either side"
     }
 });
 
-test("physical crouch-dash input gives electric within two frames, otherwise ordinary wind god", () => {
+test("one-frame just input accepts the diagonal/punch chord and rejects a later frame", () => {
   for (const late of [false, true]) {
     const k = new KeyboardInput(),
       m = createMatch();
     m.phase = "fight";
     k.down("d", 0);
-    k.up("d", 3);
-    k.down("s", 6);
-    k.down("d", 9);
-    for (let frame = 0; frame < 4; frame++)
-      step(m, [k.sample(frame * 17), emptyInput()]);
-    if (late)
-      for (let frame = 4; frame < 8; frame++)
-        step(m, [k.sample(frame * 17), emptyInput()]);
-    k.down("i", late ? 136 : 68);
-    step(m, [k.sample(late ? 136 : 68), emptyInput()]);
+    k.up("d", 2);
+    k.down("s", 4);
+    k.down("d", 6);
+    if (!late) k.down("i", 7);
+    for (let n = 0; n < 5; n++) step(m, [k.sample(n * 17), emptyInput()]);
+    if (late) {
+      k.down("i", 100);
+      step(m, [k.sample(100), emptyInput()]);
+    }
     assert.equal(m.fighters[0].lastMove, late ? "windGod" : "electric");
   }
 });

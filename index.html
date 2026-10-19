@@ -14,7 +14,7 @@
         >
         <div class="top-center">
           <span class="live-dot"></span> PIXEL FIGHTERS / FREE AXIS
-          <span class="version">/ VOL. 03.11</span>
+          <span class="version">/ VOL. 03.12</span>
         </div>
         <button id="online-button" class="button small">
           <span class="connection-icon">⌁</span> 온라인 대전 <span>↗</span>
@@ -34,6 +34,20 @@
             ><button id="pvp-button">온라인 <span>P2P</span></button>
           </div>
         </section>
+        <div class="match-options">
+          <label
+            >자리
+            <select id="player-side">
+              <option value="0">1P · 왼쪽</option>
+              <option value="1">2P · 오른쪽</option>
+            </select></label
+          ><label
+            >맵
+            <select id="stage-select">
+              <option value="random">RANDOM · 랜덤</option>
+            </select></label
+          ><span>온라인은 방장이 자리·맵 선택, 참가자는 반대 자리</span>
+        </div>
         <section class="arena" aria-label="2D 픽셀 그래픽과 3D 이동 경기장">
           <canvas id="game" aria-label="2D 픽셀 격투 게임"></canvas>
           <div class="arena-grain"></div>
@@ -72,7 +86,8 @@
           <div class="arena-label">
             <span class="live-dot"></span
             ><span id="arena-mode">PRACTICE MATCH</span
-            ><span class="divider">/</span> ENDLESS 01 · SUNSET TERMINAL
+            ><span class="divider">/</span>
+            <span id="arena-stage">SUNSET TERMINAL · ∞</span>
           </div>
           <div id="announcement" class="announcement">
             <small id="announcement-sub">ENDLESS 01</small
@@ -106,7 +121,8 @@
           <div id="training-level" class="training-level"></div>
           <div id="stage-depth" class="stage-depth">X 0 / Z 0 · ∞</div>
           <div class="key-hint">
-            Q / E 유지 <span>횡보 · S 앉기 · W 점프</span> <b>↔</b> A / D
+            Q / E 유지 <span>횡보 · S/W 짧게 횡신 · 유지 앉기/점프</span>
+            <b>↔</b> A / D
             <span>앞뒤 이동</span>
           </div>
           <div id="loading" class="loading">경기장을 준비하고 있습니다…</div>
@@ -140,8 +156,8 @@
                 <div>
                   <b>MOVE / CROUCH / JUMP</b>
                   <p>
-                    A/D 이동 · S 앉기 · W 점프 · Q/E 유지 횡보. 다운 중 W 기상 ·
-                    J/K 기상각 · 뒤로 기상
+                    A/D 이동 · S/W 짧게 횡신 · 유지 앉기/점프 · Q/E 유지 횡보.
+                    다운 중 W 기상 · J/K 기상각 · 뒤로 기상
                   </p>
                 </div>
               </div>
@@ -280,6 +296,7 @@
         <select id="arcade-difficulty">
           <option value="easy">쉬움</option>
           <option value="normal" selected>보통</option>
+          <option value="madness">광기 · 루트 탐색/예측/헛침 반격</option>
           <option value="hard">어려움 · 콤보/딜캐/이지선다</option>
         </select>
       </fieldset>
@@ -319,11 +336,12 @@
       </p>
       <p class="network-note">
         연습전은 P1을 조작합니다. 온라인 호스트는 P1, 참가자는 P2입니다. A/D는
-        화면 좌우 이동, S는 앉기, W는 점프, Q/E 유지는 횡보입니다. 카메라는 두
-        캐릭터를 양쪽에 유지하며 돌아갑니다. 커맨드의 →/←는 상대 기준
-        전진/후퇴로, P2는 A/D가 반대입니다. ↓는 S, ↑는 W이며 ↘는 전진+S입니다.
-        방향을 0.85초 안에 순서대로 입력한 뒤 공격하세요. →→ 대시는
-        전진-떼기-전진으로 입력합니다. 경기장에는 벽이나 낭떠러지가 없습니다.
+        화면 좌우 이동, S/W를 짧게 누르면 횡신, 길게 누르면 앉기/점프, 연타 후
+        유지 또는 Q/E는 횡보입니다. 카메라는 두 캐릭터를 양쪽에 유지하며
+        돌아갑니다. 커맨드의 →/←는 상대 기준 전진/후퇴로, P2는 A/D가 반대입니다.
+        ↓는 S, ↑는 W이며 ↘는 전진+S입니다. 방향을 0.85초 안에 순서대로 입력한 뒤
+        공격하세요. →→ 대시는 전진-떼기-전진으로 입력합니다. 경기장에는 벽이나
+        낭떠러지가 없습니다.
       </p>
     </dialog>
     <div id="toast" role="status" hidden></div>

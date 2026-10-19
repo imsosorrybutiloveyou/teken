@@ -1,9 +1,12 @@
+import { STAGES } from "./stages.js";
 import { MAX_HP } from "./combat.js";
 import { CHARACTER_IDS, character } from "./characters.js";
 export function validSnapshot(v) {
   if (
     !v ||
-    v.version !== 13 ||
+    v.version !== 14 ||
+    typeof v.stage !== "string" ||
+    !Object.hasOwn(STAGES, v.stage) ||
     !["ready", "fight", "roundEnd", "matchEnd"].includes(v.phase) ||
     !Number.isFinite(v.time) ||
     v.time < 0 ||
@@ -69,6 +72,22 @@ export function validSnapshot(v) {
       f.throwTime <= 0.43 &&
       [-1, 0, 1].includes(f.throwRole) &&
       typeof f.wasCrouch === "boolean" &&
+      ["verticalDir", "verticalTapDir", "sideStepDir"].every((k) =>
+        [-1, 0, 1].includes(f[k]),
+      ) &&
+      ["verticalTime", "verticalTapAge", "sideStepTime", "backDash"].every(
+        (k) => Number.isFinite(f[k]) && f[k] >= 0 && f[k] < 1e7,
+      ) &&
+      Number.isInteger(f.verticalCount) &&
+      f.verticalCount >= 0 &&
+      f.verticalCount < 1e7 &&
+      Number.isInteger(f.wallHits) &&
+      f.wallHits >= 0 &&
+      f.wallHits <= 3 &&
+      typeof f.verticalUsed === "boolean" &&
+      typeof f.hopCombo === "boolean" &&
+      Number.isFinite(f.effectiveOrbit) &&
+      Math.abs(f.effectiveOrbit) <= 1 &&
       typeof f.jumpHeld === "boolean" &&
       typeof f.jumpActive === "boolean" &&
       Number.isFinite(f.jumpBuffer) &&

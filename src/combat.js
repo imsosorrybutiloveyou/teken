@@ -1,3 +1,4 @@
+import { STAGES, chooseStage } from "./stages.js";
 import { CHARACTERS, character, moveFor } from "./characters.js";
 export { CHARACTERS, moveFor };
 export const MAX_HP = 120;
@@ -67,6 +68,7 @@ function recordDirection(f, input, dt) {
     f.commands.push({ dir, at: f.commandTime });
     f.commands = f.commands.slice(-16);
     if (dir === 6 && matchesCommand(f, [6, 5, 6], 0.3, true)) f.dash = 0.24;
+    if (dir === 4 && matchesCommand(f, [4, 5, 4], 0.3, true)) f.backDash = 0.2;
   }
 }
 export function resolveMove(f, action) {
@@ -83,6 +85,7 @@ export function resolveMove(f, action) {
     follow &&
     prior &&
     (!source.startsWith("jump") || f.jumpActive) &&
+    (follow[2] !== "rushLink" || f.hopCombo) &&
     (f.attack
       ? f.attack.t >= 0.08
       : f.lastMoveAge >= prior.duration &&
@@ -97,16 +100,22 @@ export function resolveMove(f, action) {
     return "risingUpper";
   if (f.riseWindow > 0 && f.direction === 5 && action === "j")
     return "risingKick";
-  if (f.crouch && f.direction === 2 && action === "u") return "crouchPunch";
-  if (f.crouch && f.direction === 2 && action === "k") return "crouchKick";
+
   for (const [key, button, sequence] of [...p.commands].sort(
     (a, b) => b[2].length - a[2].length,
   )) {
     if (action !== button) continue;
     if (
+      sequence.length === 1 &&
+      f.crouch &&
+      f.direction === 2 &&
+      ["u", "k"].includes(action)
+    )
+      continue;
+    if (
       p.moves[key].justFrames !== null &&
-      f.commandTime - (f.commands.at(-1)?.at ?? -Infinity) >
-        p.moves[key].justFrames / 60 + 1e-9
+      f.commandTime - (f.commands.at(-1)?.at ?? -Infinity) >=
+        p.moves[key].justFrames / 60 - 1e-9
     )
       continue;
     if (
@@ -116,6 +125,8 @@ export function resolveMove(f, action) {
     )
       return key;
   }
+  if (f.crouch && f.direction === 2 && action === "u") return "crouchPunch";
+  if (f.crouch && f.direction === 2 && action === "k") return "crouchKick";
   if (f.chain === 1 && action === p.chain[1] && f.chainAge < 0.85)
     return "oneTwo";
   if (f.chain === 2 && action === p.chain[2] && f.chainAge < 0.85)
@@ -130,6 +141,18 @@ function fighter(x, id, index) {
     jumpHeld: false,
     jumpActive: false,
     jumpBuffer: 0,
+    verticalDir: 0,
+    verticalTime: 0,
+    verticalTapAge: 1,
+    verticalTapDir: 0,
+    verticalCount: 0,
+    verticalUsed: false,
+    sideStepTime: 0,
+    sideStepDir: 0,
+    effectiveOrbit: 0,
+    backDash: 0,
+    wallHits: 0,
+    hopCombo: false,
     throwTime: 0,
     throwRole: 0,
     statusTick: -1,
@@ -174,9 +197,10 @@ function fighter(x, id, index) {
     travel: 0,
   };
 }
-export function createMatch(ids = ["kai", "ren"]) {
+export function createMatch(ids = ["kai", "ren"], stage = "terminal") {
   return {
-    version: 13,
+    version: 14,
+    stage: chooseStage(stage),
     axisAngle: 0,
     viewAngle: 0,
     hitstop: 0,
@@ -214,10 +238,15 @@ function startAttack(m, index, key) {
     f.vy = 6.5;
   }
   if (moveFor(f, key).hop) {
-    f.jumpActive = false;
+    const other = m.fighters[1 - index];
+    f.hopCombo = other.y > 0 && other.airOwner === index;
+    f.jumpActive = !f.hopCombo;
     f.y = 0.02;
     f.vy = moveFor(f, key).hop;
   }
+  f.wasCrouch = false;
+  f.riseWindow = 0;
+  f.backDash = 0;
   f.buffer = null;
   f.guard = false;
   f.crouch = false;
@@ -305,7 +334,7 @@ function resolveHit(m, index, training) {
   const continuing = airborne
     ? b.airOwner === index
     : b.stun > 0 && !b.blockstun && b.lastHitBy === index;
-  const damage = Math.max(
+  let damage = Math.max(
     1,
     Math.round(
       move.damage *
@@ -317,6 +346,21 @@ function resolveHit(m, index, training) {
           : 1),
     ),
   );
+  const wall = STAGES[m.stage]?.wall ?? 0;
+  const nearWall =
+    airborne &&
+    wall > 0 &&
+    (Math.abs(b.x + Math.cos(atk.angle) * 0.65) > wall - 0.5 ||
+      Math.abs(b.z + Math.sin(atk.angle) * 0.65) > wall - 0.5);
+  const wallBonus = nearWall
+    ? b.wallHits === 0
+      ? 6
+      : b.wallHits === 1
+        ? 3
+        : 0
+    : 0;
+  damage += wallBonus;
+  if (nearWall) b.wallHits++;
   b.hitLevel = move.level;
   b.hitKind = move.kind;
   b.lastHitBy = index;
@@ -376,6 +420,7 @@ function resolveHit(m, index, training) {
     b.stun = 0.85;
     b.airHits = 0;
     b.airOwner = index;
+    b.wallHits = 0;
     b.bounceUsed = false;
     b.bouncePending = false;
   } else if (airborne) {
@@ -398,6 +443,16 @@ function resolveHit(m, index, training) {
       b.vy = Math.min(lift, Math.sqrt(Math.max(0, 2 * GRAVITY * (1.85 - b.y))));
     }
     b.stun = Math.max(b.stun, 0.5);
+  }
+  if (nearWall) {
+    b.vx = b.vz = 0;
+    if (b.wallHits >= 3) {
+      b.bouncePending = false;
+      b.airOwner = -1;
+      b.downTime = 0.85;
+      b.wakeUp = 0.95;
+      b.vy = -8;
+    } else b.vy = Math.min(b.vy, 3.5);
   }
   if (move.level === "throw" && !airborne) {
     const ax = a.x,
@@ -440,6 +495,8 @@ function resolveHit(m, index, training) {
     counter,
     launch: !!launch,
     knockdown: !!move.knockdown && !airborne && !launch,
+    wall: nearWall,
+    wallBonus,
     bound: !!move.bound && airborne && b.bouncePending,
     heavy: move.damage >= 23,
     hitstop: move.hitstop,
@@ -511,6 +568,50 @@ export function step(m, rawInputs, dt = 1 / 60, training = false) {
       input = sanitizeInput(rawInputs[i]),
       back = input.x * f.facing < -0.25,
       recovered = !f.attack || f.attack.t + dt + 1e-9 >= moveFor(f).duration;
+    const vertical = Math.sign(input.z);
+    f.verticalTapAge += dt;
+    f.sideStepTime = Math.max(0, f.sideStepTime - dt);
+    f.backDash = Math.max(0, f.backDash - dt);
+    if (vertical !== f.verticalDir) {
+      if (
+        f.verticalDir &&
+        f.verticalTime < 0.14 &&
+        !f.verticalUsed &&
+        !f.attack &&
+        !f.stun &&
+        !f.downTime
+      ) {
+        f.sideStepTime = 0.18;
+        f.sideStepDir = f.verticalDir;
+      }
+      if (vertical) {
+        f.verticalCount =
+          f.verticalTapDir === vertical && f.verticalTapAge < 0.3
+            ? f.verticalCount + 1
+            : 1;
+        f.verticalTapDir = vertical;
+        f.verticalTapAge = 0;
+      }
+      f.verticalDir = vertical;
+      f.verticalTime = 0;
+      f.verticalUsed = false;
+    }
+    if (vertical) f.verticalTime += dt;
+    if (
+      input.action ||
+      (vertical && Math.abs(input.x) > 0.25) ||
+      (back && vertical > 0)
+    )
+      f.verticalUsed = true;
+    f.effectiveOrbit =
+      input.orbit ||
+      (f.verticalCount >= 2 &&
+      vertical &&
+      f.verticalTime >= 0.14 &&
+      !f.verticalUsed
+        ? vertical
+        : 0) ||
+      (f.sideStepTime > 0 ? f.sideStepDir : 0);
     if (!f.attack && (input.action || Math.abs(input.x) > 0.25 || input.crouch))
       f.angle = m.axisAngle + (i === 1 ? Math.PI : 0);
     // Guard becomes available on the recovery boundary for BOTH player orders.
@@ -521,7 +622,10 @@ export function step(m, rawInputs, dt = 1 / 60, training = false) {
       f.y === 0 &&
       f.downTime === 0;
     f.crouch =
-      (input.crouch || (back && input.z > 0.25)) &&
+      (input.crouch ||
+        (input.z > 0.25 &&
+          !f.effectiveOrbit &&
+          (f.verticalTime >= 0.14 || input.action || back))) &&
       recovered &&
       f.y === 0 &&
       f.downTime === 0;
@@ -532,9 +636,15 @@ export function step(m, rawInputs, dt = 1 / 60, training = false) {
     for (let i = 0; i < 2; i++) {
       const f = m.fighters[i],
         input = sanitizeInput(rawInputs[i]);
-      if (input.z < -0.25 && !f.jumpHeld && f.downTime === 0)
+      if (
+        input.z < -0.25 &&
+        f.verticalTime >= 0.14 &&
+        !f.effectiveOrbit &&
+        !f.jumpHeld &&
+        f.downTime === 0
+      )
         f.jumpBuffer = 0.25;
-      f.jumpHeld = input.z < -0.25;
+      f.jumpHeld = input.z < -0.25 && f.verticalTime >= 0.14;
       if (
         f.downTime > 0 &&
         f.throwTime === 0 &&
@@ -618,7 +728,7 @@ export function step(m, rawInputs, dt = 1 / 60, training = false) {
         Math.abs(input.x) > 0.25 ||
         input.crouch ||
         f.move > 0 ||
-        Math.abs(input.orbit) > 0
+        Math.abs(f.effectiveOrbit) > 0
       )
         f.angle = m.axisAngle + (i === 1 ? Math.PI : 0);
     }
@@ -648,13 +758,20 @@ export function step(m, rawInputs, dt = 1 / 60, training = false) {
           f.vx = -Math.cos(f.angle) * 4;
           f.vz = -Math.sin(f.angle) * 4;
         }
-        f.jumpHeld = input.z < -0.25;
+        f.jumpHeld = input.z < -0.25 && f.verticalTime >= 0.14;
         input.action = null;
       }
     }
     recordDirection(f, input, dt);
-    if (input.z < -0.25 && !f.jumpHeld && f.downTime === 0) f.jumpBuffer = 0.25;
-    f.jumpHeld = input.z < -0.25;
+    if (
+      input.z < -0.25 &&
+      f.verticalTime >= 0.14 &&
+      !f.effectiveOrbit &&
+      !f.jumpHeld &&
+      f.downTime === 0
+    )
+      f.jumpBuffer = 0.25;
+    f.jumpHeld = input.z < -0.25 && f.verticalTime >= 0.14;
     const jumpCancel =
       f.attack?.connected &&
       other.y > 0 &&
@@ -707,6 +824,22 @@ export function step(m, rawInputs, dt = 1 / 60, training = false) {
     if (f.attack) {
       f.attack.t += dt;
       const move = moveFor(f);
+      if (
+        move.homing ||
+        (move.trackSide && f.attack.t < Math.max(0, move.windup - 0.1))
+      ) {
+        const target = Math.atan2(other.z - f.z, other.x - f.x),
+          delta = Math.atan2(
+            Math.sin(target - f.attack.angle),
+            Math.cos(target - f.attack.angle),
+          );
+        if (move.homing || Math.sign(delta) === move.trackSide) {
+          f.attack.angle += move.homing
+            ? delta
+            : clamp(delta, -1.3 * dt, 1.3 * dt);
+          f.angle = f.attack.angle;
+        }
+      }
       f.attack.height =
         move.level === "low"
           ? move.impactHeight
@@ -761,7 +894,7 @@ export function step(m, rawInputs, dt = 1 / 60, training = false) {
         const forward = input.x * f.facing;
         if (forward < -0.1) f.dash = 0;
         const dashing = f.dash > 0 && forward > 0.25;
-        const side = !f.crouch ? input.orbit : 0;
+        const side = !f.crouch ? f.effectiveOrbit : 0;
         const adjusted =
           (f.crouch
             ? 1.45
@@ -770,7 +903,9 @@ export function step(m, rawInputs, dt = 1 / 60, training = false) {
               : forward > 0.1
                 ? FORWARD_SPEED
                 : forward < -0.1
-                  ? BACKWARD_SPEED
+                  ? f.backDash > 0
+                    ? 5.4
+                    : BACKWARD_SPEED
                   : WALK_SPEED) * character(f.character).speed;
         const radial = input.x * adjusted * dt;
         const dx = Math.cos(m.viewAngle) * radial,
@@ -798,7 +933,7 @@ export function step(m, rawInputs, dt = 1 / 60, training = false) {
         f.travel += Math.hypot(dx, dz) + (side ? SIDESTEP_SPEED * dt : 0);
       }
     }
-    // No ring boundary, coordinate wrapping, or invisible walls: positions remain in world space.
+    // Infinite stages keep world coordinates; bounded stages clamp both fighters below.
   }
   const [a, b] = m.fighters,
     dx = b.x - a.x,
@@ -813,6 +948,12 @@ export function step(m, rawInputs, dt = 1 / 60, training = false) {
     b.x += nx * p;
     b.z += nz * p;
   }
+  const wall = STAGES[m.stage]?.wall ?? 0;
+  if (wall)
+    for (const f of m.fighters) {
+      f.x = clamp(f.x, -wall + 0.5, wall - 0.5);
+      f.z = clamp(f.z, -wall + 0.5, wall - 0.5);
+    }
   updateAxis(m);
   if (m.time === 0 || m.fighters.some((f) => f.hp === 0)) finishRound(m);
 }
@@ -912,22 +1053,24 @@ export function cpuInput(m, index = 1) {
 export function stepPractice(
   m,
   input,
-  { behavior = "cpu", infiniteHealth = true } = {},
+  { behavior = "cpu", infiniteHealth = true, playerIndex = 0 } = {},
 ) {
   if (
-    m.fighters[1].downTime > 0 &&
-    m.fighters[1].throwTime === 0 &&
-    m.fighters[1].y === 0 &&
-    m.fighters[1].stun === 0
+    m.fighters[1 - playerIndex].downTime > 0 &&
+    m.fighters[1 - playerIndex].throwTime === 0 &&
+    m.fighters[1 - playerIndex].y === 0 &&
+    m.fighters[1 - playerIndex].stun === 0
   ) {
-    const f = m.fighters[1];
+    const f = m.fighters[1 - playerIndex];
     f.downTime = 0;
     f.wakeUp = 0;
   }
   m.time = 60;
   step(
     m,
-    [input, behavior === "cpu" ? cpuInput(m) : emptyInput()],
+    playerIndex === 0
+      ? [input, behavior === "cpu" ? cpuInput(m, 1) : emptyInput()]
+      : [behavior === "cpu" ? cpuInput(m, 0) : emptyInput(), input],
     1 / 60,
     infiniteHealth,
   );

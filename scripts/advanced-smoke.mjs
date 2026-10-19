@@ -36,8 +36,9 @@ try {
     () => window.axis.state.fighters[0].lastMove === "risingUpper",
   );
   await reset();
-  await page.keyboard.press("w");
+  await page.keyboard.down("w");
   await page.waitForFunction(() => window.axis.state.fighters[0].y > 0.1);
+  await page.keyboard.up("w");
   await page.keyboard.press("j");
   await page.waitForFunction(
     () => window.axis.state.fighters[0].lastMove === "jumpKick",

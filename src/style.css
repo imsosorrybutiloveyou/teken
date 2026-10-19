@@ -1601,3 +1601,22 @@ button:disabled {
   grid-column: 3;
   grid-row: 2;
 }
+
+.match-options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  margin: 12px 0;
+  color: #b5b2be;
+  font-size: 12px;
+}
+.match-options select {
+  padding: 8px;
+  background: #232332;
+  color: #eee;
+  border: 1px solid #555;
+}
+.match-options span {
+  font-size: 10px;
+}

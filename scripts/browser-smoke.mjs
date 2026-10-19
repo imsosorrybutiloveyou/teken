@@ -55,7 +55,7 @@ try {
     () => window.axis && document.getElementById("loading").hidden,
   );
   await host.locator("#arena-moves-button").click();
-  assert.equal(await host.locator(".move-item").count(), 42);
+  assert.equal(await host.locator(".move-item").count(), 45);
   await host.locator('#move-character-tabs [data-character="goro"]').click();
   assert.ok(
     (await host.locator(".frame-data").first().innerText()).includes("10"),
@@ -303,7 +303,7 @@ try {
       window.axis.state.fighters[1].y > 0,
   );
   await host.screenshot({ path: "/tmp/axis-v38-electric.png", fullPage: true });
-  await host.keyboard.press("w");
+  await host.keyboard.down("w");
   await host.waitForFunction(
     () =>
       window.axis.state.fighters[0].jumpActive &&
@@ -314,6 +314,7 @@ try {
       window.axis.state.fighters[0].jumpActive &&
       window.axis.state.fighters[0].y > 0,
   );
+  await host.keyboard.up("w");
   console.log("Physical W after launcher cancels into a synchronized jump");
 
   await newRound(1.05);
@@ -431,7 +432,7 @@ try {
   );
   await host.keyboard.press("h");
   await host.locator("#moves-dialog").waitFor();
-  assert.equal(await host.locator(".move-item").count(), 42);
+  assert.equal(await host.locator(".move-item").count(), 45);
   await host.locator("#moves-dialog .close").click();
   await host.locator("#character-button").click();
   await host.locator("#practice-behavior").selectOption("cpu");
@@ -458,7 +459,7 @@ try {
   );
   assert.deepEqual(errors, []);
   console.log(
-    "PASS: v3.11 player match only, player rooms, matched-only character selection, 8 characters, unique frame tables, automatic P2P, orbit camera, remote combat, practice selection, responsive layout; no page errors.",
+    "PASS: v3.12 player match only, player rooms, matched-only character selection, 8 characters, unique frame tables, automatic P2P, orbit camera, remote combat, practice selection, responsive layout; no page errors.",
   );
 } catch (error) {
   for (const [name, page] of [

@@ -168,3 +168,22 @@ func TestLANRelay(t *testing.T) {
 		t.Fatal("empty relay accepted")
 	}
 }
+
+func TestRoomSideAndStage(t *testing.T) {
+	l := newPortableLobby()
+	defer l.close()
+	s := httptest.NewServer(l)
+	defer s.Close()
+	a, b := player(t, s.URL, "2P HOST"), player(t, s.URL, "1P GUEST")
+	defer a.close()
+	defer b.close()
+	if action(t, s.URL, a, map[string]any{"type": "createRoom", "name": "DOJO", "side": 1, "stage": "dojo"}) != 200 {
+		t.Fatal("room settings rejected")
+	}
+	room := event(t, a, "queued")["roomId"]
+	action(t, s.URL, b, map[string]any{"type": "joinRoom", "roomId": room})
+	ae, be := event(t, a, "paired"), event(t, b, "paired")
+	if ae["side"] != float64(1) || be["side"] != float64(0) || ae["stage"] != "dojo" || be["stage"] != "dojo" {
+		t.Fatal(ae, be)
+	}
+}
