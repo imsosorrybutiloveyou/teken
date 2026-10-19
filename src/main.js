@@ -1,13 +1,6 @@
 import "./style.css";
-import {
-  createMatch,
-  step,
-  emptyInput,
-  cpuInput,
-  MOVES,
-  MAX_HP,
-  sanitizeInput,
-} from "./combat.js";
+import { createMatch, step, cpuInput, MOVES, MAX_HP } from "./combat.js";
+import { KeyboardInput, RemoteInput, keyName } from "./input.js";
 import { createScene } from "./scene.js";
 import { PeerSession, validSnapshot } from "./network.js";
 const $ = (id) => document.getElementById(id);
@@ -18,8 +11,6 @@ let match = createMatch(),
   connectionLost = false,
   sound = false,
   audio = null,
-  localAction = null,
-  guestInput = emptyInput(),
   lastInputAt = 0,
   lastStateAt = 0,
   tab = "host",
@@ -30,10 +21,11 @@ try {
   $("loading").hidden = true;
 } catch (error) {
   $("loading").textContent =
-    "3D 화면을 시작할 수 없습니다. 브라우저의 하드웨어 가속 / WebGL을 확인하세요.";
+    "픽셀 화면을 시작할 수 없습니다. 최신 브라우저에서 다시 열어 주세요.";
   console.error(error);
 }
-const held = new Set(),
+const keyboard = new KeyboardInput(),
+  remoteInput = new RemoteInput(),
   remoteEvents = [];
 let toastTimer;
 function toast(message) {
@@ -68,9 +60,8 @@ function resetMatch() {
   match = createMatch();
   paused = false;
   connectionLost = false;
-  held.clear();
-  localAction = null;
-  guestInput = emptyInput();
+  keyboard.clear();
+  remoteInput.clear();
   lastInputAt = performance.now();
   setPauseLabel();
 }
@@ -82,15 +73,7 @@ function setPauseLabel() {
   $("reset-button").disabled = connected && role === "guest";
 }
 function localInput() {
-  const input = {
-    x: (held.has("d") ? 1 : 0) - (held.has("a") ? 1 : 0),
-    z: (held.has("s") ? 1 : 0) - (held.has("w") ? 1 : 0),
-    guard: held.has("l"),
-    crouch: held.has("shift"),
-    action: localAction,
-  };
-  localAction = null;
-  return input;
+  return keyboard.sample(performance.now());
 }
 function eventEffects(events) {
   for (const e of events) {
@@ -140,9 +123,7 @@ const peer = new PeerSession({
   },
   onMessage(msg) {
     if (role === "host" && msg.type === "input") {
-      const input = sanitizeInput(msg.input);
-      if (input.action) guestInput.action = input.action;
-      guestInput = { ...input, action: input.action || guestInput.action };
+      remoteInput.receive(msg.input);
       lastInputAt = performance.now();
     }
     if (role === "guest" && msg.type === "state" && validSnapshot(msg.state)) {
@@ -156,7 +137,7 @@ const peer = new PeerSession({
               (e) =>
                 ["hit", "block"].includes(e?.type) &&
                 ["x", "y", "z"].every(
-                  (k) => Number.isFinite(e[k]) && Math.abs(e[k]) < 20,
+                  (k) => Number.isFinite(e[k]) && Math.abs(e[k]) < 1e12,
                 ),
             )
             .slice(0, 20),
@@ -170,7 +151,7 @@ const peer = new PeerSession({
       role = null;
       connectionLost = true;
       paused = true;
-      held.clear();
+      keyboard.clear();
       $("connection-status").textContent =
         "연결 종료 · 연습 대전으로 돌아가세요";
       setPauseLabel();
@@ -186,30 +167,25 @@ window.addEventListener("keydown", (e) => {
     document.querySelector("dialog[open]")
   )
     return;
-  const key = e.key.toLowerCase();
-  if (
-    ["w", "a", "s", "d", "j", "k", "u", "i", "l", "o", "shift", " "].includes(
-      key,
-    )
-  ) {
+  const key = keyName(e);
+  if (["w", "a", "s", "d", "u", "i", "j", "k", "l", "shift"].includes(key)) {
     e.preventDefault();
-    held.add(key);
-    if (!e.repeat && ["j", "k", "u", "i", "o"].includes(key)) localAction = key;
+    if (!e.repeat) keyboard.down(key, performance.now(), !paused);
   }
   if (key === "escape" && !connected) {
     paused = !paused;
-    held.clear();
+    keyboard.clear();
     setPauseLabel();
   }
 });
-window.addEventListener("keyup", (e) => held.delete(e.key.toLowerCase()));
+window.addEventListener("keyup", (e) =>
+  keyboard.up(keyName(e), performance.now()),
+);
 window.addEventListener("blur", () => {
-  held.clear();
-  localAction = null;
+  keyboard.clear();
 });
 document.addEventListener("visibilitychange", () => {
-  held.clear();
-  localAction = null;
+  keyboard.clear();
   if (document.hidden && !connected) {
     paused = true;
     setPauseLabel();
@@ -219,7 +195,7 @@ $("camera-button").onclick = () => scene?.toggleCamera();
 $("pause-button").onclick = () => {
   if (connected) return;
   paused = !paused;
-  held.clear();
+  keyboard.clear();
   setPauseLabel();
 };
 $("reset-button").onclick = () => {
@@ -248,14 +224,13 @@ function openOnline() {
     paused = true;
     setPauseLabel();
   }
-  held.clear();
-  localAction = null;
+  keyboard.clear();
   $("online-dialog").showModal();
 }
 $("online-button").onclick = openOnline;
 $("pvp-button").onclick = openOnline;
 $("online-dialog").addEventListener("close", () => {
-  held.clear();
+  keyboard.clear();
 });
 function setTab(value) {
   if (networkBusy || connected) return;
@@ -346,10 +321,9 @@ $("disconnect-button").onclick = () => {
 };
 const levels = { high: "상단", mid: "중단", low: "하단", throw: "잡기" };
 $("move-list").innerHTML = Object.entries(MOVES)
-  .filter(([key]) => !["j2", "finish"].includes(key))
   .map(
     ([key, m]) =>
-      `<div class="move-item"><kbd>${key.toUpperCase()}</kbd><div>${m.name}<p>${levels[m.level]} · ${m.launch ? "적중 시 공중으로 띄움" : m.level === "throw" ? "근접 · 가드 불가" : `사거리 ${m.range.toFixed(1)}m`}</p></div><small>${m.damage} DMG</small></div>`,
+      `<div class="move-item"><kbd>${m.command.split(" · ")[0]}</kbd><div>${m.name}<p>${levels[m.level]} · ${m.launch ? "공중으로 띄우기" : m.level === "throw" ? "근접 · 가드 불가" : `사거리 ${m.range.toFixed(1)}m`}</p></div><small>${m.damage} DMG</small></div>`,
   )
   .join("");
 $("moves-button").onclick = () => {
@@ -357,8 +331,7 @@ $("moves-button").onclick = () => {
     paused = true;
     setPauseLabel();
   }
-  held.clear();
-  localAction = null;
+  keyboard.clear();
   $("moves-dialog").showModal();
 };
 for (const dialog of document.querySelectorAll("dialog"))
@@ -423,6 +396,30 @@ function updateHUD() {
   $("announcement-text").textContent = title;
   $("announcement-sub").textContent = sub;
   const f = match.fighters[connected && role === "guest" ? 1 : 0];
+  const arrows = {
+    1: "↙",
+    2: "↓",
+    3: "↘",
+    4: "←",
+    5: "·",
+    6: "→",
+    7: "↖",
+    8: "↑",
+    9: "↗",
+  };
+  $("input-history").textContent =
+    f.commands
+      .filter((e) => f.commandTime - e.at < 1.2)
+      .slice(-8)
+      .map((e) => arrows[e.dir])
+      .join(" ") || "·";
+  $("current-move").textContent =
+    f.lastMoveAge < 1.5 && MOVES[f.lastMove]
+      ? MOVES[f.lastMove].name
+      : "U LP / I RP / J LK / K RK";
+  $("stage-depth").textContent =
+    `X ${f.x.toFixed(1)} / Z ${f.z.toFixed(1)} · ∞`;
+
   $("combo-display").hidden = f.combo < 2 || f.comboAge > 1.3;
   $("combo-count").textContent = f.combo;
   $("combo-damage").textContent = `${f.comboDamage} DAMAGE`;
@@ -440,10 +437,13 @@ function frame(now) {
       peer.send({ type: "input", input: localInput() });
     } else if (!paused && !connectionLost) {
       const input = localInput();
-      if (connected && performance.now() - lastInputAt > 500)
-        guestInput = emptyInput();
-      const opponent = connected ? { ...guestInput } : cpuInput(match);
-      guestInput.action = null;
+      if (
+        connected &&
+        performance.now() - lastInputAt > 500 &&
+        remoteInput.queue.length === 0
+      )
+        remoteInput.clear();
+      const opponent = connected ? remoteInput.sample() : cpuInput(match);
       step(match, [input, opponent]);
       eventEffects(match.events);
       if (connected) {
@@ -466,6 +466,14 @@ updateMode();
 requestAnimationFrame(frame);
 // Read-only inspection hooks for smoke tests and debugging, with no network credentials.
 window.axis = {
+  get inputs() {
+    return {
+      held: [...keyboard.held],
+      remote: structuredClone(remoteInput.latest),
+      remoteAge: performance.now() - lastInputAt,
+      queued: remoteInput.queue.length,
+    };
+  },
   get state() {
     return structuredClone(match);
   },

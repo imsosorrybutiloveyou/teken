@@ -1014,3 +1014,226 @@ textarea {
     font-size: 8px;
   }
 }
+/* ADVANCE: crisp pixel graphics, a handheld palette, and four-limb controls. */
+:root {
+  --accent: #e9ce88;
+  background: #101019;
+}
+.brand {
+  color: #f4e4c4;
+}
+.topbar {
+  background: #13121d;
+  border-color: #34313f;
+}
+.top-center .version {
+  color: #968294;
+}
+.arena {
+  border: 3px solid #595265;
+  border-radius: 3px;
+  box-shadow:
+    0 0 0 1px #191724,
+    0 10px 40px #0004;
+  background: #493d57;
+}
+#game {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+.arena-grain {
+  background:
+    repeating-linear-gradient(
+      0deg,
+      #15132112 0px,
+      #15132112 1px,
+      transparent 1px,
+      transparent 4px
+    ),
+    linear-gradient(#17172780, transparent 27%, transparent 80%, #15172899);
+}
+.health-track,
+.right .health-track {
+  height: 14px;
+  transform: none;
+  border: 1px solid #e2d9ad;
+  padding: 2px;
+  background: #2b263b;
+  box-shadow: 2px 2px 0 #201c2f;
+}
+.health-fill {
+  background: linear-gradient(#a3e0bf 0 40%, #6aaea7 40% 78%, #3d778c 78%);
+}
+.right .health-fill {
+  background: linear-gradient(#ffcc95 0 40%, #dd9473 40% 78%, #a86266 78%);
+}
+.fighter-label b {
+  color: #faeaca;
+  text-shadow: 2px 2px #3a274a;
+}
+.timer-block strong {
+  color: #faeaca;
+  text-shadow: 3px 3px #4a314a;
+}
+.arena-label {
+  color: #f5d9b5;
+}
+.command-hud {
+  position: absolute;
+  bottom: 65px;
+  left: 27px;
+  z-index: 2;
+  display: grid;
+  gap: 5px;
+  pointer-events: none;
+  text-shadow: 1px 2px #25223d;
+}
+.command-hud > span {
+  font-size: 8px;
+  color: #d4c5b6;
+  letter-spacing: 1px;
+}
+.command-hud b {
+  font: 15px monospace;
+  letter-spacing: 5px;
+  margin-left: 10px;
+  color: #fff1ba;
+}
+.command-hud strong {
+  font-size: 10px;
+  color: #f1d398;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+}
+.stage-depth {
+  position: absolute;
+  right: 29px;
+  top: 145px;
+  color: #d9c3b5;
+  font: 9px monospace;
+  z-index: 2;
+  opacity: 0.85;
+}
+.key-hint {
+  bottom: 26px;
+  display: none;
+}
+.arena-bottom {
+  color: #eee0d3;
+}
+.mode-switch button.selected {
+  background: #443c40;
+  color: #f2d995;
+}
+.mode-switch {
+  background: #1b1824;
+  border-color: #39313f;
+}
+.control-panel,
+.combo-panel {
+  background: #17151f;
+  border-color: #37313f;
+}
+.control-panel {
+  padding-bottom: 24px;
+}
+.control-groups {
+  grid-template-columns: 1.15fr 1.15fr 1fr;
+}
+.control-group p {
+  white-space: normal;
+  line-height: 1.8;
+}
+.move-item {
+  grid-template-columns: 150px 1fr 50px;
+}
+.move-item > kbd {
+  height: auto;
+  min-height: 27px;
+  padding: 6px;
+  font-size: 10px;
+  text-align: center;
+  line-height: 1.7;
+}
+.move-item small {
+  text-align: right;
+}
+#moves-dialog {
+  width: min(650px, calc(100% - 32px));
+}
+.announcement strong {
+  color: #ffe2a3;
+  text-shadow:
+    4px 4px #482f4f,
+    0 0 20px #25223d;
+}
+@media (max-width: 1100px) {
+  .control-groups {
+    grid-template-columns: 1fr 1.2fr;
+  }
+  .control-group:last-child {
+    grid-column: 1/-1;
+  }
+  .control-group:last-child p {
+    white-space: normal;
+  }
+}
+@media (max-width: 700px) {
+  .command-hud {
+    bottom: 83px;
+    left: 14px;
+  }
+  .command-hud strong {
+    font-size: 9px;
+  }
+  .command-hud b {
+    font-size: 13px;
+  }
+  .stage-depth {
+    top: 157px;
+    right: 14px;
+    font-size: 7px;
+  }
+  .arena-label {
+    font-size: 5px;
+  }
+  .move-item {
+    grid-template-columns: 105px 1fr 40px;
+    gap: 8px;
+  }
+  .move-item > kbd {
+    font-size: 9px;
+  }
+  .move-item {
+    font-size: 11px;
+  }
+  .control-groups {
+    grid-template-columns: 1fr 1.15fr;
+  }
+  .control-group:last-child {
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .control-group:last-child p {
+    font-size: 8px;
+  }
+  .lab-tip {
+    line-height: 1.8;
+  }
+}
+.control-group:nth-child(2) .attack-keys {
+  display: grid;
+  grid-template-columns: 26px 26px;
+  grid-template-rows: 26px 26px;
+  gap: 4px;
+  height: 56px;
+  align-content: center;
+}
+.control-group:nth-child(2) .attack-keys kbd:nth-child(-n + 2) {
+  border-color: #739caf;
+  color: #b2d9e5;
+}
+.control-group:nth-child(2) .attack-keys kbd:nth-child(n + 3) {
+  border-color: #ac846b;
+  color: #e9c39f;
+}

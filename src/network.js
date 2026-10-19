@@ -1,7 +1,7 @@
-import { MOVES } from "./combat.js";
+import { MOVES, MAX_HP } from "./combat.js";
 export function encodeDescription(description) {
   return (
-    "AXIS1." +
+    "AXIS2." +
     btoa(JSON.stringify({ type: description.type, sdp: description.sdp }))
   );
 }
@@ -9,9 +9,11 @@ export function decodeDescription(code, expectedType) {
   if (
     typeof code !== "string" ||
     code.length > 100000 ||
-    !code.trim().startsWith("AXIS1.")
+    !code.trim().startsWith("AXIS2.")
   )
-    throw new Error("올바른 AXIS 연결 코드를 입력하세요.");
+    throw new Error(
+      "AXIS v2 연결 코드가 필요합니다. 두 사람 모두 최신 버전을 사용하세요.",
+    );
   let v;
   try {
     v = JSON.parse(atob(code.trim().slice(6)));
@@ -34,6 +36,7 @@ export function decodeDescription(code, expectedType) {
 export function validSnapshot(v) {
   if (
     !v ||
+    v.version !== 2 ||
     !["ready", "fight", "roundEnd", "matchEnd"].includes(v.phase) ||
     !Number.isFinite(v.time) ||
     v.time < 0 ||
@@ -71,13 +74,30 @@ export function validSnapshot(v) {
         "bufferAge",
         "move",
         "hitFlash",
-      ].every((k) => Number.isFinite(f[k]) && Math.abs(f[k]) < 1000000) &&
-      Math.abs(f.x) < 7 &&
-      Math.abs(f.z) < 7 &&
+      ].every((k) => Number.isFinite(f[k]) && Math.abs(f[k]) < 1e12) &&
       f.hp >= 0 &&
-      f.hp <= 120 &&
+      f.hp <= MAX_HP &&
       f.y >= 0 &&
       f.y < 5 &&
+      Number.isFinite(f.commandTime) &&
+      Number.isFinite(f.dash) &&
+      Number.isFinite(f.lastMoveAge) &&
+      Number.isFinite(f.travel) &&
+      typeof f.lastMove === "string" &&
+      f.lastMove.length < 40 &&
+      Number.isInteger(f.direction) &&
+      f.direction >= 1 &&
+      f.direction <= 9 &&
+      Array.isArray(f.commands) &&
+      f.commands.length <= 16 &&
+      f.commands.every(
+        (e) =>
+          e &&
+          Number.isInteger(e.dir) &&
+          e.dir >= 1 &&
+          e.dir <= 9 &&
+          Number.isFinite(e.at),
+      ) &&
       typeof f.guard === "boolean" &&
       typeof f.crouch === "boolean" &&
       (!f.attack ||

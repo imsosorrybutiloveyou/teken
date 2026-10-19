@@ -29,7 +29,7 @@ func TestEmbeddedGame(t *testing.T) {
 		t.Fatal("embedded game index is missing")
 	}
 	paths := regexp.MustCompile(`(?:src|href)="(/(?:assets|fonts)/[^\"]+)"`).FindAllStringSubmatch(string(body), -1)
-	if len(paths) < 3 {
+	if len(paths) < 2 {
 		t.Fatal("production JS and CSS references are missing")
 	}
 	for _, path := range paths {

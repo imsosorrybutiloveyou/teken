@@ -54,14 +54,15 @@ func run() error {
 	defer listener.Close()
 	server := &http.Server{Handler: handler, ReadHeaderTimeout: 5 * time.Second}
 	url := "http://" + listener.Addr().String()
-	fmt.Println("\n  AXIS - 3D Fighting Arena | v1.0.0")
+	fmt.Println("\n  AXIS ADVANCE - Pixel Fighting | v2.0.0")
 	fmt.Println("  --------------------------------")
 	fmt.Println("  Game ready: " + url)
 	fmt.Println("  Your browser will open the game automatically.")
 	fmt.Println("  Keep this window open while playing.")
 	fmt.Println("  To quit: close this window or press Ctrl+C.")
-	fmt.Println("\n  Move: A/D | Sidestep: W/S | Attacks: J K U I O")
-	fmt.Print("  Guard: L | Crouch: Shift | Combo: J J K / I J K\n\n")
+	fmt.Println("\n  Move: A/D | Sidestep: W/S | U: Left Punch | I: Right Punch | J: Left Kick | K: Right Kick")
+	fmt.Print("  Guard: L | Crouch: Shift | Combo: U I K | Launcher: Down+Forward+I\n")
+	fmt.Print("  Special: Down, Down+Forward, Forward + I | Dash: Forward, release, Forward\n\n")
 	if !*noBrowser {
 		go func() {
 			if err := openBrowser(url); err != nil {

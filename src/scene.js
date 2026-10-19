@@ -1,573 +1,677 @@
-import * as THREE from "three";
 import { MOVES } from "./combat.js";
-export function createScene(canvas) {
-  const renderer = new THREE.WebGLRenderer({
-    canvas,
-    antialias: true,
-    alpha: false,
-    powerPreference: "high-performance",
-  });
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-  renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.25;
-  renderer.outputColorSpace = THREE.SRGBColorSpace;
-  const scene = new THREE.Scene();
-  scene.background = new THREE.Color("#152333");
-  scene.fog = new THREE.FogExp2("#152333", 0.027);
-  const camera = new THREE.PerspectiveCamera(39, 1, 0.1, 120);
-  camera.position.set(9, 6.8, 12);
-  scene.add(new THREE.HemisphereLight("#bbdef4", "#262325", 2.4));
-  const key = new THREE.DirectionalLight("#d7edf9", 3.3);
-  key.position.set(-3, 12, 6);
-  key.castShadow = true;
-  key.shadow.mapSize.set(2048, 2048);
-  key.shadow.camera.left = -10;
-  key.shadow.camera.right = 10;
-  key.shadow.camera.top = 10;
-  key.shadow.camera.bottom = -10;
-  key.shadow.normalBias = 0.03;
-  scene.add(key);
-  const rim = new THREE.DirectionalLight("#86cafa", 2.6);
-  rim.position.set(3, 5, -6);
-  scene.add(rim);
-  const warm = new THREE.PointLight("#ff8b53", 32, 22, 2);
-  warm.position.set(-6, 4, -4);
-  scene.add(warm);
-  const mat = (color, metalness = 0.15, roughness = 0.65) =>
-    new THREE.MeshStandardMaterial({ color, metalness, roughness });
-  const dark = mat("#17202b", 0.65, 0.46),
-    edge = mat("#343e4a", 0.7, 0.38),
-    metal = mat("#687b8a", 0.75, 0.38);
-  const glowMat = (color) =>
-    new THREE.MeshStandardMaterial({
+const W = 480,
+  H = 270,
+  OUTLINE = "#171827";
+const mix = (a, b, t) => a + (b - a) * t;
+const palettes = [
+  {
+    cloth: "#3365af",
+    shade: "#213763",
+    light: "#609be0",
+    pants: "#ded0a9",
+    pantShade: "#9a9c96",
+    skin: "#d89e76",
+    skinDark: "#985e51",
+    skinLight: "#f4c6a0",
+    hair: "#202c44",
+    hairLight: "#46546a",
+    belt: "#b53d50",
+    glove: "#294d78",
+  },
+  {
+    cloth: "#b94740",
+    shade: "#652f42",
+    light: "#e27c52",
+    pants: "#383e50",
+    pantShade: "#222b3e",
+    skin: "#c99268",
+    skinDark: "#88594f",
+    skinLight: "#edbd8b",
+    hair: "#c5cbd0",
+    hairLight: "#fff1ca",
+    belt: "#dbb863",
+    glove: "#d79a56",
+  },
+];
+function polygon(c, points, color) {
+  c.fillStyle = color;
+  c.beginPath();
+  points.forEach(([x, y], i) =>
+    i
+      ? c.lineTo(Math.round(x), Math.round(y))
+      : c.moveTo(Math.round(x), Math.round(y)),
+  );
+  c.closePath();
+  c.fill();
+}
+function rect(c, x, y, w, h, color) {
+  c.fillStyle = color;
+  c.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
+}
+function limb(c, a, b, width, base, light) {
+  const dx = b[0] - a[0],
+    dy = b[1] - a[1],
+    len = Math.hypot(dx, dy) || 1,
+    nx = -dy / len,
+    ny = dx / len;
+  const ribbon = (w, color) =>
+    polygon(
+      c,
+      [
+        [a[0] + nx * w, a[1] + ny * w],
+        [b[0] + nx * w, b[1] + ny * w],
+        [b[0] - nx * w, b[1] - ny * w],
+        [a[0] - nx * w, a[1] - ny * w],
+      ],
       color,
-      emissive: color,
-      emissiveIntensity: 3,
-      roughness: 0.3,
-    });
-  const cyan = glowMat("#78d9e9"),
-    orange = glowMat("#eaa05c");
-  function mesh(geometry, material, parent = scene, x = 0, y = 0, z = 0) {
-    const m = new THREE.Mesh(geometry, material);
-    m.position.set(x, y, z);
-    m.castShadow = true;
-    m.receiveShadow = true;
-    parent.add(m);
-    return m;
-  }
-  function box(w, h, d, material, parent = scene, x = 0, y = 0, z = 0) {
-    return mesh(new THREE.BoxGeometry(w, h, d), material, parent, x, y, z);
-  }
-  function cylinder(
-    r1,
-    r2,
-    h,
-    material,
-    parent = scene,
-    x = 0,
-    y = 0,
-    z = 0,
-    n = 64,
-  ) {
-    return mesh(
-      new THREE.CylinderGeometry(r1, r2, h, n),
-      material,
-      parent,
-      x,
-      y,
-      z,
     );
-  }
-  mesh(new THREE.PlaneGeometry(180, 180), mat("#0c151e"), scene).rotation.x =
-    -Math.PI / 2;
-  cylinder(6.6, 7, 0.45, dark, scene, 0, -0.23, 0, 8);
-  cylinder(6.65, 6.65, 0.05, metal, scene, 0, -0.04, 0, 8);
-  cylinder(6.5, 6.5, 0.055, mat("#293944", 0.6, 0.7), scene, 0, 0, 0, 8);
-  function floorTexture() {
-    const c = document.createElement("canvas");
-    c.width = c.height = 1024;
-    const ctx = c.getContext("2d");
-    ctx.fillStyle = "#34434a";
-    ctx.fillRect(0, 0, 1024, 1024);
-    for (let i = 0; i < 1024; i += 64) {
-      ctx.strokeStyle = i % 256 === 0 ? "#526269" : "#3d4f57";
-      ctx.lineWidth = i % 256 === 0 ? 2 : 1;
-      ctx.beginPath();
-      ctx.moveTo(i, 0);
-      ctx.lineTo(i, 1024);
-      ctx.moveTo(0, i);
-      ctx.lineTo(1024, i);
-      ctx.stroke();
-    }
-    ctx.strokeStyle = "#a8bbc066";
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.arc(512, 512, 356, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.setLineDash([4, 10]);
-    ctx.beginPath();
-    ctx.arc(512, 512, 365, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.strokeStyle = "#d2e09a";
-    ctx.lineWidth = 6;
-    for (let a = 0; a < 8; a++) {
-      ctx.save();
-      ctx.translate(512, 512);
-      ctx.rotate((a * Math.PI) / 4);
-      ctx.beginPath();
-      ctx.moveTo(390, -36);
-      ctx.lineTo(390, 36);
-      ctx.stroke();
-      ctx.restore();
-    }
-    ctx.save();
-    ctx.translate(512, 512);
-    ctx.rotate(-Math.PI / 2);
-    ctx.textAlign = "center";
-    ctx.fillStyle = "#8b9a9d40";
-    ctx.font = "italic 900 135px sans-serif";
-    ctx.fillText("AXIS", 0, 35);
-    ctx.font = "16px monospace";
-    ctx.fillStyle = "#9eafb77a";
-    ctx.fillText("S E C T O R   0 7", 0, 75);
-    ctx.restore();
-    const t = new THREE.CanvasTexture(c);
-    t.colorSpace = THREE.SRGBColorSpace;
-    t.anisotropy = 8;
-    return t;
-  }
-  const floor = mesh(
-    new THREE.CircleGeometry(6.48, 8),
-    new THREE.MeshStandardMaterial({
-      map: floorTexture(),
-      roughness: 0.82,
-      metalness: 0.35,
-    }),
-    scene,
-    0,
-    0.034,
-    0,
+  ribbon(width / 2 + 1.5, OUTLINE);
+  ribbon(width / 2, base);
+  c.strokeStyle = light;
+  c.lineWidth = 2;
+  c.beginPath();
+  c.moveTo(
+    Math.round(a[0] + nx * (width / 2 - 2)),
+    Math.round(a[1] + ny * (width / 2 - 2)),
   );
-  floor.rotation.x = -Math.PI / 2;
-  floor.rotation.z = Math.PI / 8;
-  for (let i = 0; i < 8; i++) {
-    const a = (i * Math.PI) / 4 + Math.PI / 8;
-    const g = new THREE.Group();
-    g.position.set(Math.cos(a) * 6.3, 0, Math.sin(a) * 6.3);
-    g.rotation.y = -a;
-    scene.add(g);
-    box(0.08, 0.055, 1.9, i % 2 ? orange : cyan, g, 0, 0.07, 0);
-    box(0.25, 0.21, 2.2, dark, g, 0, -0.08, 0);
+  c.lineTo(
+    Math.round(b[0] + nx * (width / 2 - 2)),
+    Math.round(b[1] + ny * (width / 2 - 2)),
+  );
+  c.stroke();
+}
+function spritePose(f, t) {
+  const walk = Math.sin(f.travel * 8),
+    bob = Math.round(Math.sin(t * 5) * 1.1),
+    crouch = f.crouch ? 16 : 0;
+  const pose = {
+    hip: [46, 67 + crouch],
+    head: [47, 23 + crouch + bob],
+    shoulders: [
+      [39, 41 + crouch + bob],
+      [51, 42 + crouch + bob],
+    ],
+    elbows: [
+      [48, 55 + crouch],
+      [65, 55 + crouch],
+    ],
+    hands: [
+      [59, 39 + crouch],
+      [75, 41 + crouch],
+    ],
+    knees: [
+      [31 + walk * f.move * 10, 86],
+      [57 - walk * f.move * 10, 86],
+    ],
+    feet: [
+      [21 + walk * f.move * 17, 107],
+      [66 - walk * f.move * 17, 109],
+    ],
+    lean: 0,
+  };
+  if (f.crouch) {
+    pose.knees = [
+      [26, 94],
+      [65, 94],
+    ];
+    pose.feet = [
+      [22, 109],
+      [71, 109],
+    ];
   }
-  // Procedural architecture and all character geometry are original, with no external asset downloads.
-  for (let i = 0; i < 30; i++) {
-    const angle = i * 2.39996,
-      r = 17 + (i % 4) * 5,
-      h = 3 + ((i * 7) % 13);
-    const x = Math.cos(angle) * r,
-      z = Math.sin(angle) * r;
-    const tower = new THREE.Group();
-    tower.position.set(x, h / 2 - 1, z);
-    scene.add(tower);
-    box(2.2, h, 2.5, mat(i % 2 ? "#243443" : "#1d2e3b", 0.5, 0.6), tower);
-    box(2.35, 0.15, 2.65, edge, tower, 0, h / 2, 0);
-    for (let j = 0; j < h / 1.3; j++)
-      box(
-        1.4,
-        0.055,
-        0.02,
-        i % 5 === 0 ? orange : cyan,
-        tower,
+  if (f.guard) {
+    pose.elbows = [
+      [59, 49 + crouch],
+      [63, 53 + crouch],
+    ];
+    pose.hands = [
+      [65, 25 + crouch],
+      [71, 33 + crouch],
+    ];
+    pose.lean = -2;
+  }
+  if (f.stun > 0 && !f.guard) {
+    pose.lean = -6;
+    pose.head[0] -= 5;
+    pose.hands = [
+      [25, 48],
+      [57, 59],
+    ];
+  }
+  if (f.y > 0.1) {
+    pose.knees = [
+      [26, 79],
+      [65, 80],
+    ];
+    pose.feet = [
+      [18, 94],
+      [75, 95],
+    ];
+    pose.hands = [
+      [31, 29],
+      [70, 24],
+    ];
+    pose.lean = -9;
+  }
+  if (f.attack) {
+    const m = MOVES[f.attack.key],
+      at = f.attack.t,
+      e = Math.max(
         0,
-        j * 1.3 - h / 2 + 0.7,
-        1.26,
+        at < m.windup
+          ? Math.sin(((at / m.windup) * Math.PI) / 2)
+          : 1 - (at - m.windup) / (m.duration - m.windup),
       );
-  }
-  for (const x of [-9, 9]) {
-    const g = new THREE.Group();
-    g.position.set(x, 0, -7);
-    scene.add(g);
-    box(0.6, 8, 0.6, dark, g, 0, 3, 0);
-    box(0.09, 7, 0.1, cyan, g, 0.31, 3, 0.1);
-    box(3.4, 2.05, 0.25, dark, g, 0, 6, 0);
-    const c = document.createElement("canvas");
-    c.width = 512;
-    c.height = 256;
-    const ctx = c.getContext("2d");
-    ctx.fillStyle = "#101e2b";
-    ctx.fillRect(0, 0, 512, 256);
-    ctx.fillStyle = "#aec7be";
-    ctx.font = "italic 900 125px sans-serif";
-    ctx.textAlign = "center";
-    ctx.fillText("AXIS", 256, 147);
-    ctx.font = "18px monospace";
-    ctx.fillStyle = "#d6f76b";
-    ctx.fillText("THE NEXT DIMENSION", 256, 197);
-    const t = new THREE.CanvasTexture(c);
-    t.colorSpace = THREE.SRGBColorSpace;
-    const sign = mesh(
-      new THREE.PlaneGeometry(3.1, 1.75),
-      new THREE.MeshBasicMaterial({ map: t }),
-      g,
-      0,
-      6,
-      0.14,
-    );
-    sign.rotation.y = x < 0 ? 0.2 : -0.2;
-  }
-  const backRing = mesh(
-    new THREE.TorusGeometry(13, 0.04, 6, 100),
-    new THREE.MeshBasicMaterial({
-      color: "#6d8d9e",
-      transparent: true,
-      opacity: 0.26,
-    }),
-    scene,
-    0,
-    3,
-    -19,
-  );
-  backRing.rotation.x = 0.25;
-  const starPositions = [];
-  for (let i = 0; i < 140; i++)
-    starPositions.push(
-      Math.sin(i * 13) * 50,
-      8 + (i % 19),
-      -15 - Math.abs(Math.cos(i * 7) * 35),
-    );
-  const starGeo = new THREE.BufferGeometry();
-  starGeo.setAttribute(
-    "position",
-    new THREE.Float32BufferAttribute(starPositions, 3),
-  );
-  scene.add(
-    new THREE.Points(
-      starGeo,
-      new THREE.PointsMaterial({
-        color: "#9fb4c4",
-        size: 0.045,
-        transparent: true,
-        opacity: 0.5,
-      }),
-    ),
-  );
-  function makeFighter(index) {
-    const group = new THREE.Group();
-    scene.add(group);
-    const body = new THREE.Group();
-    group.add(body);
-    const blue = index === 0,
-      cloth = mat(blue ? "#316e98" : "#a94e3c", 0.25, 0.55),
-      trim = mat(blue ? "#b3cdd2" : "#d2b18a", 0.35, 0.55),
-      pants = mat(blue ? "#bac0ba" : "#303641", 0.13, 0.78),
-      skin = mat(blue ? "#c49e80" : "#c7ad96", 0.08, 0.7),
-      black = mat("#1b232e", 0.3, 0.6),
-      hair = mat(blue ? "#18232e" : "#c8c6b9", 0.15, 0.85);
-    const torso = box(0.7, 0.67, 0.39, cloth, body, 0, 1.38, 0);
-    torso.geometry.translate(0, 0.02, 0);
-    box(0.38, 0.6, 0.025, black, body, 0, 1.4, 0.21);
-    box(0.09, 0.6, 0.045, trim, body, -0.24, 1.4, 0.23).rotation.z = -0.14;
-    box(0.09, 0.6, 0.045, trim, body, 0.24, 1.4, 0.23).rotation.z = 0.14;
-    box(0.74, 0.12, 0.43, black, body, 0, 1.08, 0);
-    box(0.14, 0.14, 0.06, trim, body, 0, 1.09, 0.24);
-    if (!blue) {
-      const sash = box(0.16, 0.55, 0.06, cloth, body, 0.26, 0.85, 0.17);
-      sash.rotation.z = -0.18;
-    }
-    cylinder(0.11, 0.13, 0.18, skin, body, 0, 1.83, 0, 8);
-    const head = new THREE.Group();
-    head.position.y = 2.03;
-    body.add(head);
-    mesh(
-      new THREE.SphereGeometry(0.225, 12, 10),
-      skin,
-      head,
-      0,
-      0,
-      0,
-    ).scale.set(0.85, 1.14, 0.84);
-    box(0.33, 0.16, 0.34, hair, head, 0, 0.19, -0.035);
-    for (let n = 0; n < 6; n++) {
-      const spike = mesh(
-        new THREE.ConeGeometry(0.09, 0.23 + (n % 2) * 0.07, 4),
-        hair,
-        head,
-        ((n % 3) - 1) * 0.105,
-        0.3,
-        -0.05 - Math.floor(n / 3) * 0.12,
-      );
-      spike.rotation.x = -0.25;
-      spike.rotation.z = ((n % 3) - 1) * -0.2;
-    }
-    box(0.065, 0.025, 0.02, black, head, -0.085, 0.025, 0.18);
-    box(0.065, 0.025, 0.02, black, head, 0.085, 0.025, 0.18);
-    box(0.055, 0.065, 0.05, skin, head, 0, -0.02, 0.19);
-    const arms = [];
-    for (const s of [-1, 1]) {
-      const shoulder = new THREE.Group();
-      shoulder.position.set(s * 0.43, 1.7, 0);
-      body.add(shoulder);
-      mesh(new THREE.SphereGeometry(0.19, 10, 8), cloth, shoulder);
-      cylinder(0.135, 0.12, 0.41, skin, shoulder, 0, -0.22, 0, 10);
-      const elbow = new THREE.Group();
-      elbow.position.y = -0.43;
-      shoulder.add(elbow);
-      mesh(new THREE.SphereGeometry(0.12, 10, 8), skin, elbow);
-      cylinder(0.115, 0.135, 0.34, skin, elbow, 0, -0.18, 0, 10);
-      cylinder(0.14, 0.14, 0.15, trim, elbow, 0, -0.33, 0, 10);
-      const fist = box(
-        0.26,
-        0.25,
-        0.25,
-        blue ? black : cloth,
-        elbow,
-        0,
-        -0.48,
-        0,
-      );
-      box(0.22, 0.06, 0.27, trim, elbow, 0, -0.43, 0.01);
-      arms.push({ shoulder, elbow, fist });
-    }
-    const legs = [];
-    for (const s of [-1, 1]) {
-      const hip = new THREE.Group();
-      hip.position.set(s * 0.22, 1, 0);
-      body.add(hip);
-      cylinder(0.18, 0.15, 0.46, pants, hip, 0, -0.23, 0, 10);
-      const knee = new THREE.Group();
-      knee.position.y = -0.46;
-      hip.add(knee);
-      mesh(new THREE.SphereGeometry(0.16, 10, 8), black, knee, 0, 0, 0.025);
-      cylinder(0.14, 0.11, 0.43, pants, knee, 0, -0.21, 0, 10);
-      box(0.23, 0.21, 0.4, black, knee, 0, -0.43, 0.07);
-      box(0.24, 0.065, 0.4, trim, knee, 0, -0.5, 0.07);
-      legs.push({ hip, knee });
-    }
-    const shadow = mesh(
-      new THREE.CircleGeometry(0.62, 32),
-      new THREE.MeshBasicMaterial({
-        color: "#000000",
-        transparent: true,
-        opacity: 0.24,
-        depthWrite: false,
-      }),
-      scene,
-      0,
-      0.041,
-      0,
-    );
-    shadow.rotation.x = -Math.PI / 2;
-    const ring = mesh(
-      new THREE.RingGeometry(0.56, 0.58, 48),
-      new THREE.MeshBasicMaterial({
-        color: blue ? "#8ed5fb" : "#ed9673",
-        transparent: true,
-        opacity: 0.7,
-        side: THREE.DoubleSide,
-      }),
-      scene,
-      0,
-      0.045,
-      0,
-    );
-    ring.rotation.x = -Math.PI / 2;
-    return {
-      group,
-      body,
-      torso,
-      head,
-      arms,
-      legs,
-      shadow,
-      ring,
-      materials: [cloth, skin],
+    const set = (part, index, target) => {
+      pose[part][index] = pose[part][index].map((v, i) => mix(v, target[i], e));
     };
-  }
-  const rigs = [makeFighter(0), makeFighter(1)];
-  const effects = [];
-  let shake = 0,
-    cameraMode = 0;
-  function spark(event) {
-    const group = new THREE.Group();
-    group.position.set(event.x, event.y, event.z);
-    scene.add(group);
-    const blocked = event.type === "block";
-    const color = blocked ? "#9fdbef" : "#fbd397";
-    for (let i = 0; i < 12; i++) {
-      const a = (i * Math.PI) / 6,
-        spike = mesh(
-          new THREE.BoxGeometry(0.025, 0.025, 0.15 + (i % 3) * 0.08),
-          new THREE.MeshBasicMaterial({ color, transparent: true }),
-          group,
-        );
-      spike.rotation.set(Math.sin(a) * 2, a, Math.cos(a));
-      spike.userData.dir = new THREE.Vector3(
-        Math.cos(a) * 0.7,
-        Math.sin(a) * 0.7,
-        Math.sin(i * 2) * 0.5,
-      );
+    if (["leftPunch", "rightPunch", "powerPunch", "palm"].includes(m.kind)) {
+      const arm = m.kind === "leftPunch" || m.kind === "palm" ? 1 : 0;
+      set("elbows", arm, [75, 43]);
+      set("hands", arm, [101, m.level === "high" ? 34 : 44]);
+      pose.lean = e * 8;
+      if (m.kind === "powerPunch") {
+        set("hands", arm, [107, 43]);
+        pose.lean = e * 12;
+      }
     }
-    effects.push({ group, age: 0, blocked });
-    if (!blocked) shake = 0.1;
+    if (["upper", "dragon"].includes(m.kind)) {
+      set("elbows", 0, [66, 37]);
+      set("hands", 0, [68, 6]);
+      pose.head[1] -= e * 5;
+      pose.lean = e * 5;
+    }
+    if (
+      ["leftKick", "rightKick", "spin", "low", "sweep", "backKick"].includes(
+        m.kind,
+      )
+    ) {
+      const leg = m.kind === "leftKick" || m.kind === "low" ? 1 : 0,
+        low = ["low", "sweep"].includes(m.kind);
+      set("knees", leg, [75, low ? 87 : 61]);
+      set("feet", leg, [104, low ? 102 : 53]);
+      pose.lean = -e * 9;
+      pose.hip[1] += low ? e * 7 : 0;
+      set("hands", 1, [61, 31]);
+      if (m.kind === "spin") {
+        pose.lean = -e * 14;
+        set("hands", 0, [25, 41]);
+      }
+      if (m.kind === "backKick") set("feet", leg, [106, 67]);
+    }
+    if (m.kind === "knee") {
+      set("knees", 1, [75, 53]);
+      set("feet", 1, [65, 77]);
+      pose.lean = e * 4;
+      pose.head[1] -= e * 5;
+    }
+    if (m.kind === "throw") {
+      set("elbows", 0, [66, 44]);
+      set("hands", 0, [84, 43]);
+      set("elbows", 1, [70, 57]);
+      set("hands", 1, [88, 55]);
+      pose.lean = e * 7;
+    }
   }
-  function pose(r, f, t, dt) {
-    r.group.position.lerp(
-      new THREE.Vector3(f.x, f.y + 0.04, f.z),
-      Math.min(1, dt * 22),
+  return pose;
+}
+function paintSprite(c, f, index, t) {
+  const p = palettes[index],
+    pose = spritePose(f, t);
+  c.clearRect(0, 0, 136, 128);
+  c.save();
+  c.translate(16, 6);
+  const hip = pose.hip,
+    head = [pose.head[0] + pose.lean, pose.head[1]],
+    shoulders = pose.shoulders.map((a) => [a[0] + pose.lean, a[1]]);
+  const pants = (i) => {
+    const h = [hip[0] + (i ? 5 : -5), hip[1]],
+      k = pose.knees[i],
+      foot = pose.feet[i];
+    limb(c, h, k, 12, p.pants, p.pantShade);
+    limb(c, k, foot, 10, p.pants, p.pantShade);
+    polygon(
+      c,
+      [
+        [foot[0] - 7, foot[1] - 6],
+        [foot[0] + 4, foot[1] - 5],
+        [foot[0] + 11, foot[1] + 1],
+        [foot[0] + 11, foot[1] + 5],
+        [foot[0] - 7, foot[1] + 5],
+      ],
+      OUTLINE,
     );
-    const desired = Math.PI / 2 - f.angle;
-    let diff =
-      ((desired - r.group.rotation.y + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
-    r.group.rotation.y += diff * Math.min(1, dt * 16);
-    const walk = Math.sin(t * 13) * f.move,
-      bob = Math.sin(t * 4) * 0.015;
-    const crouch = f.crouch ? 0.34 : 0;
-    r.body.position.y = bob - crouch;
-    r.body.rotation.set(0, 0, f.stun > 0 ? -0.1 : 0);
-    r.head.rotation.x = 0;
-    r.arms.forEach(({ shoulder, elbow }, i) => {
-      shoulder.rotation.set(-0.65 + (i ? -0.15 : 0.05), 0, i ? -0.16 : 0.16);
-      elbow.rotation.set(-1.45, 0, 0);
-    });
-    r.legs.forEach(({ hip, knee }, i) => {
-      hip.rotation.set(
-        (i ? -0.12 : 0.12) + walk * (i ? -0.42 : 0.42) - (f.crouch ? 0.6 : 0),
-        0,
-        i ? 0.1 : -0.1,
-      );
-      knee.rotation.x =
-        0.14 + (f.crouch ? 1 : 0) + Math.max(0, walk * (i ? 0.5 : -0.5));
-    });
-    if (f.guard) {
-      r.arms.forEach(({ shoulder, elbow }, i) => {
-        shoulder.rotation.x = -1.08;
-        shoulder.rotation.z = i ? -0.35 : 0.35;
-        elbow.rotation.x = -1.6;
-      });
-      r.head.rotation.x = 0.12;
-    }
-    if (f.stun > 0 && !f.guard) {
-      r.body.rotation.x = -0.15;
-      r.arms.forEach(({ shoulder }) => (shoulder.rotation.z *= 3));
-    }
-    if (f.y > 0) {
-      r.body.rotation.z = -0.2;
-      r.legs[0].hip.rotation.x = -0.6;
-      r.legs[1].hip.rotation.x = 0.5;
-      r.legs.forEach(({ knee }) => (knee.rotation.x = 0.65));
-    }
-    if (f.attack) {
-      const move = MOVES[f.attack.key],
-        p = f.attack.t,
-        extension =
-          p < move.windup
-            ? Math.sin(((p / move.windup) * Math.PI) / 2)
-            : Math.max(
-                0,
-                1 - (p - move.windup) / (move.duration - move.windup),
-              );
-      const a = move.kind === "cross" ? r.arms[1] : r.arms[0];
-      if (["punch", "cross"].includes(move.kind)) {
-        a.shoulder.rotation.x = -0.65 - extension * 1.05;
-        a.elbow.rotation.x = -1.45 + extension * 1.48;
-        r.body.rotation.y = extension * (move.kind === "cross" ? -0.3 : 0.2);
-      }
-      if (move.kind === "upper") {
-        a.shoulder.rotation.x = -0.65 - extension * 2.2;
-        a.elbow.rotation.x = -0.8;
-        r.body.position.y += extension * 0.15;
-        r.body.rotation.x = -extension * 0.2;
-      }
-      if (["kick", "spin", "low"].includes(move.kind)) {
-        const leg = r.legs[1];
-        leg.hip.rotation.x = -extension * (move.kind === "low" ? 0.7 : 1.8);
-        leg.hip.rotation.z = -extension * 0.3;
-        leg.knee.rotation.x = 0.15;
-        r.body.rotation.z = extension * 0.18;
-        r.body.rotation.y =
-          move.kind === "spin" ? extension * Math.PI * 0.85 : extension * 0.45;
-      }
-      if (move.kind === "throw") {
-        r.arms.forEach(({ shoulder, elbow }) => {
-          shoulder.rotation.x = -0.65 - extension * 1.1;
-          elbow.rotation.x = -1.45 + extension * 1.1;
-        });
-        r.body.rotation.x = extension * 0.3;
-      }
-    } else r.body.rotation.y = 0;
-    r.materials.forEach((m) => {
-      m.emissive.set(f.hitFlash > 0 ? "#eab477" : "#000000");
-      m.emissiveIntensity = f.hitFlash > 0 ? 0.8 : 0;
-    });
-    r.shadow.position.set(f.x, 0.042, f.z);
-    r.shadow.scale.setScalar(1 - f.y * 0.14);
-    r.shadow.material.opacity = 0.25 - f.y * 0.06;
-    r.ring.position.set(f.x, 0.047, f.z);
+    rect(c, foot[0] - 5, foot[1] - 3, 9, 5, p.glove);
+    rect(c, foot[0] - 5, foot[1] + 2, 15, 2, p.belt);
+  };
+  const arm = (i) => {
+    limb(
+      c,
+      shoulders[i],
+      pose.elbows[i],
+      9,
+      i ? p.skin : p.skinDark,
+      p.skinLight,
+    );
+    limb(c, pose.elbows[i], pose.hands[i], 8, p.skin, p.skinLight);
+    const hand = pose.hands[i];
+    rect(c, hand[0] - 5, hand[1] - 5, 11, 11, OUTLINE);
+    rect(c, hand[0] - 4, hand[1] - 4, 9, 8, p.glove);
+    rect(c, hand[0] - 4, hand[1] - 3, 7, 2, p.light);
+    rect(c, hand[0] - 5, hand[1] + 3, 9, 3, p.belt);
+  };
+  pants(0);
+  arm(0);
+  const lx = pose.lean;
+  polygon(
+    c,
+    [
+      [37 + lx, 35 + (f.crouch ? 16 : 0)],
+      [52 + lx, 36 + (f.crouch ? 16 : 0)],
+      [59 + lx, 49 + (f.crouch ? 16 : 0)],
+      [hip[0] + 10, hip[1]],
+      [hip[0] - 12, hip[1] + 2],
+      [32 + lx, 50 + (f.crouch ? 16 : 0)],
+    ],
+    OUTLINE,
+  );
+  polygon(
+    c,
+    [
+      [38 + lx, 37 + (f.crouch ? 16 : 0)],
+      [51 + lx, 38 + (f.crouch ? 16 : 0)],
+      [56 + lx, 49 + (f.crouch ? 16 : 0)],
+      [hip[0] + 7, hip[1] - 2],
+      [hip[0] - 10, hip[1]],
+      [35 + lx, 48 + (f.crouch ? 16 : 0)],
+    ],
+    p.cloth,
+  );
+  polygon(
+    c,
+    [
+      [38 + lx, 39 + (f.crouch ? 16 : 0)],
+      [43 + lx, 40 + (f.crouch ? 16 : 0)],
+      [hip[0] - 4, hip[1] - 3],
+      [hip[0] - 10, hip[1]],
+    ],
+    p.shade,
+  );
+  polygon(
+    c,
+    [
+      [46 + lx, 37 + (f.crouch ? 16 : 0)],
+      [51 + lx, 38 + (f.crouch ? 16 : 0)],
+      [49 + lx, 53 + (f.crouch ? 16 : 0)],
+      [43 + lx, 49 + (f.crouch ? 16 : 0)],
+    ],
+    p.skin,
+  );
+  rect(c, hip[0] - 12, hip[1] - 2, 22, 5, OUTLINE);
+  rect(c, hip[0] - 11, hip[1] - 1, 20, 3, p.belt);
+  polygon(
+    c,
+    [
+      [hip[0] + 1, hip[1] + 2],
+      [hip[0] + 6, hip[1] + 2],
+      [hip[0] + 10, hip[1] + 17],
+      [hip[0] + 5, hip[1] + 19],
+    ],
+    p.belt,
+  );
+  pants(1);
+  rect(c, head[0] - 3, head[1] + 8, 9, 9, p.skinDark);
+  c.save();
+  c.translate(head[0], head[1]);
+  c.scale(0.78, 0.8);
+  c.translate(-head[0], -head[1]);
+  polygon(
+    c,
+    [
+      [head[0] - 9, head[1] - 8],
+      [head[0] + 7, head[1] - 9],
+      [head[0] + 11, head[1]],
+      [head[0] + 15, head[1] + 3],
+      [head[0] + 10, head[1] + 5],
+      [head[0] + 7, head[1] + 12],
+      [head[0] - 3, head[1] + 11],
+      [head[0] - 10, head[1] + 2],
+    ],
+    OUTLINE,
+  );
+  polygon(
+    c,
+    [
+      [head[0] - 7, head[1] - 7],
+      [head[0] + 6, head[1] - 7],
+      [head[0] + 8, head[1] + 1],
+      [head[0] + 12, head[1] + 3],
+      [head[0] + 8, head[1] + 5],
+      [head[0] + 5, head[1] + 10],
+      [head[0] - 2, head[1] + 9],
+      [head[0] - 8, head[1] + 1],
+    ],
+    p.skin,
+  );
+  rect(c, head[0] + 1, head[1] - 5, 5, 7, p.skinLight);
+  rect(c, head[0] + 5, head[1], 5, 2, OUTLINE);
+  rect(c, head[0] + 7, head[1], 2, 1, "#fff1c5");
+  rect(c, head[0] + 5, head[1] + 7, 4, 1, p.skinDark);
+  polygon(
+    c,
+    [
+      [head[0] - 10, head[1] - 1],
+      [head[0] - 12, head[1] - 12],
+      [head[0] - 6, head[1] - 10],
+      [head[0] - 3, head[1] - 18],
+      [head[0] + 1, head[1] - 11],
+      [head[0] + 7, head[1] - 16],
+      [head[0] + 9, head[1] - 7],
+      [head[0] + 5, head[1] - 3],
+      [head[0] - 5, head[1] - 5],
+      [head[0] - 5, head[1] + 2],
+    ],
+    p.hair,
+  );
+  polygon(
+    c,
+    [
+      [head[0] - 7, head[1] - 10],
+      [head[0] - 3, head[1] - 14],
+      [head[0] - 2, head[1] - 8],
+      [head[0] + 6, head[1] - 12],
+      [head[0] + 3, head[1] - 6],
+    ],
+    p.hairLight,
+  );
+  c.restore();
+  arm(1);
+  if (f.hitFlash > 0) {
+    c.globalCompositeOperation = "source-atop";
+    c.fillStyle = "#fff3c9";
+    c.globalAlpha = 0.65;
+    c.fillRect(0, 0, 120, 122);
   }
-  const clock = new THREE.Clock();
-  let resizeWidth = 0,
-    resizeHeight = 0;
+  c.restore();
+}
+export function createScene(canvas) {
+  const c = canvas.getContext("2d", { alpha: false });
+  if (!c) throw new Error("Canvas 2D is unavailable");
+  canvas.width = W;
+  canvas.height = H;
+  const sprites = [0, 1].map(() => {
+    const image = document.createElement("canvas");
+    image.width = 136;
+    image.height = 128;
+    return { image, context: image.getContext("2d") };
+  });
+  const floor = c.createImageData(W, H),
+    pixels = new Uint32Array(floor.data.buffer);
+  const effects = [];
+  let centerX = 0,
+    centerZ = 0,
+    wide = false,
+    last = performance.now(),
+    clock = 0,
+    shake = 0;
+  let cameraDistance = 13;
+  const rgba = (r, g, b) => ((255 << 24) | (b << 16) | (g << 8) | r) >>> 0;
+  function project(x, y, z) {
+    const d = cameraDistance - z + centerZ,
+      s = 600 / Math.max(1, d);
+    return { x: W / 2 + (x - centerX) * s, y: 91 + 2.6 * s - y * s, scale: s };
+  }
+  function background() {
+    c.fillStyle = "#282e4d";
+    c.fillRect(0, 0, W, H);
+    const sky = [
+      "#282e4d",
+      "#3c3653",
+      "#64455c",
+      "#915769",
+      "#b56c70",
+      "#d68d78",
+      "#e8ad85",
+    ];
+    sky.forEach((color, i) => rect(c, 0, i * 15, W, 16, color));
+    c.fillStyle = "#f1c68e";
+    c.beginPath();
+    c.arc(352 - ((centerX * 0.2) % 30), 58, 28, 0, Math.PI * 2);
+    c.fill();
+    for (let i = 0; i < 5; i++)
+      rect(c, 310, 64 + i * 6, 80, 2, sky[Math.min(6, 4 + Math.floor(i / 2))]);
+    polygon(
+      c,
+      [
+        [0, 85],
+        [28, 64],
+        [52, 80],
+        [88, 48],
+        [119, 79],
+        [165, 59],
+        [200, 80],
+        [246, 47],
+        [296, 76],
+        [338, 68],
+        [390, 78],
+        [432, 54],
+        [480, 83],
+        [480, 112],
+        [0, 112],
+      ],
+      "#5b5868",
+    );
+    polygon(
+      c,
+      [
+        [0, 96],
+        [45, 77],
+        [85, 91],
+        [129, 71],
+        [174, 95],
+        [211, 77],
+        [258, 97],
+        [311, 74],
+        [365, 89],
+        [410, 70],
+        [480, 95],
+        [480, 115],
+        [0, 115],
+      ],
+      "#424859",
+    );
+    for (let i = -1; i < 13; i++) {
+      const parallax = (((centerX * 2) % 46) + 46) % 46,
+        x = i * 46 - parallax,
+        h = 15 + (((i + 12) * 17) % 25);
+      rect(c, x, 96 - h, 25, h, "#373f50");
+      rect(c, x - 3, 94 - h, 31, 3, "#3b4254");
+      rect(c, x + 4, 100 - h, 3, 3, "#c39b87");
+      if (i % 3 === 0) {
+        rect(c, x + 9, 80 - h, 4, 15, "#373f50");
+        polygon(
+          c,
+          [
+            [x - 3, 82 - h],
+            [x + 12, 76 - h],
+            [x + 28, 82 - h],
+          ],
+          "#373f50",
+        );
+      }
+    }
+    rect(c, 0, 99, W, 6, "#74787c");
+    rect(c, 0, 105, W, 3, "#b8ab95");
+  }
+  function ground() {
+    // Inverse projection samples world coordinates for every row: there is no finite floor mesh or edge.
+    const start = 108;
+    for (let y = start; y < H; y++) {
+      const depth = (600 * 2.6) / (y - 91),
+        z = cameraDistance - depth + centerZ,
+        wx = centerX - ((W / 2) * depth) / 600,
+        step = depth / 600;
+      const tz = Math.floor(z / 2),
+        fz = z / 2 - tz,
+        fade = Math.min(1, (y - start) / 150);
+      for (let x = 0; x < W; x++) {
+        const worldX = wx + x * step,
+          tx = Math.floor(worldX / 2),
+          fx = worldX / 2 - tx;
+        const tile = (tx + tz) & 1,
+          grid = Math.min(fx, 1 - fx, fz, 1 - fz) < step * 0.22;
+        const stripe = ((tx % 8) + 8) % 8 === 0 && ((tz % 8) + 8) % 8 === 0,
+          detail = ((tx * 17 + tz * 13) & 15) === 0;
+        let r = (tile ? 90 : 79) + fade * 24,
+          g = (tile ? 105 : 96) + fade * 22,
+          b = (tile ? 108 : 104) + fade * 8;
+        if (grid) {
+          r -= 20;
+          g -= 20;
+          b -= 16;
+        } else if (stripe && fx > 0.45 && fx < 0.55) {
+          r += 35;
+          g += 27;
+          b += 5;
+        } else if (detail && fz > 0.75 && fz < 0.8 && fx > 0.2 && fx < 0.8) {
+          r -= 15;
+          g -= 12;
+          b -= 9;
+        }
+        pixels[y * W + x] = rgba(r, g, b);
+      }
+    }
+    c.putImageData(floor, 0, 0, 0, start, W, H - start);
+  }
   return {
     render(match) {
-      const dt = Math.min(clock.getDelta(), 0.05),
-        t = clock.elapsedTime;
-      const width = canvas.clientWidth,
-        height = canvas.clientHeight;
-      if (width !== resizeWidth || height !== resizeHeight) {
-        renderer.setSize(width, height, false);
-        camera.aspect = width / height;
-        camera.updateProjectionMatrix();
-        resizeWidth = width;
-        resizeHeight = height;
+      const now = performance.now(),
+        dt = Math.min(0.05, (now - last) / 1000);
+      last = now;
+      clock += dt;
+      const [a, b] = match.fighters,
+        tx = (a.x + b.x) / 2,
+        tz = (a.z + b.z) / 2;
+      centerX = mix(centerX, tx, Math.min(1, dt * 10));
+      centerZ = mix(centerZ, tz, Math.min(1, dt * 10));
+      const separation = Math.hypot(a.x - b.x, a.z - b.z);
+      cameraDistance = mix(
+        cameraDistance,
+        Math.max(wide ? 15.5 : 12.4, separation * 1.5 + 7),
+        dt * 4,
+      );
+      background();
+      ground();
+      c.imageSmoothingEnabled = false;
+      match.fighters.forEach((f) => {
+        const p = project(f.x, 0, f.z);
+        c.fillStyle = "#252c3a88";
+        c.beginPath();
+        c.ellipse(
+          Math.round(p.x),
+          Math.round(p.y) + 2,
+          p.scale * 0.45,
+          p.scale * 0.11,
+          0,
+          0,
+          Math.PI * 2,
+        );
+        c.fill();
+        c.fillStyle = f === a ? "#7dc8ca" : "#e8aa7d";
+        c.fillRect(Math.round(p.x) - 4, Math.round(p.y) + 5, 8, 1);
+      });
+      const order = [0, 1].sort(
+        (i, j) => match.fighters[i].z - match.fighters[j].z,
+      );
+      c.save();
+      if (shake > 0) {
+        c.translate((Math.random() - 0.5) * 3, (Math.random() - 0.5) * 2);
+        shake -= dt;
       }
-      match.fighters.forEach((f, i) => pose(rigs[i], f, t, dt));
+      for (const i of order) {
+        const f = match.fighters[i],
+          p = project(f.x, f.y, f.z),
+          s = (p.scale * 2.15) / 91;
+        paintSprite(sprites[i].context, f, i, clock);
+        c.save();
+        c.translate(Math.round(p.x), Math.round(p.y));
+        c.scale(f.facing, 1);
+        c.drawImage(
+          sprites[i].image,
+          Math.round(-64 * s),
+          Math.round(-115 * s),
+          Math.round(136 * s),
+          Math.round(128 * s),
+        );
+        c.restore();
+        if (f.dash > 0 && f.move > 0) {
+          c.fillStyle = "#cfdfbe55";
+          for (let n = 0; n < 3; n++)
+            c.fillRect(
+              Math.round(p.x - f.facing * (22 + n * 8)),
+              Math.round(p.y - 15 - n * 8),
+              9 + n * 3,
+              1,
+            );
+        }
+        if (
+          f.attack &&
+          ["qcfPunch", "dragon", "qcfKick", "palm"].includes(f.attack.key)
+        ) {
+          const m = MOVES[f.attack.key],
+            v = Math.max(0, 1 - Math.abs(f.attack.t - m.windup) * 7);
+          if (v > 0) {
+            c.strokeStyle = "#f8d58a";
+            c.lineWidth = 2;
+            c.beginPath();
+            c.arc(
+              p.x + f.facing * p.scale * 0.65,
+              p.y - p.scale * 1.1,
+              p.scale * 0.5 * v,
+              -1.3,
+              1.3,
+            );
+            c.stroke();
+          }
+        }
+      }
       for (let i = effects.length - 1; i >= 0; i--) {
         const e = effects[i];
         e.age += dt;
-        e.group.children.forEach((s) => {
-          s.position.addScaledVector(s.userData.dir, dt * 4);
-          s.material.opacity = Math.max(0, 1 - e.age * 4);
-        });
         if (e.age > 0.3) {
-          scene.remove(e.group);
-          e.group.children.forEach((s) => {
-            s.geometry.dispose();
-            s.material.dispose();
-          });
           effects.splice(i, 1);
+          continue;
+        }
+        const p = project(e.x, e.y, e.z),
+          expand = e.age * 80;
+        c.strokeStyle = e.type === "block" ? "#c4ecf2" : "#ffe2a0";
+        c.lineWidth = e.age < 0.1 ? 3 : 1;
+        for (let n = 0; n < 8; n++) {
+          const a = (n * Math.PI) / 4;
+          c.beginPath();
+          c.moveTo(
+            Math.round(p.x + Math.cos(a) * expand * 0.3),
+            Math.round(p.y + Math.sin(a) * expand * 0.3),
+          );
+          c.lineTo(
+            Math.round(p.x + Math.cos(a) * (expand + 8)),
+            Math.round(p.y + Math.sin(a) * (expand + 8)),
+          );
+          c.stroke();
+        }
+        if (e.age < 0.08) {
+          rect(c, p.x - 3, p.y - 3, 6, 6, "#fff8d7");
+          rect(c, p.x - 1, p.y - 10, 2, 20, "#fff8d7");
         }
       }
-      const [a, b] = match.fighters,
-        mid = new THREE.Vector3((a.x + b.x) / 2, 0.85, (a.z + b.z) / 2),
-        dist = Math.hypot(a.x - b.x, a.z - b.z),
-        zoom = Math.max(1, (dist + 5) / 9),
-        mobile = camera.aspect < 1.2;
-      const target =
-        cameraMode === 0
-          ? new THREE.Vector3(
-              mid.x + 2.4 * zoom,
-              4.6 * zoom,
-              mid.z + 10.2 * zoom,
-            )
-          : new THREE.Vector3(
-              mid.x + 8.7 * zoom,
-              8.6 * zoom,
-              mid.z + 8.7 * zoom,
-            );
-      if (mobile) target.multiplyScalar(1.25);
-      camera.position.lerp(target, dt * 2.5);
-      shake = Math.max(0, shake - dt);
-      camera.lookAt(mid.x + (Math.random() - 0.5) * shake, mid.y, mid.z);
-      renderer.render(scene, camera);
+      c.restore();
     },
-    event: spark,
+    event(e) {
+      effects.push({ ...e, age: 0 });
+      if (e.type === "hit") shake = 0.07;
+    },
     toggleCamera() {
-      cameraMode = 1 - cameraMode;
+      wide = !wide;
     },
-    renderer,
-    scene,
   };
 }

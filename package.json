@@ -1,6 +1,6 @@
 {
   "name": "axis-arena",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -11,12 +11,9 @@
     "test:browser": "node scripts/browser-smoke.mjs",
     "package:windows": "node scripts/package-windows.mjs"
   },
-  "dependencies": {
-    "three": "^0.180.0"
-  },
   "devDependencies": {
-    "vite": "^7.1.7",
-    "@playwright/test": "^1.55.1"
+    "@playwright/test": "^1.55.1",
+    "vite": "^7.1.7"
   },
   "engines": {
     "node": ">=22.12.0"
