@@ -58,11 +58,38 @@ func run() error {
 	noBrowser := flag.Bool("no-browser", false, "Start the local game server without opening a browser")
 	hostAddress := flag.String("host", "", "Join an existing host URL; empty automatically discovers a LAN host or becomes the host")
 	skipUpdate := flag.Bool("no-update", false, "Skip GitHub update check")
+	oldFile := flag.String("replace-old", "", "Previous AXIS executable to remove after its process exits")
+	oldPID := flag.Int("replace-pid", 0, "Previous AXIS process")
 	flag.Parse()
+	if *oldFile != "" {
+		exe, _ := os.Executable()
+		if !validReplacement(*oldFile, exe) || *oldPID <= 0 {
+			return fmt.Errorf("invalid update replacement")
+		}
+		if err := waitForOld(*oldPID); err != nil {
+			return err
+		}
+		if err := os.Remove(*oldFile); err != nil && !os.IsNotExist(err) {
+			fmt.Println("Previous file cleanup failed:", err)
+		}
+	}
 	if runtime.GOOS == "windows" && !*skipUpdate {
 		exe, err := os.Executable()
 		if err == nil {
-			offerUpdate(os.Stdin, os.Stdout, &http.Client{Timeout: 6 * time.Second}, updateManifestURL, updateDownloadURL, filepath.Dir(exe))
+			if next := offerUpdate(os.Stdin, os.Stdout, &http.Client{Timeout: 6 * time.Second}, updateManifestURL, updateDownloadURL, filepath.Dir(exe)); next != "" {
+				args := []string{}
+				if *noBrowser {
+					args = append(args, "--no-browser")
+				}
+				if *hostAddress != "" {
+					args = append(args, "--host", *hostAddress)
+				}
+				if err := launchUpdated(next, exe, os.Getpid(), args); err == nil {
+					return nil
+				} else {
+					fmt.Println("Updated game launch failed; keeping current EXE:", err)
+				}
+			}
 		}
 	}
 	handler, err := gameHandler()
@@ -97,8 +124,8 @@ func run() error {
 	fmt.Println("  Your browser will open the game automatically.")
 	fmt.Println("  Keep this window open while playing.")
 	fmt.Println("  To quit: close this window or press Ctrl+C.")
-	fmt.Println("\n  Move: A/D | Sidestep: W/W or S/S (hold second to circle) | U: Left Punch | I: Right Punch | J: Left Kick | K: Right Kick")
-	fmt.Print("  Guard: Hold Back | Crouch: Shift | 4 unique fighters | Check each fighter frame list\n")
+	fmt.Println("\n  Move: A/D | Orbit: Q/E | Crouch: S | Jump: W | U: Left Punch | I: Right Punch | J: Left Kick | K: Right Kick")
+	fmt.Print("  Guard: Hold Back | Crouch: Shift | 8 unique fighters | Check each fighter frame list\n")
 	fmt.Print("  Online: PLAYER MATCH uses the first LAN host automatically; internet: run EXE --host http://HOST-IP:8787\n\n")
 	if !*noBrowser {
 		go func() {

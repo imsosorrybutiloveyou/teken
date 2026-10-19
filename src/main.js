@@ -65,7 +65,16 @@ function playHit(event) {
   if (!sound || !audio || audio.state !== "running") return;
   if (playCustomHit(audio, event)) return;
   const timbre =
-    { kai: 1, ren: 1.3, mira: 1.65, goro: 0.66 }[event.character] ?? 1;
+    {
+      kai: 1,
+      ren: 1.3,
+      mira: 1.65,
+      goro: 0.66,
+      hana: 1.4,
+      shin: 1.8,
+      boru: 0.55,
+      atlas: 0.48,
+    }[event.character] ?? 1;
   const now = audio.currentTime,
     blocked = event.type === "block",
     heavy = event.heavy,
@@ -153,7 +162,7 @@ function updateMode() {
       : connected
         ? "캐릭터 선택 대기 · P2P 연결 완료"
         : "매칭 완료 · P2P 연결 중"
-    : `연습 · ${practiceBehavior === "cpu" ? "CPU 공격" : "정지 샌드백"} · ${infiniteHealth ? "3초 뒤 체력 회복" : "일반 체력"}`;
+    : `연습 · ${practiceBehavior === "cpu" ? "CPU 공격" : "정지 샌드백"} · ${infiniteHealth ? "1.2초 뒤 체력 회복" : "일반 체력"}`;
   $("practice-button").classList.toggle("selected", !activePair);
   $("pvp-button").classList.toggle("selected", !!activePair);
   $("pause-button").innerHTML = paused
@@ -566,7 +575,9 @@ window.addEventListener("keydown", (event) => {
   )
     return;
   const key = keyName(event);
-  if (["w", "a", "s", "d", "u", "i", "j", "k", "shift"].includes(key)) {
+  if (
+    ["w", "a", "s", "d", "u", "i", "j", "k", "shift", "q", "e"].includes(key)
+  ) {
     event.preventDefault();
     unlockAudio();
     if (!event.repeat) keyboard.down(key, performance.now(), !paused);
@@ -630,6 +641,7 @@ function renderMoves(id) {
     if (m.highCrushFrom != null)
       desc.textContent += ` · ${Math.round(m.highCrushFrom * 60)}F부터 상단 회피`;
     if (m.hop) desc.textContent += " · 도약 중 하단 회피";
+    if (m.counterLaunch) desc.textContent += " · 카운터 적중 시 띄우기";
     info.append(name, desc);
     row.append(command, info, frames);
     $("move-list").append(row);

@@ -14,13 +14,14 @@ export const MOVES = CHARACTERS.kai.moves;
 export const COMMAND_WINDOW = 0.85;
 const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
 export function emptyInput() {
-  return { x: 0, z: 0, guard: false, crouch: false, action: null };
+  return { x: 0, z: 0, orbit: 0, guard: false, crouch: false, action: null };
 }
 export function sanitizeInput(v) {
   if (!v || typeof v !== "object") return emptyInput();
   return {
     x: Number.isFinite(v.x) ? clamp(v.x, -1, 1) : 0,
     z: Number.isFinite(v.z) ? clamp(v.z, -1, 1) : 0,
+    orbit: Number.isFinite(v.orbit) ? clamp(v.orbit, -1, 1) : 0,
     guard: v.guard === true,
     crouch: v.crouch === true,
     action: ACTIONS.includes(v.action) ? v.action : null,
@@ -48,20 +49,6 @@ export function matchesCommand(
   );
 }
 function recordDirection(f, input, dt) {
-  const side =
-    !input.crouch && Math.abs(input.x) < 0.25 ? Math.sign(input.z) : 0;
-  if (side && side !== f.sideInput) {
-    if (side === f.sideLast && f.commandTime - f.sideTapAt <= 0.28) {
-      f.sideDir = side;
-      f.sideTime = 0.18;
-      f.sideHold = 0;
-      f.sideLast = 0;
-    } else {
-      f.sideLast = side;
-      f.sideTapAt = f.commandTime;
-    }
-  }
-  f.sideInput = side;
   const dir = inputDirection(input, f.facing);
   f.commandTime += dt;
   f.commands = f.commands.filter((e) => f.commandTime - e.at < 1.4);
@@ -76,6 +63,7 @@ export function resolveMove(f, action) {
   if (action === "u+i") return "throw";
   if (action === "j+k") return "sweep";
   const p = character(f.character);
+
   const source = f.attack?.key ?? f.lastMove;
   const prior = p.moves[source];
   const follow = p.followUps.find(
@@ -90,6 +78,14 @@ export function resolveMove(f, action) {
         f.lastMoveAge <= prior.duration + 0.18)
   )
     return follow[2];
+  if (f.y > 0.01 || f.direction >= 7)
+    return action === "u" || action === "i" ? "jumpPunch" : "jumpKick";
+  if (f.riseWindow > 0 && f.direction === 5 && action === "i")
+    return "risingUpper";
+  if (f.riseWindow > 0 && f.direction === 5 && action === "j")
+    return "risingKick";
+  if (f.crouch && f.direction === 2 && action === "u") return "crouchPunch";
+  if (f.crouch && f.direction === 2 && action === "k") return "crouchKick";
   for (const [key, button, sequence] of [...p.commands].sort(
     (a, b) => b[2].length - a[2].length,
   )) {
@@ -116,12 +112,11 @@ export function resolveMove(f, action) {
 function fighter(x, id, index) {
   return {
     character: id,
-    sideInput: 0,
-    sideLast: 0,
-    sideTapAt: -10,
-    sideDir: 0,
-    sideTime: 0,
-    sideHold: 0,
+    riseWindow: 0,
+    wasCrouch: false,
+    jumpHeld: false,
+    throwTime: 0,
+    throwRole: 0,
     statusTick: -1,
     vx: 0,
     vz: 0,
@@ -166,8 +161,9 @@ function fighter(x, id, index) {
 }
 export function createMatch(ids = ["kai", "ren"]) {
   return {
-    version: 9,
+    version: 10,
     axisAngle: 0,
+    viewAngle: 0,
     hitstop: 0,
     fighters: [
       fighter(-1.45, character(ids[0]).id, 0),
@@ -192,10 +188,11 @@ function startAttack(m, index, key) {
   f.chain =
     key === character(f.character).chain[0] ? 1 : key === "oneTwo" ? 2 : 0;
   f.chainAge = 0;
-  f.sideTime = 0;
-  f.sideHold = 0;
-  f.sideDir = 0;
   f.attack = { key, t: 0, hit: false, connected: false, angle: f.angle };
+  if (key.startsWith("jump") && f.y === 0) {
+    f.y = 0.02;
+    f.vy = 6.5;
+  }
   if (moveFor(f, key).hop) {
     f.y = 0.02;
     f.vy = moveFor(f, key).hop;
@@ -272,6 +269,8 @@ function resolveHit(m, index, training) {
     });
     return true;
   }
+  const counter = !!b.attack && !b.blockstun && b.attack.t < moveFor(b).windup;
+  const launch = move.launch || (counter && move.counterLaunch);
   const punish = !!b.attack?.blocked;
   atk.punish = punish;
   atk.connected = true;
@@ -282,6 +281,7 @@ function resolveHit(m, index, training) {
     1,
     Math.round(
       move.damage *
+        (counter ? 1.15 : 1) *
         (airborne ? 0.8 : 1) *
         (continuing ? Math.max(0.2, 1 - a.combo * 0.12) : 1),
     ),
@@ -319,8 +319,6 @@ function resolveHit(m, index, training) {
   b.statusTick = m.tick;
   b.blockstun = false;
   m.hitstop = Math.max(m.hitstop, move.hitstop / 60);
-  b.sideDir = 0;
-  b.sideTime = 0;
   b.attack = null;
   b.buffer = null;
   b.guard = false;
@@ -330,12 +328,12 @@ function resolveHit(m, index, training) {
     : move.push * (move.launch ? 0.65 : 1);
   b.vx = Math.cos(atk.angle) * push;
   b.vz = Math.sin(atk.angle) * push;
-  if (move.knockdown && !airborne) {
+  if (move.knockdown && !airborne && !launch) {
     b.downTime = move.stun;
     b.wakeUp = move.stun + 0.1;
     b.vx *= 1.15;
     b.vz *= 1.15;
-  } else if (move.launch && !airborne) {
+  } else if (launch && !airborne) {
     b.vy = 8;
     b.y = 0.02;
     b.stun = 0.85;
@@ -357,6 +355,24 @@ function resolveHit(m, index, training) {
     }
     b.stun = Math.max(b.stun, 0.5);
   }
+  if (move.level === "throw" && !airborne) {
+    const ax = a.x,
+      az = a.z;
+    a.x = b.x;
+    a.z = b.z;
+    b.x = ax;
+    b.z = az;
+    a.throwTime = 0.42;
+    b.throwTime = 0.42;
+    a.throwRole = 1;
+    b.throwRole = -1;
+    b.downTime = Math.max(b.downTime, 0.65);
+    b.wakeUp = Math.max(b.wakeUp, 0.75);
+    b.stun = Math.max(b.stun, 0.65);
+    a.vx = a.vz = b.vx = b.vz = 0;
+    a.attack.angle = Math.atan2(b.z - a.z, b.x - a.x);
+    a.angle = a.attack.angle;
+  }
   a.combo = continuing ? a.combo + 1 : 1;
   a.comboDamage = a.combo === 1 ? damage : a.comboDamage + damage;
   a.comboAge = 0;
@@ -376,8 +392,10 @@ function resolveHit(m, index, training) {
       Math.min(b.y + 1.9, atk.height ?? move.impactHeight),
     ),
     z: b.z,
-    launch: !!move.launch,
-    knockdown: !!move.knockdown && !airborne,
+    throw: move.level === "throw",
+    counter,
+    launch: !!launch,
+    knockdown: !!move.knockdown && !airborne && !launch,
     bound: !!move.bound && airborne && b.bouncePending,
     heavy: move.damage >= 23,
     hitstop: move.hitstop,
@@ -392,6 +410,23 @@ function finishRound(m) {
   m.phase = m.wins.some((n) => n >= 2) ? "matchEnd" : "roundEnd";
   m.phaseTime = 3;
   emit(m, "roundEnd", { winner, ko: m.time > 0 });
+}
+function updateAxis(m) {
+  const [a, b] = m.fighters;
+  m.axisAngle = Math.atan2(b.z - a.z, b.x - a.x);
+  const delta = Math.atan2(
+    Math.sin(m.axisAngle - m.viewAngle),
+    Math.cos(m.axisAngle - m.viewAngle),
+  );
+  m.viewAngle +=
+    delta > Math.PI / 2
+      ? delta - Math.PI
+      : delta < -Math.PI / 2
+        ? delta + Math.PI
+        : delta;
+  const facing = Math.cos(m.axisAngle - m.viewAngle) >= 0 ? 1 : -1;
+  a.facing = facing;
+  b.facing = -facing;
 }
 export function step(m, rawInputs, dt = 1 / 60, training = false) {
   dt = clamp(dt, 0, 0.05);
@@ -413,6 +448,7 @@ export function step(m, rawInputs, dt = 1 / 60, training = false) {
           fighter(1.45, m.fighters[1].character, 1),
         ];
         m.axisAngle = 0;
+        m.viewAngle = 0;
         m.hitstop = 0;
         m.phase = "ready";
         m.phaseTime = 1.5;
@@ -424,7 +460,7 @@ export function step(m, rawInputs, dt = 1 / 60, training = false) {
   }
   m.phaseTime = Math.max(0, m.phaseTime - dt);
   const [fa, fb] = m.fighters;
-  m.axisAngle = Math.atan2(fb.z - fa.z, fb.x - fa.x);
+  updateAxis(m);
   // Defense is sampled for both players before either attack resolves; player order grants no guard advantage.
   for (let i = 0; i < 2; i++) {
     const f = m.fighters[i],
@@ -462,6 +498,10 @@ export function step(m, rawInputs, dt = 1 / 60, training = false) {
     const f = m.fighters[i],
       other = m.fighters[1 - i],
       input = sanitizeInput(rawInputs[i]);
+    f.throwTime = Math.max(0, f.throwTime - dt);
+    f.riseWindow = Math.max(0, f.riseWindow - dt);
+    if (f.wasCrouch && !f.crouch && f.y === 0) f.riseWindow = 0.22;
+    f.wasCrouch = f.crouch;
     f.comboAge += dt;
     f.chainAge += dt;
     f.bufferAge += dt;
@@ -511,16 +551,27 @@ export function step(m, rawInputs, dt = 1 / 60, training = false) {
         Math.abs(input.x) > 0.25 ||
         input.crouch ||
         f.move > 0 ||
-        f.sideTime > 0
+        Math.abs(input.orbit) > 0
       )
         f.angle = m.axisAngle + (i === 1 ? Math.PI : 0);
-      f.facing = i === 0 ? 1 : -1;
     }
     recordDirection(f, input, dt);
+    if (
+      input.z < -0.25 &&
+      !f.jumpHeld &&
+      !input.action &&
+      !f.attack &&
+      f.stun === 0 &&
+      f.y === 0
+    ) {
+      f.y = 0.02;
+      f.vy = 6.5;
+      f.crouch = false;
+    }
+    f.jumpHeld = input.z < -0.25;
     // Resolve the command when the attack button is pressed, not after its buffered recovery.
     if (
       input.action &&
-      f.y === 0 &&
       (f.stun === 0 ||
         (f.blockstun && f.stun <= GUARD_BUFFER_FRAMES / 60 + 1e-9))
     ) {
@@ -536,13 +587,7 @@ export function step(m, rawInputs, dt = 1 / 60, training = false) {
       f.bufferAge = 0;
     }
     // The input frame is startup frame 1, rather than an extra idle frame.
-    if (
-      !f.attack &&
-      f.stun === 0 &&
-      f.y === 0 &&
-      f.buffer &&
-      f.bufferAge < 0.65
-    )
+    if (!f.attack && f.stun === 0 && f.buffer && f.bufferAge < 0.65)
       startAttack(m, i, f.buffer);
     if (f.attack) {
       f.attack.t += dt;
@@ -601,10 +646,7 @@ export function step(m, rawInputs, dt = 1 / 60, training = false) {
         const forward = input.x * f.facing;
         if (forward < -0.1) f.dash = 0;
         const dashing = f.dash > 0 && forward > 0.25;
-        const holdingSide = f.sideInput === f.sideDir && f.sideDir !== 0;
-        f.sideHold = holdingSide ? f.sideHold + dt : 0;
-        if (holdingSide && f.sideHold >= 0.14) f.sideTime = 0.06;
-        const side = f.sideTime > 0 && !f.crouch ? f.sideDir : 0;
+        const side = !f.crouch ? input.orbit : 0;
         const adjusted =
           (f.crouch
             ? 1.45
@@ -616,8 +658,8 @@ export function step(m, rawInputs, dt = 1 / 60, training = false) {
                   ? BACKWARD_SPEED
                   : WALK_SPEED) * character(f.character).speed;
         const radial = input.x * adjusted * dt;
-        const dx = Math.cos(m.axisAngle) * radial,
-          dz = Math.sin(m.axisAngle) * radial;
+        const dx = Math.cos(m.viewAngle) * radial,
+          dz = Math.sin(m.viewAngle) * radial;
         f.x += dx;
         f.z += dz;
         if (side) {
@@ -627,7 +669,7 @@ export function step(m, rawInputs, dt = 1 / 60, training = false) {
             distance = Math.max(0.85, Math.hypot(rx, rz));
           const angle =
             (side *
-              (i === 0 ? -1 : 1) *
+              -f.facing *
               SIDESTEP_SPEED *
               character(f.character).speed *
               dt) /
@@ -639,8 +681,6 @@ export function step(m, rawInputs, dt = 1 / 60, training = false) {
         }
         f.move = Math.min(1, Math.abs(input.x) + Math.abs(side));
         f.travel += Math.hypot(dx, dz) + (side ? SIDESTEP_SPEED * dt : 0);
-        f.sideTime = Math.max(0, f.sideTime - dt);
-        if (f.sideTime === 0) f.sideDir = 0;
       }
     }
     // No ring boundary, coordinate wrapping, or invisible walls: positions remain in world space.
@@ -658,7 +698,7 @@ export function step(m, rawInputs, dt = 1 / 60, training = false) {
     b.x += nx * p;
     b.z += nz * p;
   }
-  m.axisAngle = Math.atan2(b.z - a.z, b.x - a.x);
+  updateAxis(m);
   if (m.time === 0 || m.fighters.some((f) => f.hp === 0)) finishRound(m);
 }
 export function cpuInput(m, index = 1) {
@@ -771,8 +811,8 @@ export function stepPractice(
       m.fighters.some((f) => f.attack || f.stun > 0 || f.downTime > 0) ||
       m.events.some((e) => e.type === "move" || e.type === "hit");
     m.practiceIdle = active ? 0 : (m.practiceIdle ?? 0) + 1 / 60;
-    if (m.practiceIdle >= 3)
+    if (m.practiceIdle >= 1.2)
       for (const f of m.fighters)
-        f.hp = Math.min(MAX_HP, f.hp + MAX_HP / 1.5 / 60);
+        f.hp = Math.min(MAX_HP, f.hp + MAX_HP / 0.5 / 60);
   } else m.practiceIdle = 0;
 }

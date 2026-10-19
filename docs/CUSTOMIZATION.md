@@ -24,7 +24,7 @@ v3.5부터 `public/custom-assets.json`으로 그림·소리를 교체합니다. 
 }
 ```
 
-캐릭터 ID는 `kai`, `ren`, `mira`, `goro`입니다.
+캐릭터 ID는 `kai`, `ren`, `mira`, `goro`, `hana`, `shin`, `boru`, `atlas`입니다.
 
 ## 3. 전투 애니메이션 교체 예시
 
@@ -119,3 +119,5 @@ release/latest.json
 로컬 확인은 `npm run dev`로 실행한 뒤 캐릭터 선택·기술·타격음을 확인하세요. 개발자 도구 Console/Network에서 파일명 오타·404·JSON 문법을 확인할 수 있습니다. EXE 배포 뒤에는 두 플레이어가 새 EXE를 다시 다운로드해야 합니다.
 
 새 버전 번호 변경과 업데이트 감지 게시 방법은 [업데이트 안내](UPDATES.md)를 참고하세요.
+
+v3.8의 추가 로스터·앉기/점프/기상 기술·카운터 목록은 `src/expanded-roster.js`에서 조정합니다. `counterLaunch`는 일반 적중이 아닌 카운터 적중일 때 띄우는 판정입니다.

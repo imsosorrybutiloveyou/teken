@@ -3,7 +3,7 @@ import { CHARACTER_IDS, character } from "./characters.js";
 export function validSnapshot(v) {
   if (
     !v ||
-    v.version !== 9 ||
+    v.version !== 10 ||
     !["ready", "fight", "roundEnd", "matchEnd"].includes(v.phase) ||
     !Number.isFinite(v.time) ||
     v.time < 0 ||
@@ -13,6 +13,7 @@ export function validSnapshot(v) {
     !Number.isFinite(v.phaseTime) ||
     !Number.isInteger(v.tick) ||
     !Number.isFinite(v.axisAngle) ||
+    !Number.isFinite(v.viewAngle) ||
     !Number.isFinite(v.hitstop) ||
     v.hitstop < 0 ||
     v.hitstop > 1
@@ -53,24 +54,22 @@ export function validSnapshot(v) {
         "dash",
         "lastMoveAge",
         "travel",
-        "sideInput",
-        "sideLast",
-        "sideTapAt",
-        "sideDir",
-        "sideTime",
-        "sideHold",
+        "riseWindow",
+        "throwTime",
+        "throwRole",
         "airHits",
         "airOwner",
         "wakeUp",
         "downTime",
         "lastHitBy",
       ].every((k) => Number.isFinite(f[k]) && Math.abs(f[k]) < 1e12) &&
-      [f.sideInput, f.sideLast, f.sideDir].every((n) =>
-        [-1, 0, 1].includes(n),
-      ) &&
-      f.sideTime >= 0 &&
-      f.sideTime <= 0.2 &&
-      f.sideHold >= 0 &&
+      f.riseWindow >= 0 &&
+      f.riseWindow <= 0.23 &&
+      f.throwTime >= 0 &&
+      f.throwTime <= 0.43 &&
+      [-1, 0, 1].includes(f.throwRole) &&
+      typeof f.wasCrouch === "boolean" &&
+      typeof f.jumpHeld === "boolean" &&
       f.hp >= 0 &&
       f.hp <= MAX_HP &&
       f.y >= 0 &&
@@ -167,7 +166,7 @@ export class PeerSession {
     };
     if (role === "host") {
       this.attach(
-        peer.createDataChannel("axis-v9", { ordered: true }),
+        peer.createDataChannel("axis-v10", { ordered: true }),
         generation,
       );
       await peer.setLocalDescription(await peer.createOffer());

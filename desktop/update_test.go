@@ -52,8 +52,12 @@ func TestUpdatePromptDownloadAndChecksum(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(dir, "AXIS-v3.8.0-Windows-x64.exe")); !os.IsNotExist(err) {
 		t.Fatal("bad download retained")
 	}
+	if _, err := downloadUpdate(server.Client(), server.URL+"/exe", dir, updateManifest{"3.7.0", hash}); err != nil {
+		t.Fatal("verified download should be reused", err)
+	}
+	os.WriteFile(filepath.Join(dir, "AXIS-v3.7.0-Windows-x64.exe"), []byte("unverified"), 0600)
 	if _, err := downloadUpdate(server.Client(), server.URL+"/exe", dir, updateManifest{"3.7.0", hash}); err == nil {
-		t.Fatal("existing EXE overwritten")
+		t.Fatal("unverified existing EXE accepted")
 	}
 	for _, answer := range []string{"n\n", ""} {
 		var out bytes.Buffer
@@ -62,6 +66,21 @@ func TestUpdatePromptDownloadAndChecksum(t *testing.T) {
 		files, _ := os.ReadDir(skipDir)
 		if len(files) != 0 {
 			t.Fatal("declined update downloaded")
+		}
+	}
+}
+
+func TestReplacementIsLimitedToPreviousAXISInSameFolder(t *testing.T) {
+	dir := t.TempDir()
+	current := filepath.Join(dir, "AXIS-v3.8.0-Windows-x64.exe")
+	for _, name := range []string{"AXIS-Windows-x64.exe", "AXIS-v3.7.0-Windows-x64.exe"} {
+		if !validReplacement(filepath.Join(dir, name), current) {
+			t.Fatal(name)
+		}
+	}
+	for _, old := range []string{current, filepath.Join(dir, "notes.txt"), filepath.Join(dir, "..", "AXIS-Windows-x64.exe")} {
+		if validReplacement(old, current) {
+			t.Fatal("unsafe old path", old)
 		}
 	}
 }

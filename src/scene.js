@@ -249,7 +249,7 @@ export function attackEffectPaths(move, phase = 1) {
 export function spritePose(f, t) {
   const walk = Math.sin(f.travel * 8),
     bob = Math.round(Math.sin(t * 5) * 1.1),
-    crouch = f.crouch ? 16 : 0;
+    crouch = f.crouch || f.attack?.key.startsWith("crouch") ? 16 : 0;
   const pose = {
     hip: [46, 67 + crouch],
     head: [47, 23 + crouch + bob],
@@ -275,8 +275,8 @@ export function spritePose(f, t) {
     ],
     lean: 0,
   };
-  styleStance(pose, f.character, f.crouch);
-  if (f.crouch) {
+  styleStance(pose, character(f.character).skeleton, !!crouch);
+  if (crouch) {
     pose.knees = [
       [26, 94],
       [65, 94],
@@ -571,8 +571,30 @@ export function spritePose(f, t) {
   return pose;
 }
 function paintSprite(c, f, index, t) {
+  const lowPose = f.crouch || f.attack?.key.startsWith("crouch");
   const profile = character(f.character),
-    p = palettes[{ kai: 0, ren: 1, mira: 2, goro: 3 }[profile.id]],
+    p = {
+      ...palettes[{ kai: 0, ren: 1, mira: 2, goro: 3 }[profile.skeleton]],
+      ...(profile.id === "hana"
+        ? { cloth: "#e3e7e5", pants: "#d8e0df", belt: "#242a34" }
+        : profile.id === "boru"
+          ? {
+              cloth: "#795337",
+              pants: "#795337",
+              skin: "#9f724c",
+              hair: "#5d402d",
+              glove: "#68482e",
+            }
+          : profile.id === "atlas"
+            ? {
+                cloth: "#738d98",
+                pants: "#596f7c",
+                skin: "#a3b2b8",
+                glove: "#607481",
+                hair: "#445566",
+              }
+            : {}),
+    },
     pose = spritePose(f, t);
   c.clearRect(0, 0, c.canvas.width, c.canvas.height);
   if (paintCustomSprite(c, f)) return;
@@ -580,6 +602,12 @@ function paintSprite(c, f, index, t) {
   c.translate(64, 6);
   c.scale(profile.build, profile.id === "mira" ? 0.98 : 1);
   c.translate(-48, 0);
+  if (f.throwTime > 0 && f.throwRole === -1) {
+    const swing = Math.sin((1 - f.throwTime / 0.42) * Math.PI);
+    c.translate(55, 75);
+    c.rotate(-swing * 1.5);
+    c.translate(-55, -75 - swing * 12);
+  }
   if (f.downTime > 0) {
     const prone =
       smooth((0.13 - f.hitFlash) / 0.12) * smooth(f.downTime / 0.14);
@@ -668,32 +696,32 @@ function paintSprite(c, f, index, t) {
   polygon(
     c,
     [
-      [37 + lx, 35 + (f.crouch ? 16 : 0)],
-      [52 + lx, 36 + (f.crouch ? 16 : 0)],
-      [59 + lx, 49 + (f.crouch ? 16 : 0)],
+      [37 + lx, 35 + (lowPose ? 16 : 0)],
+      [52 + lx, 36 + (lowPose ? 16 : 0)],
+      [59 + lx, 49 + (lowPose ? 16 : 0)],
       [hip[0] + 10, hip[1]],
       [hip[0] - 12, hip[1] + 2],
-      [32 + lx, 50 + (f.crouch ? 16 : 0)],
+      [32 + lx, 50 + (lowPose ? 16 : 0)],
     ],
     OUTLINE,
   );
   polygon(
     c,
     [
-      [38 + lx, 37 + (f.crouch ? 16 : 0)],
-      [51 + lx, 38 + (f.crouch ? 16 : 0)],
-      [56 + lx, 49 + (f.crouch ? 16 : 0)],
+      [38 + lx, 37 + (lowPose ? 16 : 0)],
+      [51 + lx, 38 + (lowPose ? 16 : 0)],
+      [56 + lx, 49 + (lowPose ? 16 : 0)],
       [hip[0] + 7, hip[1] - 2],
       [hip[0] - 10, hip[1]],
-      [35 + lx, 48 + (f.crouch ? 16 : 0)],
+      [35 + lx, 48 + (lowPose ? 16 : 0)],
     ],
     p.cloth,
   );
   polygon(
     c,
     [
-      [38 + lx, 39 + (f.crouch ? 16 : 0)],
-      [43 + lx, 40 + (f.crouch ? 16 : 0)],
+      [38 + lx, 39 + (lowPose ? 16 : 0)],
+      [43 + lx, 40 + (lowPose ? 16 : 0)],
       [hip[0] - 4, hip[1] - 3],
       [hip[0] - 10, hip[1]],
     ],
@@ -702,10 +730,10 @@ function paintSprite(c, f, index, t) {
   polygon(
     c,
     [
-      [46 + lx, 37 + (f.crouch ? 16 : 0)],
-      [51 + lx, 38 + (f.crouch ? 16 : 0)],
-      [49 + lx, 53 + (f.crouch ? 16 : 0)],
-      [43 + lx, 49 + (f.crouch ? 16 : 0)],
+      [46 + lx, 37 + (lowPose ? 16 : 0)],
+      [51 + lx, 38 + (lowPose ? 16 : 0)],
+      [49 + lx, 53 + (lowPose ? 16 : 0)],
+      [43 + lx, 49 + (lowPose ? 16 : 0)],
     ],
     p.skin,
   );
@@ -766,7 +794,7 @@ function paintSprite(c, f, index, t) {
       p.cloth,
     );
     for (let n = 0; n < 3; n++)
-      rect(c, 43 + lx, 45 + n * 6 + (f.crouch ? 16 : 0), 8, 2, p.belt);
+      rect(c, 43 + lx, 45 + n * 6 + (lowPose ? 16 : 0), 8, 2, p.belt);
   }
   pants(1);
   rect(c, head[0] - 3, head[1] + 8, 9, 9, p.skinDark);
@@ -863,6 +891,34 @@ function paintSprite(c, f, index, t) {
   }
   c.restore();
   arm(1);
+  if (profile.id === "shin") {
+    const h = pose.hands[0],
+      e = pose.elbows[0],
+      dx = h[0] - e[0],
+      dy = h[1] - e[1],
+      len = Math.hypot(dx, dy) || 1;
+    const tip = [h[0] + (dx / len) * 42, h[1] + (dy / len) * 42];
+    limb(c, h, tip, 3, "#d7eceb", "#ffffff");
+    rect(c, h[0] - 5, h[1] - 2, 10, 4, "#cfb65e");
+  }
+  if (profile.id === "boru") {
+    rect(c, head[0] - 14, head[1] - 15, 9, 10, "#63442f");
+    rect(c, head[0] + 6, head[1] - 15, 9, 10, "#63442f");
+    rect(c, head[0] - 9, head[1] - 10, 23, 23, "#9b704a");
+    rect(c, head[0] + 4, head[1] + 1, 15, 11, "#c4a177");
+    rect(c, head[0] + 13, head[1] + 2, 5, 4, "#20232b");
+    rect(c, head[0] + 7, head[1] - 4, 3, 3, "#151925");
+    for (const hand of pose.hands)
+      for (let n = 0; n < 3; n++)
+        rect(c, hand[0] + 3 + n * 2, hand[1] - 3 + n * 3, 7, 2, "#edddbd");
+  }
+  if (profile.id === "atlas") {
+    rect(c, head[0] - 12, head[1] - 13, 26, 29, "#536f7e");
+    rect(c, head[0] - 8, head[1] - 9, 19, 19, "#aabac1");
+    rect(c, head[0] + 1, head[1] - 2, 13, 4, "#ffb94e");
+    rect(c, hip[0] - 9, hip[1] - 24, 17, 14, "#304d60");
+    rect(c, hip[0] - 4, hip[1] - 20, 8, 4, "#a5eef1");
+  }
   if (f.hitFlash > 0) {
     c.globalCompositeOperation = "source-atop";
     c.fillStyle = "#fff3c9";
@@ -1046,7 +1102,7 @@ export function createScene(canvas) {
         tz = (a.z + b.z) / 2;
       centerX = tx;
       centerZ = tz;
-      axisAngle = match.axisAngle;
+      axisAngle = match.viewAngle;
       const separation = Math.hypot(a.x - b.x, a.z - b.z);
       cameraDistance = mix(
         cameraDistance,
@@ -1093,14 +1149,7 @@ export function createScene(canvas) {
         paintSprite(sprites[i].context, f, i, clock);
         c.save();
         c.translate(Math.round(p.x), Math.round(p.y));
-        c.scale(
-          f.facing *
-            (Math.cos(f.angle - match.axisAngle - (i === 1 ? Math.PI : 0)) <
-            -0.1
-              ? -1
-              : 1),
-          1,
-        );
+        c.scale(Math.cos(f.angle - match.viewAngle) >= 0 ? 1 : -1, 1);
         c.drawImage(
           sprites[i].image,
           Math.round(-64 * s),
@@ -1170,7 +1219,7 @@ export function createScene(canvas) {
         }
         const p = project(e.x, e.y, e.z),
           expand = e.age * (e.heavy ? 130 : 90);
-        if (e.punish || e.armor || e.type === "block") {
+        if (e.punish || e.armor || e.counter || e.throw || e.type === "block") {
           c.font = "bold 8px monospace";
           c.textAlign = "center";
           c.fillStyle = e.punish
@@ -1179,11 +1228,15 @@ export function createScene(canvas) {
               ? "#ffac8f"
               : "#b5e5ed";
           c.fillText(
-            e.armor
-              ? "ARMOR"
-              : e.punish
-                ? "PUNISH"
-                : `GUARD ${e.advantage >= 0 ? "+" : ""}${e.advantage}F${e.launcherWindow ? " / UPPER" : ""}`,
+            e.counter
+              ? "COUNTER"
+              : e.throw
+                ? "THROW"
+                : e.armor
+                  ? "ARMOR"
+                  : e.punish
+                    ? "PUNISH"
+                    : `GUARD ${e.advantage >= 0 ? "+" : ""}${e.advantage}F${e.launcherWindow ? " / UPPER" : ""}`,
             p.x,
             p.y - 18 - e.age * 25,
           );

@@ -14,7 +14,7 @@
         >
         <div class="top-center">
           <span class="live-dot"></span> PIXEL FIGHTERS / FREE AXIS
-          <span class="version">/ VOL. 03.7</span>
+          <span class="version">/ VOL. 03.8</span>
         </div>
         <button id="online-button" class="button small">
           <span class="connection-icon">⌁</span> 온라인 대전 <span>↗</span>
@@ -25,7 +25,7 @@
           <div>
             <div class="eyebrow">HANDHELD SOUL. ARCADE INSTINCT.</div>
             <h1>픽셀 속으로, <em>자유로운 한 수.</em></h1>
-            <p>네 명의 격투가. 묵직한 한 방. 횡이동으로 읽어내는 다음 수.</p>
+            <p>여덟 명의 격투가. 묵직한 한 방. 횡이동으로 읽어내는 다음 수.</p>
           </div>
           <div class="mode-switch" aria-label="게임 모드">
             <button id="practice-button" class="selected">
@@ -103,7 +103,7 @@
           </div>
           <div id="stage-depth" class="stage-depth">X 0 / Z 0 · ∞</div>
           <div class="key-hint">
-            W / S 두 번 <span>횡신 · 유지하면 횡보</span> <b>↔</b> A / D
+            Q / E 유지 <span>횡보 · S 앉기 · W 점프</span> <b>↔</b> A / D
             <span>앞뒤 이동</span>
           </div>
           <div id="loading" class="loading">경기장을 준비하고 있습니다…</div>
@@ -121,10 +121,8 @@
                   <div><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></div>
                 </div>
                 <div>
-                  <b>MOVE & SIDESTEP</b>
-                  <p>
-                    A / D 이동 · W/W 또는 S/S 횡신 · 두 번째를 유지하면 횡보
-                  </p>
+                  <b>MOVE / CROUCH / JUMP</b>
+                  <p>A/D 이동 · S 앉기 · W 점프 · Q/E 유지 횡보</p>
                 </div>
               </div>
               <div class="control-group">
@@ -160,7 +158,7 @@
             </div>
             <div class="combo-row">
               <span class="combo-type">ROSTER</span
-              ><span>4 FIGHTERS · UNIQUE COMMANDS</span
+              ><span>8 FIGHTERS · UNIQUE COMMANDS</span
               ><button id="character-button" class="text-button">
                 연습 캐릭터 변경 ↗
               </button>
@@ -253,8 +251,8 @@
           (양쪽)</label
         >
         <p class="network-note">
-          체력은 실제로 감소합니다. 3초간 전투가 끊기면 회복하며, 켜면 체력
-          1에서 버팁니다. 연습 시간은 항상 무한입니다.
+          체력은 실제로 감소합니다. 1.2초간 전투가 끊기면 0.5초에 걸쳐 회복하며,
+          켜면 체력 1에서 버팁니다. 연습 시간은 항상 무한입니다.
         </p>
       </fieldset>
       <div id="character-detail" class="character-detail"></div>
@@ -293,12 +291,11 @@
       </p>
       <p class="network-note">
         연습전은 P1을 조작합니다. 온라인 호스트는 P1, 참가자는 P2입니다. A/D는
-        화면 좌우 이동, W/W 또는 S/S는 횡신, 두 번째를 유지하면 상대 중심
-        횡보입니다. 카메라는 두 캐릭터를 양쪽에 유지하며 돌아갑니다. 커맨드의
-        →/←는 상대 기준 전진/후퇴로, P2는 A/D가 반대입니다. ↓는 S, ↑는 W이며 ↘는
-        전진+S입니다. 방향을 0.85초 안에 순서대로 입력한 뒤 공격하세요. →→
-        대시는 전진-떼기-전진으로 입력합니다. 경기장에는 벽이나 낭떠러지가
-        없습니다.
+        화면 좌우 이동, S는 앉기, W는 점프, Q/E 유지는 횡보입니다. 카메라는 두
+        캐릭터를 양쪽에 유지하며 돌아갑니다. 커맨드의 →/←는 상대 기준
+        전진/후퇴로, P2는 A/D가 반대입니다. ↓는 S, ↑는 W이며 ↘는 전진+S입니다.
+        방향을 0.85초 안에 순서대로 입력한 뒤 공격하세요. →→ 대시는
+        전진-떼기-전진으로 입력합니다. 경기장에는 벽이나 낭떠러지가 없습니다.
       </p>
     </dialog>
     <div id="toast" role="status" hidden></div>

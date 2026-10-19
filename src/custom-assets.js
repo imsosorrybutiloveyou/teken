@@ -106,7 +106,9 @@ export function parseAssetConfig(input) {
   for (const [key, path] of Object.entries(input?.sounds ?? {})) {
     if (
       localPath(path) &&
-      /^(hit|kick|heavy|block|kai|ren|mira|goro)(\.[a-zA-Z]+)?$/.test(key)
+      /^(hit|kick|heavy|block|kai|ren|mira|goro|hana|shin|boru|atlas)(\.[a-zA-Z]+)?$/.test(
+        key,
+      )
     )
       result.sounds[key] = path;
   }

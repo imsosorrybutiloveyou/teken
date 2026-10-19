@@ -1,3 +1,4 @@
+import { expandRoster } from "./expanded-roster.js";
 import { KIT_MOVES, KIT_RULES } from "./fighter-kits.js";
 // Authored 60 Hz frame data. S/A/R and advantages below drive the actual combat simulation.
 const keys = [
@@ -1024,6 +1025,7 @@ export const CHARACTERS = Object.fromEntries(
     return [id, { id, ...p, moves, followUps }];
   }),
 );
+expandRoster(CHARACTERS);
 export const CHARACTER_IDS = Object.keys(CHARACTERS);
 export function character(id) {
   return CHARACTERS[id] ?? CHARACTERS.kai;

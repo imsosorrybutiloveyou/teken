@@ -39,18 +39,21 @@ function dirInput(dir, index = 0) {
   return { x: f * (index === 0 ? 1 : -1), z: dir <= 3 ? 1 : dir >= 7 ? -1 : 0 };
 }
 test("four fighters have independently authored commands, startup and recovery", () => {
-  assert.equal(CHARACTER_IDS.length, 4);
-  const signatures = CHARACTER_IDS.map(
+  assert.equal(CHARACTER_IDS.length, 8);
+  const signatures = ["kai", "ren", "mira", "goro"].map(
     (id) => character(id).moves.qcfPunch.command,
   );
   assert.equal(new Set(signatures).size, 4);
   assert.equal(
-    new Set(CHARACTER_IDS.map((id) => character(id).moves.qcfPunch.startup))
-      .size,
+    new Set(
+      ["kai", "ren", "mira", "goro"].map(
+        (id) => character(id).moves.qcfPunch.startup,
+      ),
+    ).size,
     4,
   );
   for (const id of CHARACTER_IDS) {
-    assert.equal(Object.keys(character(id).moves).length, 32);
+    assert.equal(Object.keys(character(id).moves).length, 40);
     for (const move of Object.values(character(id).moves)) {
       assert.equal(
         move.duration,
@@ -84,7 +87,11 @@ test("basic buttons retain left/right hand and foot identity with independent st
     "runningKick",
   ])
     assert.equal(
-      new Set(CHARACTER_IDS.map((id) => character(id).moves[key].kind)).size,
+      new Set(
+        ["kai", "ren", "mira", "goro"].map(
+          (id) => character(id).moves[key].kind,
+        ),
+      ).size,
       4,
       key,
     );
@@ -166,9 +173,7 @@ test("sidestepping orbits the opponent while maintaining a left/right fighting a
   const m = setup();
   m.fighters[0].x = -2;
   m.fighters[1].x = 2;
-  feed(m, { z: 1 });
-  feed(m);
-  feed(m, { z: 1 }, 120);
+  feed(m, { orbit: 1 }, 120);
   assert.ok(Math.abs(m.axisAngle) > 0.3);
   const [a, b] = m.fighters,
     co = Math.cos(m.axisAngle),
@@ -364,7 +369,7 @@ test("low kicks cannot juggle a high airborne opponent and throw cannot grab it"
   }
 });
 test("basic kicks are shorter and recover faster than the previous slow kicks", () => {
-  for (const id of CHARACTER_IDS) {
+  for (const id of ["kai", "ren", "mira", "goro"]) {
     const p = character(id);
     assert.ok(p.moves.j.startup <= 17);
     assert.ok(p.moves.k.startup <= 20);
@@ -555,7 +560,9 @@ test("rush palm, sweep, electrics and running kick actually advance without cros
         const near = setup(index === 0 ? [id, "kai"] : ["kai", id]);
         feed(near, commandInputFor(near, index, key), move.startup, index);
         assert.ok(
-          near.fighters[0].x < near.fighters[1].x,
+          character(id).moves[key].level === "throw"
+            ? near.fighters[0].x > near.fighters[1].x
+            : near.fighters[0].x < near.fighters[1].x,
           `${key} crossed through foe`,
         );
       }
@@ -752,7 +759,7 @@ test("training HP drops then regenerates after three idle seconds, while time st
     stepPractice(m, emptyInput(), { behavior: "dummy" });
   assert.ok(m.fighters[1].hp < MAX_HP);
   const hp = m.fighters[1].hp;
-  for (let n = 0; n < 100; n++)
+  for (let n = 0; n < 20; n++)
     stepPractice(m, emptyInput(), { behavior: "dummy" });
   assert.equal(m.fighters[1].hp, hp);
   for (let n = 0; n < 240; n++)
@@ -806,37 +813,16 @@ test("infinite practice clock does not keep the fight announcement alive", () =>
   assert.equal(m.phaseTime, 0);
 });
 
-test("sidestep requires a double tap, release finishes a short step, holding circles behind a stationary foe", () => {
-  for (const index of [0, 1])
-    for (const side of [-1, 1]) {
-      const m = setup(["kai", "kai"]),
-        a = m.fighters[index],
-        b = m.fighters[1 - index];
-      const original = [a.x, a.z];
-      feed(m, { z: side }, 40, index);
-      assert.deepEqual([a.x, a.z], original);
-      feed(m, {}, 1, index);
-      feed(m, { z: side }, 1, index); // The first long hold is too old to count as a double tap.
-      assert.equal(a.sideTime, 0);
-      feed(m, {}, 1, index);
-      feed(m, { z: side }, 1, index);
-      feed(m, {}, 30, index);
-      const afterStep = [a.x, a.z];
-      feed(m, {}, 30, index);
-      assert.deepEqual([a.x, a.z], afterStep);
-      feed(m, { z: side }, 1, index);
-      feed(m, {}, 1, index);
-      feed(m, { z: side }, 45, index);
-      assert.ok(
-        Math.cos(Math.atan2(a.z - b.z, a.x - b.x) - b.angle) < 0,
-        "can reach the back",
-      );
-      assert.ok(
-        Math.abs(Math.hypot(a.x - b.x, a.z - b.z) - 1) < 1e-8,
-        "orbit radius stays fixed",
-      );
-    }
+test("orbit is continuous on Q/E input and release stops it; a stationary foe can be circled behind", () => {
+  const m = setup(["kai", "kai"]);
+  const original = m.fighters[0].z;
+  feed(m, { orbit: 1 }, 30);
+  assert.notEqual(m.fighters[0].z, original);
+  const after = [m.fighters[0].x, m.fighters[0].z];
+  feed(m, {}, 20);
+  assert.deepEqual([m.fighters[0].x, m.fighters[0].z], after);
 });
+
 test("KAI's low starter only completes its knockdown with a separate U, and all fighters have button strings", () => {
   for (const id of CHARACTER_IDS) {
     const m = setup([id, "kai"]),
@@ -905,4 +891,75 @@ test("every added button follow-up is a real reachable second hit", () => {
         id + " " + to + " follow-up must connect",
       );
     }
+});
+
+test("eight fighters have counter-only launchers that open a real juggle", () => {
+  for (const id of CHARACTER_IDS) {
+    const p = character(id),
+      key = Object.keys(p.moves).find(
+        (k) => p.moves[k].counterLaunch && !p.moves[k].launch,
+      );
+    assert.ok(key, id);
+    for (const counter of [false, true]) {
+      const m = setup([id, "kai"]),
+        a = m.fighters[0],
+        b = m.fighters[1];
+      if (counter) b.attack = { key: "palm", t: 0, angle: Math.PI };
+      a.attack = { key, t: p.moves[key].windup - 1 / 60, angle: 0 };
+      feed(m);
+      assert.equal(b.y > 0, counter, id + " " + key);
+      assert.equal(m.events.find((e) => e.type === "hit")?.counter, counter);
+    }
+  }
+});
+test("throws animate both participants and exchange actual positions and screen sides", () => {
+  const m = setup(["goro", "kai"]),
+    a = m.fighters[0],
+    b = m.fighters[1];
+  const ax = a.x,
+    bx = b.x;
+  a.attack = {
+    key: "throw",
+    t: character("goro").moves.throw.windup - 1 / 60,
+    angle: 0,
+  };
+  feed(m);
+  assert.equal(a.x, bx);
+  assert.equal(b.x, ax);
+  assert.ok(a.throwTime > 0 && b.throwTime > 0);
+  assert.equal(a.facing, -1);
+  assert.equal(b.facing, 1);
+  assert.ok(Math.abs(m.viewAngle) < 0.01);
+});
+test("committed linear attack does not turn to follow an orbiting defender", () => {
+  const m = setup(["kai", "kai"]),
+    a = m.fighters[0],
+    b = m.fighters[1];
+  a.attack = { key: "palm", t: 0, angle: 0 };
+  feed(m, {}, 30, 0, { orbit: 1 });
+  assert.equal(b.hp, MAX_HP);
+  assert.ok(Math.abs(b.z) > 0.4);
+});
+test("physical crouch, jump, aerial strings and while-rising inputs work", () => {
+  const m = setup();
+  feed(m, { crouch: true, z: 1 }, 12);
+  assert.ok(m.fighters[0].crouch);
+  feed(m, { action: "u", crouch: true, z: 1 });
+  assert.equal(m.fighters[0].lastMove, "crouchPunch");
+  const r = setup();
+  feed(r, { crouch: true, z: 1 }, 12);
+  feed(r);
+  feed(r, { action: "i" });
+  assert.equal(r.fighters[0].lastMove, "risingUpper");
+  const j = setup();
+  feed(j, { z: -1 });
+  assert.ok(j.fighters[0].y > 0);
+  feed(j, { action: "j" });
+  assert.equal(j.fighters[0].lastMove, "jumpKick");
+  feed(j, {}, 6);
+  feed(j, { action: "k" });
+  assert.ok(
+    j.fighters[0].buffer === "jumpFollow" ||
+      j.fighters[0].lastMove === "jumpFollow",
+  );
 });

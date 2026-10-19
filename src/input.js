@@ -11,7 +11,7 @@ export function keyName(event) {
   if (event.code?.startsWith("Shift")) return "shift";
   return event.key.toLowerCase();
 }
-const STATE_KEYS = ["w", "a", "s", "d", "shift"];
+const STATE_KEYS = ["w", "a", "s", "d", "shift", "q", "e"];
 const ATTACK_KEYS = ["u", "i", "j", "k"];
 export class KeyboardInput {
   constructor() {
@@ -26,7 +26,8 @@ export class KeyboardInput {
       x: (this.held.has("d") ? 1 : 0) - (this.held.has("a") ? 1 : 0),
       z: (this.held.has("s") ? 1 : 0) - (this.held.has("w") ? 1 : 0),
       guard: false,
-      crouch: this.held.has("shift"),
+      crouch: this.held.has("shift") || this.held.has("s"),
+      orbit: (this.held.has("e") ? 1 : 0) - (this.held.has("q") ? 1 : 0),
       action: null,
     };
   }
@@ -90,6 +91,7 @@ export class KeyboardInput {
       this.applied = {
         x: head.x,
         z: head.z,
+        orbit: head.orbit ?? 0,
         guard: head.guard,
         crouch: head.crouch,
         action: null,
@@ -120,7 +122,7 @@ export class RemoteInput {
       prev = this.latest;
     if (
       input.action ||
-      ["x", "z", "guard", "crouch"].some((k) => input[k] !== prev[k])
+      ["x", "z", "guard", "crouch", "orbit"].some((k) => input[k] !== prev[k])
     ) {
       this.queue.push(input);
       if (this.queue.length > 64) this.queue.shift();

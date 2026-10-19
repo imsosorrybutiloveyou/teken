@@ -51,7 +51,7 @@ test("a kick chambers its knee, extends at contact and folds back during recover
   assert.ok(impact.hands[0][1] < 50, "opposite hand stays near the guard");
 });
 
-test("all 32 moves have different visible paths and pose sequences for every fighter", () => {
+test("all 40 moves have different visible paths and pose sequences for every fighter", () => {
   for (const p of Object.values(CHARACTERS)) {
     const effects = new Set(),
       poses = new Set();
@@ -70,8 +70,8 @@ test("all 32 moves have different visible paths and pose sequences for every fig
         ),
       );
     }
-    assert.equal(effects.size, 32, p.id + " effect silhouettes");
-    assert.equal(poses.size, 32, p.id + " authored motion sequences");
+    assert.equal(effects.size, 40, p.id + " effect silhouettes");
+    assert.equal(poses.size, 40, p.id + " authored motion sequences");
   }
 });
 
@@ -128,6 +128,6 @@ test("the same input slot has a different full-body animation for each fighting 
         );
       }),
     );
-    assert.equal(poses.size, 4, key);
+    assert.equal(poses.size, 8, key);
   }
 });

@@ -9,13 +9,14 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 )
 
-var currentVersion = "3.7.0"
+var currentVersion = "3.8.0"
 
 const updateManifestURL = "https://raw.githubusercontent.com/imsosorrybutiloveyou/teken/main/downloads/latest.json"
 const updateDownloadURL = "https://raw.githubusercontent.com/imsosorrybutiloveyou/teken/main/downloads/AXIS-Windows-x64.exe"
@@ -89,8 +90,12 @@ func downloadUpdate(client *http.Client, url, directory string, m updateManifest
 	}
 	target := filepath.Join(directory, "AXIS-v"+m.Version+"-Windows-x64.exe")
 	// Never overwrite an executable, including one that may already be running.
-	if _, err := os.Stat(target); err == nil {
-		return "", fmt.Errorf("file already exists: %s", target)
+	if data, err := os.ReadFile(target); err == nil {
+		digest := sha256.Sum256(data)
+		if strings.EqualFold(hex.EncodeToString(digest[:]), m.SHA256) {
+			return target, nil
+		}
+		return "", fmt.Errorf("existing file has a different checksum: %s", target)
 	} else if !os.IsNotExist(err) {
 		return "", err
 	}
@@ -127,29 +132,30 @@ func downloadUpdate(client *http.Client, url, directory string, m updateManifest
 	} // Atomic publication without replacing any existing file.
 	return target, nil
 }
-func offerUpdate(input io.Reader, output io.Writer, client *http.Client, manifestURL, downloadURL, directory string) {
+func offerUpdate(input io.Reader, output io.Writer, client *http.Client, manifestURL, downloadURL, directory string) string {
 	fmt.Fprintln(output, "  GitHub 업데이트 확인 중…")
 	m, err := fetchUpdate(client, manifestURL)
 	if err != nil {
 		fmt.Fprintln(output, "  업데이트 확인 실패. 현재 버전으로 계속합니다:", err)
-		return
+		return ""
 	}
 	if !newerVersion(m.Version, currentVersion) {
 		fmt.Fprintln(output, "  최신 버전입니다:", currentVersion)
-		return
+		return ""
 	}
 	fmt.Fprintln(output, "  새 버전:", m.Version)
+	fmt.Fprintln(output, "  다운로드 후 새 게임을 실행하고 이전 AXIS 파일을 정리합니다.")
 	scanner := bufio.NewScanner(input)
 	for {
 		fmt.Fprint(output, "  다운로드 하시겠습니까?[y/n] ")
 		if !scanner.Scan() {
 			fmt.Fprintln(output, "\n  다운로드를 건너뜁니다.")
-			return
+			return ""
 		}
 		answer := strings.ToLower(strings.TrimSpace(scanner.Text()))
 		if answer == "n" {
 			fmt.Fprintln(output, "  현재 버전으로 계속합니다.")
-			return
+			return ""
 		}
 		if answer != "y" {
 			continue
@@ -158,10 +164,32 @@ func offerUpdate(input io.Reader, output io.Writer, client *http.Client, manifes
 		path, err := downloadUpdate(&http.Client{Timeout: 2 * time.Minute}, downloadURL, directory, m)
 		if err != nil {
 			fmt.Fprintln(output, "  다운로드 실패. 현재 버전으로 계속합니다:", err)
-			return
+			return ""
 		}
 		fmt.Fprintln(output, "  다운로드 완료 (SHA-256 확인):", path)
-		fmt.Fprintln(output, "  현재 게임을 종료한 뒤 새 EXE를 실행하세요. 기존 파일은 유지됩니다.")
-		return
+		return path
 	}
+}
+
+func validReplacement(old, current string) bool {
+	a, err := filepath.Abs(old)
+	if err != nil {
+		return false
+	}
+	b, err := filepath.Abs(current)
+	if err != nil {
+		return false
+	}
+	name := filepath.Base(a)
+	return !strings.EqualFold(a, b) && strings.EqualFold(filepath.Dir(a), filepath.Dir(b)) && (name == "AXIS-Windows-x64.exe" || (strings.HasPrefix(name, "AXIS-v") && strings.HasSuffix(name, "-Windows-x64.exe")))
+}
+func launchUpdated(path, old string, pid int, args []string) error {
+	if !validReplacement(old, path) {
+		return fmt.Errorf("keep the AXIS executable filename; run the downloaded file manually")
+	}
+	command := exec.Command(path, append([]string{"--no-update", "--replace-old", old, "--replace-pid", strconv.Itoa(pid)}, args...)...)
+	command.Stdin = os.Stdin
+	command.Stdout = os.Stdout
+	command.Stderr = os.Stderr
+	return command.Start()
 }

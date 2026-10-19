@@ -55,7 +55,7 @@ try {
     () => window.axis && document.getElementById("loading").hidden,
   );
   await host.locator("#arena-moves-button").click();
-  assert.equal(await host.locator(".move-item").count(), 32);
+  assert.equal(await host.locator(".move-item").count(), 40);
   await host.locator('#move-character-tabs [data-character="goro"]').click();
   assert.ok(
     (await host.locator(".frame-data").first().innerText()).includes("10"),
@@ -89,16 +89,16 @@ try {
     .click();
   await host.locator("#select-dialog").waitFor({ state: "visible" });
   await guest.locator("#select-dialog").waitFor({ state: "visible" });
-  await host.screenshot({ path: "/tmp/axis-v37-select.png", fullPage: true });
-  assert.equal(await host.locator(".character-card").count(), 4);
+  await host.screenshot({ path: "/tmp/axis-v38-select.png", fullPage: true });
+  assert.equal(await host.locator(".character-card").count(), 8);
   assert.equal(await host.evaluate(() => window.axis.battleActive), false);
-  await choose(host, "mira");
+  await choose(host, "hana");
   assert.equal(
     await host.evaluate(() => window.axis.battleActive),
     false,
     "one confirmed character cannot start a match",
   );
-  await choose(guest, "goro");
+  await choose(guest, "atlas");
   await host.waitForFunction(
     () => window.axis.battleActive && window.axis.connected,
     {},
@@ -113,21 +113,20 @@ try {
     await host.evaluate(() =>
       window.axis.state.fighters.map((f) => f.character),
     ),
-    ["mira", "goro"],
+    ["hana", "atlas"],
   );
   await host.waitForFunction(() => window.axis.state.phase === "fight");
   await guest.waitForFunction(() => window.axis.state.phase === "fight");
   console.log(
     "Player match only → selected room → two-sided character confirmation → automatic P2P passed",
   );
-  await host.keyboard.press("w");
-  await host.keyboard.down("w");
+  await host.keyboard.down("e");
   await host.waitForFunction(
     () => Math.abs(window.axis.state.axisAngle) > 0.35,
     {},
     { timeout: 12000 },
   );
-  await host.keyboard.up("w");
+  await host.keyboard.up("e");
   await host.waitForTimeout(200);
   const projections = await host.evaluate(() => window.axis.projection);
   assert.ok(projections[0].x < projections[1].x);
@@ -162,7 +161,7 @@ try {
   console.log(
     "Opponent-centered sidestep, stable left/right composition, remote damage and roster synchronization passed",
   );
-  await host.screenshot({ path: "/tmp/axis-v37-online.png", fullPage: true });
+  await host.screenshot({ path: "/tmp/axis-v38-online.png", fullPage: true });
   await host.locator("#online-button").click();
   await host.locator("#disconnect-button").click();
   await guest.waitForFunction(() => !window.axis.matched);
@@ -242,7 +241,7 @@ try {
       window.axis.state.fighters[1].bounceUsed,
   );
   await host.screenshot({
-    path: "/tmp/axis-v37-air-combo.png",
+    path: "/tmp/axis-v38-air-combo.png",
     fullPage: true,
   });
   console.log(
@@ -286,7 +285,7 @@ try {
       window.axis.state.fighters[1].y > 0,
   );
   await guest.keyboard.up("d");
-  await host.screenshot({ path: "/tmp/axis-v37-punish.png", fullPage: true });
+  await host.screenshot({ path: "/tmp/axis-v38-punish.png", fullPage: true });
   console.log(
     "Blood Cross guarded → buffered uppercut beats held-back guard: confirmed PUNISH on both P2P clients",
   );
@@ -303,7 +302,7 @@ try {
       window.axis.state.fighters[0].lastMove === "electric" &&
       window.axis.state.fighters[1].y > 0,
   );
-  await host.screenshot({ path: "/tmp/axis-v37-electric.png", fullPage: true });
+  await host.screenshot({ path: "/tmp/axis-v38-electric.png", fullPage: true });
 
   await newRound(1.05);
   await guest.keyboard.down("d");
@@ -316,7 +315,7 @@ try {
   await guest.waitForFunction(() => window.axis.state.fighters[1].downTime > 0);
   await guest.keyboard.up("d");
   await host.screenshot({
-    path: "/tmp/axis-v37-hellsweep.png",
+    path: "/tmp/axis-v38-hellsweep.png",
     fullPage: true,
   });
 
@@ -353,7 +352,7 @@ try {
       window.axis.state.fighters[0].y > 0.2,
   );
   await host.screenshot({
-    path: "/tmp/axis-v37-running-kick.png",
+    path: "/tmp/axis-v38-running-kick.png",
     fullPage: true,
   });
   await host.waitForFunction(() => window.axis.state.fighters[1].hp < 120);
@@ -400,7 +399,7 @@ try {
   );
   await host.keyboard.press("h");
   await host.locator("#moves-dialog").waitFor();
-  assert.equal(await host.locator(".move-item").count(), 32);
+  assert.equal(await host.locator(".move-item").count(), 40);
   await host.locator("#moves-dialog .close").click();
   await host.locator("#character-button").click();
   await host.locator("#practice-behavior").selectOption("cpu");
@@ -416,10 +415,10 @@ try {
     false,
   );
   console.log(
-    "Practice: stationary infinite-HP dummy keeps damage/hitstun; attacking CPU and normal HP switch work",
+    "Practice: stationary regenerating-HP dummy keeps damage/hitstun; attacking CPU and normal HP switch work",
   );
   await host.setViewportSize({ width: 390, height: 844 });
-  await host.screenshot({ path: "/tmp/axis-v37-mobile.png", fullPage: true });
+  await host.screenshot({ path: "/tmp/axis-v38-mobile.png", fullPage: true });
   assert.ok(
     await host.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,
@@ -427,7 +426,7 @@ try {
   );
   assert.deepEqual(errors, []);
   console.log(
-    "PASS: v3.7 player match only, player rooms, matched-only character selection, 4 characters, unique frame tables, automatic P2P, orbit camera, remote combat, practice selection, responsive layout; no page errors.",
+    "PASS: v3.8 player match only, player rooms, matched-only character selection, 8 characters, unique frame tables, automatic P2P, orbit camera, remote combat, practice selection, responsive layout; no page errors.",
   );
 } catch (error) {
   for (const [name, page] of [

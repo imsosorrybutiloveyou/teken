@@ -30,8 +30,8 @@ export class LobbyClient {
           "호스트에 연결할 수 없습니다. 첫 PC의 EXE와 주소·방화벽을 확인하세요.",
         );
       });
-    if (health.service !== "axis-matchmaking" || health.version !== 9)
-      throw Error("양쪽 모두 최신 AXIS v3.7와 매칭 호스트를 사용하세요.");
+    if (health.service !== "axis-matchmaking" || health.version !== 10)
+      throw Error("양쪽 모두 최신 AXIS v3.8와 매칭 호스트를 사용하세요.");
     const response = await fetch(this.base + "/api/sessions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
