@@ -26,6 +26,28 @@ async function choose(page, id) {
   await page.locator(`#character-grid [data-character="${id}"]`).click();
   await page.locator("#confirm-character").click();
 }
+async function newRound(gap = null) {
+  await host.locator("#reset-button").click();
+  await host.waitForFunction(() => window.axis.state.phase === "ready");
+  await host.waitForFunction(() => window.axis.state.phase === "fight");
+  await guest.waitForFunction(() => window.axis.state.phase === "fight");
+  if (gap !== null) {
+    await host.keyboard.down("d");
+    await host.waitForFunction((gap) => {
+      const [a, b] = window.axis.state.fighters;
+      return Math.hypot(a.x - b.x, a.z - b.z) < gap;
+    }, gap);
+    await host.keyboard.up("d");
+  }
+}
+async function crouchDash(button) {
+  await host.keyboard.press("d");
+  await host.keyboard.down("s");
+  await host.keyboard.down("d");
+  await host.keyboard.press(button);
+  await host.keyboard.up("s");
+  await host.keyboard.up("d");
+}
 try {
   await host.goto(base);
   await guest.goto(process.env.TEST_GUEST_URL || base);
@@ -33,7 +55,7 @@ try {
     () => window.axis && document.getElementById("loading").hidden,
   );
   await host.locator("#moves-button").click();
-  assert.equal(await host.locator(".move-item").count(), 25);
+  assert.equal(await host.locator(".move-item").count(), 30);
   await host.locator('#move-character-tabs [data-character="goro"]').click();
   assert.ok(
     (await host.locator(".frame-data").first().innerText()).includes("10"),
@@ -61,7 +83,7 @@ try {
   await guest.locator("#quick-match").click();
   await host.locator("#select-dialog").waitFor({ state: "visible" });
   await guest.locator("#select-dialog").waitFor({ state: "visible" });
-  await host.screenshot({ path: "/tmp/axis-v33-select.png", fullPage: true });
+  await host.screenshot({ path: "/tmp/axis-v34-select.png", fullPage: true });
   assert.equal(await host.locator(".character-card").count(), 4);
   assert.equal(await host.evaluate(() => window.axis.battleActive), false);
   await choose(host, "mira");
@@ -133,7 +155,7 @@ try {
   console.log(
     "Opponent-centered sidestep, stable left/right composition, remote damage and roster synchronization passed",
   );
-  await host.screenshot({ path: "/tmp/axis-v33-online.png", fullPage: true });
+  await host.screenshot({ path: "/tmp/axis-v34-online.png", fullPage: true });
   await host.locator("#online-button").click();
   await host.locator("#disconnect-button").click();
   await guest.waitForFunction(() => !window.axis.matched);
@@ -215,7 +237,7 @@ try {
       window.axis.state.fighters[1].bounceUsed,
   );
   await host.screenshot({
-    path: "/tmp/axis-v33-air-combo.png",
+    path: "/tmp/axis-v34-air-combo.png",
     fullPage: true,
   });
   console.log(
@@ -259,9 +281,75 @@ try {
       window.axis.state.fighters[1].y > 0,
   );
   await guest.keyboard.up("d");
-  await host.screenshot({ path: "/tmp/axis-v33-punish.png", fullPage: true });
+  await host.screenshot({ path: "/tmp/axis-v34-punish.png", fullPage: true });
   console.log(
     "Blood Cross guarded → buffered uppercut beats held-back guard: confirmed PUNISH on both P2P clients",
+  );
+
+  await newRound(1.15);
+  await crouchDash("i");
+  await host.waitForFunction(
+    () =>
+      window.axis.state.fighters[0].lastMove === "electric" &&
+      window.axis.state.fighters[1].y > 0,
+  );
+  await guest.waitForFunction(
+    () =>
+      window.axis.state.fighters[0].lastMove === "electric" &&
+      window.axis.state.fighters[1].y > 0,
+  );
+  await host.screenshot({ path: "/tmp/axis-v34-electric.png", fullPage: true });
+
+  await newRound(1.05);
+  await guest.keyboard.down("d");
+  await crouchDash("k");
+  await host.waitForFunction(() => window.axis.state.fighters[1].downTime > 0);
+  await guest.waitForFunction(() => window.axis.state.fighters[1].downTime > 0);
+  await guest.keyboard.up("d");
+  await host.screenshot({
+    path: "/tmp/axis-v34-hellsweep.png",
+    fullPage: true,
+  });
+
+  await newRound();
+  await host.keyboard.press("d");
+  await host.keyboard.down("d");
+  await host.keyboard.press("u");
+  await host.keyboard.up("d");
+  await host.waitForFunction(
+    () =>
+      window.axis.state.fighters[0].lastMove === "rushStrike" &&
+      window.axis.state.fighters[1].downTime > 0,
+  );
+  await guest.waitForFunction(
+    () =>
+      window.axis.state.fighters[0].lastMove === "rushStrike" &&
+      window.axis.state.fighters[1].downTime > 0,
+  );
+
+  await newRound();
+  await host.keyboard.press("d");
+  await host.keyboard.press("d");
+  await host.keyboard.down("d");
+  await host.keyboard.press("j");
+  await host.keyboard.up("d");
+  await host.waitForFunction(
+    () =>
+      window.axis.state.fighters[0].attack?.key === "runningKick" &&
+      window.axis.state.fighters[0].y > 0.2,
+  );
+  await guest.waitForFunction(
+    () =>
+      window.axis.state.fighters[0].attack?.key === "runningKick" &&
+      window.axis.state.fighters[0].y > 0.2,
+  );
+  await host.screenshot({
+    path: "/tmp/axis-v34-running-kick.png",
+    fullPage: true,
+  });
+  await host.waitForFunction(() => window.axis.state.fighters[1].hp < 120);
+  console.log(
+    "P2P advanced techniques: just-frame electric launch, hellsweep beats standing guard, advancing palm knockdown, running jump kick synchronized",
   );
 
   await host.locator("#online-button").click();
@@ -273,7 +361,7 @@ try {
     () => window.axis.state.fighters[0].character === "goro",
   );
   await host.setViewportSize({ width: 390, height: 844 });
-  await host.screenshot({ path: "/tmp/axis-v33-mobile.png", fullPage: true });
+  await host.screenshot({ path: "/tmp/axis-v34-mobile.png", fullPage: true });
   assert.ok(
     await host.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,
@@ -281,7 +369,7 @@ try {
   );
   assert.deepEqual(errors, []);
   console.log(
-    "PASS: v3.3 quick match, player rooms, matched-only character selection, 4 characters, unique frame tables, automatic P2P, orbit camera, remote combat, practice selection, responsive layout; no page errors.",
+    "PASS: v3.4 quick match, player rooms, matched-only character selection, 4 characters, unique frame tables, automatic P2P, orbit camera, remote combat, practice selection, responsive layout; no page errors.",
   );
 } catch (error) {
   for (const [name, page] of [

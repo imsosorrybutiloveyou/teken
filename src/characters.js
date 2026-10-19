@@ -25,6 +25,11 @@ const keys = [
   "axeKick",
   "kneeStrike",
   "bound",
+  "rushStrike",
+  "windGod",
+  "electric",
+  "hellSweep",
+  "runningKick",
 ];
 const base = {
   u: ["high", 8, 1.7, "leftPunch"],
@@ -52,6 +57,11 @@ const base = {
   axeKick: ["mid", 23, 1.85, "axeKick"],
   kneeStrike: ["mid", 16, 1.5, "knee"],
   bound: ["mid", 15, 1.8, "hammer"],
+  rushStrike: ["mid", 23, 1.8, "rushPalm"],
+  windGod: ["mid", 20, 1.85, "dragon"],
+  electric: ["high", 25, 1.9, "dragon"],
+  hellSweep: ["low", 26, 1.85, "hellSweep"],
+  runningKick: ["mid", 24, 1.9, "runningKick"],
 };
 
 const visuals = {
@@ -331,6 +341,63 @@ const visuals = {
     size: 1.0,
   },
 };
+Object.assign(visuals, {
+  rushStrike: {
+    coil: 0.48,
+    step: 7,
+    lean: 8,
+    arc: -2,
+    reach: 3,
+    shape: "chevron",
+    rays: 5,
+    angle: -0.05,
+    size: 1.1,
+  },
+  windGod: {
+    coil: 0.46,
+    step: 3,
+    lean: 4,
+    arc: -11,
+    reach: 0,
+    shape: "rise",
+    rays: 5,
+    angle: -0.95,
+    size: 0.88,
+  },
+  electric: {
+    coil: 0.35,
+    step: 4,
+    lean: 5,
+    arc: -15,
+    reach: 1,
+    shape: "electric",
+    rays: 4,
+    angle: -0.7,
+    size: 1.15,
+  },
+  hellSweep: {
+    coil: 0.55,
+    step: 2,
+    lean: -7,
+    arc: 3,
+    reach: 0,
+    shape: "fan",
+    rays: 6,
+    angle: 0.16,
+    size: 1.05,
+  },
+  runningKick: {
+    coil: 0.45,
+    step: 4,
+    lean: -4,
+    arc: -10,
+    reach: 2,
+    shape: "arc",
+    rays: 4,
+    angle: -0.3,
+    size: 1.16,
+  },
+});
 const labels = {
   1: "↙",
   2: "↓",
@@ -378,6 +445,11 @@ const profileData = {
       "내려찍기",
       "청룡 무릎",
       "수룡 바운드",
+      "청류 통발",
+      "청룡 풍신권",
+      "청룡 초풍",
+      "수룡 나락",
+      "청룡 공참각",
     ],
     frames: [
       [10, 2, 17, -1, 5],
@@ -405,6 +477,11 @@ const profileData = {
       [23, 3, 25, -10, 9],
       [15, 2, 19, -7, 7],
       [15, 2, 20, -15, 5],
+      [16, 3, 25, -9, 12],
+      [16, 3, 24, -12, 10],
+      [14, 2, 21, 5, 10],
+      [20, 3, 29, -26, 13],
+      [20, 3, 22, 4, 8],
     ],
     commands: [
       ["qcfPunch", "i", [2, 3, 6]],
@@ -424,6 +501,11 @@ const profileData = {
       ["axeKick", "k", [2, 1, 4]],
       ["kneeStrike", "k", [3]],
       ["bound", "i", [2]],
+      ["rushStrike", "u", [6, 5, 6]],
+      ["electric", "i", [6, 5, 2, 3]],
+      ["windGod", "i", [6, 5, 2, 3]],
+      ["hellSweep", "k", [6, 5, 2, 3]],
+      ["runningKick", "j", [6, 5, 6, 5, 6]],
     ],
   },
   ren: {
@@ -461,6 +543,11 @@ const profileData = {
       "화염 내려차기",
       "크림슨 니",
       "블레이즈 바운드",
+      "크림슨 통발",
+      "홍염 풍신권",
+      "홍염 초풍",
+      "홍염 나락",
+      "크림슨 공참각",
     ],
     frames: [
       [10, 2, 17, -1, 4],
@@ -488,6 +575,11 @@ const profileData = {
       [21, 3, 24, -9, 10],
       [14, 2, 18, -6, 8],
       [15, 2, 20, -16, 6],
+      [17, 3, 26, -10, 12],
+      [16, 3, 25, -13, 10],
+      [14, 2, 22, 5, 10],
+      [21, 3, 30, -27, 14],
+      [19, 3, 22, 5, 9],
     ],
     commands: [
       ["qcfPunch", "i", [4, 6]],
@@ -507,6 +599,11 @@ const profileData = {
       ["axeKick", "k", [2, 3, 6]],
       ["kneeStrike", "i", [3]],
       ["bound", "j", [2]],
+      ["rushStrike", "i", [6, 5, 6]],
+      ["electric", "i", [6, 5, 2, 3]],
+      ["windGod", "i", [6, 5, 2, 3]],
+      ["hellSweep", "k", [6, 5, 2, 3]],
+      ["runningKick", "j", [6, 5, 6, 5, 6]],
     ],
     kinds: { upper: "rightKick", dashPunch: "knee", palm: "palm" },
     kickReach: 0.08,
@@ -546,6 +643,11 @@ const profileData = {
       "낙월 내려차기",
       "비연 무릎",
       "낙화 바운드",
+      "유수 통발",
+      "유수 풍신권",
+      "유수 초풍",
+      "낙월 나락",
+      "비연 공참각",
     ],
     frames: [
       [10, 2, 17, -1, 4],
@@ -573,6 +675,11 @@ const profileData = {
       [20, 3, 22, -8, 8],
       [13, 2, 17, -5, 6],
       [14, 2, 18, -15, 5],
+      [15, 3, 23, -8, 11],
+      [16, 3, 22, -11, 9],
+      [14, 2, 20, 5, 9],
+      [19, 3, 27, -25, 12],
+      [18, 3, 21, 3, 7],
     ],
     commands: [
       ["qcfPunch", "u", [2, 3, 6]],
@@ -592,6 +699,11 @@ const profileData = {
       ["axeKick", "j", [2, 1, 4]],
       ["kneeStrike", "i", [3]],
       ["bound", "k", [2]],
+      ["rushStrike", "i", [6, 5, 6]],
+      ["electric", "i", [6, 5, 2, 3]],
+      ["windGod", "i", [6, 5, 2, 3]],
+      ["hellSweep", "k", [6, 5, 2, 3]],
+      ["runningKick", "j", [6, 5, 6, 5, 6]],
     ],
     kinds: {
       upper: "leftKick",
@@ -637,6 +749,11 @@ const profileData = {
       "산붕 내려차기",
       "철룡 무릎",
       "산붕 바운드",
+      "철산 통발",
+      "철룡 풍신권",
+      "철룡 초풍",
+      "대지 나락",
+      "철산 공참각",
     ],
     frames: [
       [10, 2, 17, -1, 7],
@@ -664,6 +781,11 @@ const profileData = {
       [26, 4, 29, -12, 12],
       [17, 3, 22, -8, 9],
       [17, 3, 24, -17, 7],
+      [18, 4, 28, -11, 13],
+      [17, 3, 27, -14, 12],
+      [15, 2, 24, 5, 12],
+      [22, 4, 33, -29, 15],
+      [22, 4, 24, 6, 10],
     ],
     commands: [
       ["qcfPunch", "i", [4, 1, 2, 3, 6]],
@@ -683,6 +805,11 @@ const profileData = {
       ["axeKick", "k", [2, 3, 6]],
       ["kneeStrike", "j", [3]],
       ["bound", "u", [2]],
+      ["rushStrike", "i", [6, 5, 6]],
+      ["electric", "i", [6, 5, 2, 3]],
+      ["windGod", "i", [6, 5, 2, 3]],
+      ["hellSweep", "k", [6, 5, 2, 3]],
+      ["runningKick", "j", [6, 5, 6, 5, 6]],
     ],
     kinds: { qcfKick: "sweep" },
     kickReach: 0.04,
@@ -719,10 +846,10 @@ export const CHARACTERS = Object.fromEntries(
               ? "leftHook"
               : "rightHook"
             : baseKind);
-        const level = ["low", "sweep", "toeKick"].includes(kind)
+        const level = ["low", "sweep", "toeKick", "hellSweep"].includes(kind)
           ? "low"
           : baseLevel;
-        const range = ["low", "sweep", "toeKick"].includes(kind)
+        const range = ["low", "sweep", "toeKick", "hellSweep"].includes(kind)
           ? Math.min(baseRange, 1.95)
           : baseRange;
         const command = rule
@@ -737,11 +864,18 @@ export const CHARACTERS = Object.fromEntries(
                   ? "J + K"
                   : key.toUpperCase();
         const remaining = active + recovery;
+        const launch = [
+          "upper",
+          "dragon",
+          "hopKick",
+          "windGod",
+          "electric",
+        ].includes(key);
         return [
           key,
           {
             name: p.names[index],
-            command,
+            command: command + (key === "electric" ? " [2F]" : ""),
             level,
             damage: Math.round(damage * p.damage),
             range:
@@ -751,10 +885,12 @@ export const CHARACTERS = Object.fromEntries(
                 : 0),
             kind,
             visual: visuals[key],
-            color: p.color,
+            color: key === "electric" ? "#9befff" : p.color,
             motionWeight: { kai: 1, ren: 1.12, mira: 0.88, goro: 1.24 }[id],
             side: ["u", "j"].includes(button) ? 1 : 0,
-            impactHeight: ["low", "sweep", "toeKick"].includes(kind)
+            impactHeight: ["low", "sweep", "toeKick", "hellSweep"].includes(
+              kind,
+            )
               ? 0.35
               : kind === "bodyBlow" ||
                   ["sideKick", "backKick"].includes(kind) ||
@@ -769,7 +905,14 @@ export const CHARACTERS = Object.fromEntries(
                       : level === "high"
                         ? 1.8
                         : 1.45,
-            width: ["spin", "sweep"].includes(kind) ? 0.78 : 0.5,
+            width:
+              key === "hellSweep"
+                ? 0.82
+                : key === "runningKick"
+                  ? 0.3
+                  : ["spin", "sweep"].includes(kind)
+                    ? 0.78
+                    : 0.5,
             startup,
             active,
             recovery,
@@ -779,7 +922,13 @@ export const CHARACTERS = Object.fromEntries(
             duration: (startup + active + recovery) / 60,
             stun: (remaining + onHit) / 60,
             blockStun: Math.max(1, remaining + onBlock) / 60,
-            launch: ["upper", "dragon", "hopKick"].includes(key),
+            launch,
+            knockdown: ["rushStrike", "hellSweep"].includes(key),
+            justFrames: key === "electric" ? 2 : null,
+            highCrushFrom: key === "hellSweep" ? 5 / 60 : null,
+            hop: key === "runningKick" ? 5.2 : 0,
+            blockPush:
+              key === "electric" ? 1.8 : key === "rushStrike" ? 1.4 : 0.8,
             bound: key === "bound",
             // Heights refer to the airborne defender's feet, in world units.
             airMin: level === "low" ? 0 : 0.04,
@@ -787,20 +936,32 @@ export const CHARACTERS = Object.fromEntries(
             juggleCancel:
               key === "throw" || level === "low"
                 ? null
-                : ["upper", "dragon", "hopKick"].includes(key)
+                : launch
                   ? 10
                   : ["u", "i", "oneTwo", "hook", "elbow", "bodyBlow"].includes(
                         key,
                       )
                     ? 5
                     : 7,
-            lunge: ["qcfPunch", "dashPunch"].includes(key)
-              ? 0.3
-              : key === "dragon"
-                ? 0.1
-                : 0,
-            hitstop: Math.min(9, 2 + Math.floor((damage * p.damage) / 5)),
-            push: damage * p.damage > 25 ? 2.2 : 1.05,
+            lunge:
+              {
+                rushStrike: 1.25,
+                windGod: 0.4,
+                electric: 0.5,
+                hellSweep: 0.7,
+                runningKick: 1.65,
+              }[key] ??
+              (["qcfPunch", "dashPunch"].includes(key)
+                ? 0.3
+                : key === "dragon"
+                  ? 0.1
+                  : 0),
+            hitstop:
+              key === "electric"
+                ? 6
+                : Math.min(9, 2 + Math.floor((damage * p.damage) / 5)),
+            push:
+              key === "rushStrike" ? 4 : damage * p.damage > 25 ? 2.2 : 1.05,
           },
         ];
       }),

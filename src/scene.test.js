@@ -51,7 +51,7 @@ test("a kick chambers its knee, extends at contact and folds back during recover
   assert.ok(impact.hands[0][1] < 50, "opposite hand stays near the guard");
 });
 
-test("all 25 moves have different visible paths and pose sequences for every fighter", () => {
+test("all 30 moves have different visible paths and pose sequences for every fighter", () => {
   for (const p of Object.values(CHARACTERS)) {
     const effects = new Set(),
       poses = new Set();
@@ -70,7 +70,47 @@ test("all 25 moves have different visible paths and pose sequences for every fig
         ),
       );
     }
-    assert.equal(effects.size, 25, p.id + " effect silhouettes");
-    assert.equal(poses.size, 25, p.id + " authored motion sequences");
+    assert.equal(effects.size, 30, p.id + " effect silhouettes");
+    assert.equal(poses.size, 30, p.id + " authored motion sequences");
   }
+});
+
+test("knees keep their anatomical bend side in every attack frame, stance and facing", () => {
+  const assertKnees = (pose, label) => {
+    for (const i of [0, 1]) {
+      const root = [pose.hip[0] + (i ? 5 : -5), pose.hip[1]],
+        knee = pose.knees[i],
+        foot = pose.feet[i];
+      const cross =
+        (foot[0] - root[0]) * (knee[1] - root[1]) -
+        (foot[1] - root[1]) * (knee[0] - root[0]);
+      assert.ok(cross < 0, label + " reversed knee " + i);
+      assert.ok(distance(root, foot) > 14.7, label + " over-folded knee " + i);
+    }
+  };
+  for (const p of Object.values(CHARACTERS))
+    for (const facing of [-1, 1]) {
+      const f = createMatch([p.id, "kai"]).fighters[0];
+      f.facing = facing;
+      for (const state of [
+        {},
+        { crouch: true },
+        { guard: true },
+        { stun: 0.3, hitLevel: "low" },
+        { y: 1 },
+      ]) {
+        Object.assign(f, { crouch: false, guard: false, stun: 0, y: 0 }, state);
+        assertKnees(spritePose(f, 0), p.id);
+      }
+      Object.assign(f, { crouch: false, guard: false, stun: 0, y: 0 });
+      for (const [key, move] of Object.entries(p.moves))
+        for (
+          let frame = 0;
+          frame <= move.startup + move.active + move.recovery;
+          frame++
+        ) {
+          f.attack = { key, t: frame / 60, height: 1.9 };
+          assertKnees(spritePose(f, 0), `${p.id} ${key} ${frame}`);
+        }
+    }
 });

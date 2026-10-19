@@ -107,3 +107,59 @@ test("all four fighters hit a physical jab on exactly frame 10 from either side"
       }
     }
 });
+
+test("physical crouch-dash input gives electric within two frames, otherwise ordinary wind god", () => {
+  for (const late of [false, true]) {
+    const k = new KeyboardInput(),
+      m = createMatch();
+    m.phase = "fight";
+    k.down("d", 0);
+    k.up("d", 3);
+    k.down("s", 6);
+    k.down("d", 9);
+    for (let frame = 0; frame < 4; frame++)
+      step(m, [k.sample(frame * 17), emptyInput()]);
+    if (late)
+      for (let frame = 4; frame < 8; frame++)
+        step(m, [k.sample(frame * 17), emptyInput()]);
+    k.down("i", late ? 136 : 68);
+    step(m, [k.sample(late ? 136 : 68), emptyInput()]);
+    assert.equal(m.fighters[0].lastMove, late ? "windGod" : "electric");
+  }
+});
+
+test("same-frame diagonal and punch produce electric in either physical keydown order", () => {
+  for (const punchFirst of [true, false]) {
+    const k = new KeyboardInput(),
+      m = createMatch();
+    m.phase = "fight";
+    k.down("d", 0);
+    k.up("d", 2);
+    k.down("s", 4);
+    if (punchFirst) {
+      k.down("i", 6);
+      k.down("d", 7);
+    } else {
+      k.down("d", 6);
+      k.down("i", 7);
+    }
+    for (let frame = 0; frame < 7; frame++)
+      step(m, [k.sample(frame * 17), emptyInput()]);
+    assert.equal(m.fighters[0].lastMove, "electric");
+  }
+});
+
+test("an immediate backward guard after a motion attack does not rewrite the move", () => {
+  const k = new KeyboardInput(),
+    m = createMatch(["ren", "kai"]);
+  m.phase = "fight";
+  k.down("a", 0);
+  k.up("a", 2);
+  k.down("d", 4);
+  k.down("i", 5);
+  k.up("d", 6);
+  k.down("a", 7);
+  for (let frame = 0; frame < 9; frame++)
+    step(m, [k.sample(frame * 17), emptyInput()]);
+  assert.equal(m.fighters[0].lastMove, "qcfPunch");
+});

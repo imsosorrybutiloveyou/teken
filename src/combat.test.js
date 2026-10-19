@@ -9,6 +9,7 @@ import {
   SIDESTEP_SPEED,
   DASH_SPEED,
   resolveMove,
+  cpuInput,
 } from "./combat.js";
 import { CHARACTERS, CHARACTER_IDS, character, moveFor } from "./characters.js";
 function setup(ids = ["kai", "ren"]) {
@@ -47,7 +48,7 @@ test("four fighters have independently authored commands, startup and recovery",
     4,
   );
   for (const id of CHARACTER_IDS) {
-    assert.equal(Object.keys(character(id).moves).length, 25);
+    assert.equal(Object.keys(character(id).moves).length, 30);
     for (const move of Object.values(character(id).moves)) {
       assert.equal(
         move.duration,
@@ -126,6 +127,7 @@ test("each character resolves its unique signature and launcher with mirrored co
           f.commands.push({ dir, at: f.commandTime });
           f.direction = dir;
         }
+        if (key === "windGod") f.commandTime += 3 / 60;
         assert.equal(resolveMove(f, button), key, `${id} ${key} P${index + 1}`);
       }
     }
@@ -497,5 +499,177 @@ test("forward walking is faster than back guard on either side and a dash cannot
     };
     assert.ok(distance(1) > distance(-1) * 1.5);
     assert.ok(Math.abs(distance(-1, true) - distance(-1)) < 1e-9);
+  }
+});
+
+function commandInputFor(m, index, key, late = false) {
+  const f = m.fighters[index],
+    p = character(f.character),
+    [, button, sequence] = p.commands.find((r) => r[0] === key);
+  f.commands = sequence.map((dir, n) => ({ dir, at: n * 0.035 }));
+  f.commandTime = f.commands.at(-1).at + (late ? 3 / 60 : 0);
+  f.direction = sequence.at(-1);
+  return { ...dirInput(f.direction, index), action: button };
+}
+test("rush palm, sweep, electrics and running kick actually advance without crossing the opponent", () => {
+  for (const id of CHARACTER_IDS)
+    for (const index of [0, 1])
+      for (const key of [
+        "rushStrike",
+        "electric",
+        "hellSweep",
+        "runningKick",
+      ]) {
+        const m = setup(index === 0 ? [id, "kai"] : ["kai", id]),
+          f = m.fighters[index],
+          other = m.fighters[1 - index];
+        m.fighters[0].x = -3;
+        m.fighters[1].x = 3;
+        const x = f.x,
+          move = character(id).moves[key];
+        feed(m, commandInputFor(m, index, key), move.startup, index);
+        assert.ok(
+          (f.x - x) * f.facing > move.lunge * 0.8,
+          `${id} ${key} failed to advance`,
+        );
+        const near = setup(index === 0 ? [id, "kai"] : ["kai", id]);
+        feed(near, commandInputFor(near, index, key), move.startup, index);
+        assert.ok(
+          near.fighters[0].x < near.fighters[1].x,
+          `${key} crossed through foe`,
+        );
+      }
+});
+test("hellsweep beats standing back guard, knocks down and cannot be hit again while down", () => {
+  for (const id of CHARACTER_IDS)
+    for (const index of [0, 1]) {
+      const m = setup(index === 0 ? [id, "kai"] : ["kai", id]),
+        target = m.fighters[1 - index];
+      feed(
+        m,
+        commandInputFor(m, index, "hellSweep"),
+        character(id).moves.hellSweep.startup,
+        index,
+        { x: -target.facing },
+      );
+      assert.ok(target.hp < MAX_HP);
+      assert.ok(target.downTime > 0);
+      assert.ok(target.wakeUp > target.stun);
+      const hp = target.hp;
+      for (let frame = 0; frame < 20; frame++)
+        feed(m, { action: "u" }, 1, index);
+      assert.equal(
+        target.hp,
+        hp,
+        "downed target must not allow free follow-up loops",
+      );
+    }
+});
+test("a crouch-blocked hellsweep is launch-punishable against continued back guard", () => {
+  for (const index of [0, 1]) {
+    const m = setup(["kai", "kai"]),
+      defender = 1 - index,
+      target = m.fighters[defender];
+    feed(m, commandInputFor(m, index, "hellSweep"), 1, index, {
+      x: -target.facing,
+      crouch: true,
+    });
+    let blocked = false,
+      sent = false,
+      punished = false;
+    for (let frame = 0; frame < 140; frame++) {
+      const inputs = [emptyInput(), emptyInput()];
+      inputs[index] = { ...emptyInput(), x: -m.fighters[index].facing };
+      inputs[defender] = {
+        ...emptyInput(),
+        x: -target.facing,
+        crouch: !blocked,
+      };
+      if (blocked && !sent && target.stun <= 6 / 60 + 1e-9) {
+        inputs[defender] = {
+          ...emptyInput(),
+          x: target.facing,
+          z: 1,
+          action: "i",
+        };
+        sent = true;
+      }
+      step(m, inputs);
+      for (const e of m.events) {
+        if (e.type === "block" && e.index === defender) blocked = true;
+        if (e.type === "hit" && e.index === defender && e.punish)
+          punished = true;
+      }
+      if (punished) break;
+    }
+    assert.ok(blocked);
+    assert.ok(punished);
+    assert.equal(target.hp, MAX_HP);
+  }
+});
+test("electric has plus-five guard frames and a running kick keeps its authored plus frames", () => {
+  for (const key of ["electric", "runningKick"])
+    for (const index of [0, 1]) {
+      const m = setup(["kai", "kai"]),
+        f = m.fighters[index],
+        defender = m.fighters[1 - index],
+        move = character("kai").moves[key];
+      feed(m, commandInputFor(m, index, key), 1, index, {
+        x: -defender.facing,
+      });
+      for (let n = 0; n < 50 && !m.events.some((e) => e.type === "block"); n++)
+        feed(m, {}, 1, index, { x: -defender.facing });
+      assert.ok(
+        m.events.some((e) => e.type === "block"),
+        key,
+      );
+      let count = 0,
+        a = null,
+        b = null;
+      for (let n = 0; n < 100; n++) {
+        const frozen = m.hitstop > 0;
+        feed(m, {}, 1, index, { x: -defender.facing });
+        if (frozen) continue;
+        count++;
+        if (a === null && !f.attack) a = count;
+        if (b === null && defender.stun === 0) b = count;
+        if (a !== null && b !== null) break;
+      }
+      assert.equal(b - a, move.onBlock, key + " guard advantage");
+    }
+});
+test("running jump crushes lows but can be interrupted by a mid and gives no landing invulnerability", () => {
+  for (const key of ["low", "i"]) {
+    const m = setup(["kai", "kai"]),
+      kicker = m.fighters[1],
+      move = character("kai").moves[key];
+    kicker.y = 0.5;
+    kicker.attack = { key: "runningKick", t: 0.08, angle: Math.PI };
+    m.fighters[0].attack = { key, t: move.windup - 1 / 60, angle: 0 };
+    feed(m);
+    assert.equal(kicker.hp < MAX_HP, key === "i");
+  }
+  const m = setup();
+  m.fighters[1].x = 10;
+  feed(m, commandInputFor(m, 0, "runningKick"), 70);
+  assert.equal(m.fighters[0].y, 0);
+  assert.equal(m.fighters[0].stun, 0);
+  assert.equal(m.fighters[0].wakeUp, 0);
+});
+
+test("CPU also performs real inputs for advancing palm, electric, hellsweep and running kick", () => {
+  for (const [cycle, key] of [
+    "rushStrike",
+    "electric",
+    "hellSweep",
+    "runningKick",
+  ].entries()) {
+    const m = setup();
+    m.fighters[0].x = -1.4;
+    m.fighters[1].x = 1.4;
+    m.tick = cycle * 210 + 39;
+    for (let frame = 0; frame < 13; frame++)
+      step(m, [emptyInput(), cpuInput(m)]);
+    assert.equal(m.fighters[1].lastMove, key);
   }
 });

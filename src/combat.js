@@ -67,6 +67,12 @@ export function resolveMove(f, action) {
   )) {
     if (action !== button) continue;
     if (
+      key === "electric" &&
+      f.commandTime - (f.commands.at(-1)?.at ?? -Infinity) >
+        p.moves.electric.justFrames / 60 + 1e-9
+    )
+      continue;
+    if (
       sequence.length === 1
         ? f.direction === sequence[0]
         : matchesCommand(f, sequence, COMMAND_WINDOW, sequence.includes(5))
@@ -91,6 +97,7 @@ function fighter(x, id, index) {
     bounceUsed: false,
     bouncePending: false,
     wakeUp: 0,
+    downTime: 0,
     hitLevel: "mid",
     hitKind: "rightPunch",
     lastHitBy: -1,
@@ -125,7 +132,7 @@ function fighter(x, id, index) {
 }
 export function createMatch(ids = ["kai", "ren"]) {
   return {
-    version: 5,
+    version: 6,
     axisAngle: 0,
     hitstop: 0,
     fighters: [
@@ -152,6 +159,10 @@ function startAttack(m, index, key) {
     key === character(f.character).chain[0] ? 1 : key === "oneTwo" ? 2 : 0;
   f.chainAge = 0;
   f.attack = { key, t: 0, hit: false, connected: false, angle: f.angle };
+  if (moveFor(f, key).hop) {
+    f.y = 0.02;
+    f.vy = moveFor(f, key).hop;
+  }
   f.buffer = null;
   f.guard = false;
   f.crouch = false;
@@ -190,7 +201,15 @@ function resolveHit(m, index) {
     return false;
   if (move.level === "throw" && (b.y > 0.2 || b.crouch || b.stun > 0))
     return false;
-  if (move.level === "high" && b.crouch && b.y === 0) return false;
+  const defendingMove = b.attack ? moveFor(b) : null;
+  const highCrush =
+    defendingMove?.highCrushFrom !== null &&
+    defendingMove?.highCrushFrom !== undefined &&
+    b.attack.t >= defendingMove.highCrushFrom &&
+    b.attack.t < defendingMove.windup + defendingMove.active / 60;
+  if (move.level === "high" && (b.crouch || highCrush) && b.y === 0)
+    return false;
+  if (move.level === "low" && defendingMove?.hop && b.y > 0.15) return false;
   const blocked =
     b.guard &&
     b.y === 0 &&
@@ -201,8 +220,8 @@ function resolveHit(m, index) {
     b.stun = move.blockStun;
     b.blockstun = true;
     b.statusTick = m.tick;
-    b.vx = Math.cos(atk.angle) * 0.8;
-    b.vz = Math.sin(atk.angle) * 0.8;
+    b.vx = Math.cos(atk.angle) * move.blockPush;
+    b.vz = Math.sin(atk.angle) * move.blockPush;
     m.hitstop = Math.max(m.hitstop, 2 / 60);
     emit(m, "block", {
       index: 1 - index,
@@ -250,7 +269,12 @@ function resolveHit(m, index) {
   const push = move.push * (airborne ? 0.38 : move.launch ? 0.65 : 1);
   b.vx = Math.cos(atk.angle) * push;
   b.vz = Math.sin(atk.angle) * push;
-  if (move.launch && !airborne) {
+  if (move.knockdown && !airborne) {
+    b.downTime = move.stun;
+    b.wakeUp = move.stun + 0.1;
+    b.vx *= 1.15;
+    b.vz *= 1.15;
+  } else if (move.launch && !airborne) {
     b.vy = 8;
     b.y = 0.02;
     b.stun = 0.85;
@@ -292,6 +316,7 @@ function resolveHit(m, index) {
     ),
     z: b.z,
     launch: !!move.launch,
+    knockdown: !!move.knockdown && !airborne,
     bound: !!move.bound && airborne && b.bouncePending,
     heavy: move.damage >= 23,
     hitstop: move.hitstop,
@@ -378,8 +403,10 @@ export function step(m, rawInputs, dt = 1 / 60) {
     f.lastMoveAge += dt;
     f.dash = Math.max(0, f.dash - dt);
     f.hitFlash = Math.max(0, f.hitFlash - dt);
-    f.wakeUp = Math.max(0, f.wakeUp - dt);
     if (f.statusTick !== m.tick) {
+      f.wakeUp = Math.max(0, f.wakeUp - dt);
+      f.downTime = Math.max(0, f.downTime - dt);
+      if (f.downTime < 1e-9) f.downTime = 0;
       f.stun = Math.max(0, f.stun - dt);
       if (f.stun < 1e-9) f.stun = 0;
     }
@@ -401,11 +428,14 @@ export function step(m, rawInputs, dt = 1 / 60) {
           f.vy = 6.3;
           f.stun = Math.max(f.stun, 0.55);
         } else {
+          const knockedOutOfAir = f.airOwner !== -1 || f.stun > 0;
           f.vy = 0;
           f.airHits = 0;
           f.airOwner = -1;
-          f.stun = Math.max(f.stun, 0.18);
-          f.wakeUp = 0.28;
+          if (knockedOutOfAir) {
+            f.stun = Math.max(f.stun, 0.18);
+            f.wakeUp = 0.28;
+          }
         }
       }
     }
@@ -449,7 +479,15 @@ export function step(m, rawInputs, dt = 1 / 60) {
           ? move.impactHeight
           : Math.max(move.impactHeight, Math.min(2, other.y + 0.1));
       if (move.lunge && f.attack.t < move.windup) {
-        const amount = (move.lunge * dt) / move.windup;
+        // Charge in along the committed attack axis, but never pass through a foe.
+        const room =
+          (other.x - f.x) * Math.cos(f.attack.angle) +
+          (other.z - f.z) * Math.sin(f.attack.angle) -
+          0.9;
+        const amount = Math.min(
+          Math.max(0, room),
+          (move.lunge * dt) / move.windup,
+        );
         f.x += Math.cos(f.attack.angle) * amount;
         f.z += Math.sin(f.attack.angle) * amount;
       }
@@ -557,6 +595,30 @@ export function cpuInput(m, index = 1) {
     input.z = dir <= 3 ? 1 : dir >= 7 ? -1 : 0;
     input.action = button;
   };
+  // The CPU enters the same direction sequence as a player; no direct move injection.
+  const planKey = ["rushStrike", "electric", "hellSweep", "runningKick"][
+    Math.floor(m.tick / 210) % 4
+  ];
+  const [, planButton, planSequence] = p.commands.find((r) => r[0] === planKey);
+  const planFrame = (m.tick % 210) - 40,
+    planStep = Math.floor(planFrame / 2);
+  if (
+    planFrame >= 0 &&
+    planFrame < planSequence.length * 2 &&
+    d < 3.4 &&
+    f.stun === 0 &&
+    !f.attack &&
+    !f.buffer &&
+    o.y === 0
+  ) {
+    const dir = planSequence[planStep];
+    input.x = (dir % 3 === 1 ? -1 : dir % 3 === 0 ? 1 : 0) * f.facing;
+    input.z = dir <= 3 ? 1 : dir >= 7 ? -1 : 0;
+    input.crouch = false;
+    input.action =
+      planFrame === planSequence.length * 2 - 1 ? planButton : null;
+    return input;
+  }
   if (
     o.y > 0 &&
     o.airOwner === index &&

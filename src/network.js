@@ -3,7 +3,7 @@ import { CHARACTER_IDS, character } from "./characters.js";
 export function validSnapshot(v) {
   if (
     !v ||
-    v.version !== 5 ||
+    v.version !== 6 ||
     !["ready", "fight", "roundEnd", "matchEnd"].includes(v.phase) ||
     !Number.isFinite(v.time) ||
     v.time < 0 ||
@@ -56,6 +56,7 @@ export function validSnapshot(v) {
         "airHits",
         "airOwner",
         "wakeUp",
+        "downTime",
         "lastHitBy",
       ].every((k) => Number.isFinite(f[k]) && Math.abs(f[k]) < 1e12) &&
       f.hp >= 0 &&
@@ -82,6 +83,8 @@ export function validSnapshot(v) {
       f.airHits <= 6 &&
       [-1, 0, 1].includes(f.airOwner) &&
       [-1, 0, 1].includes(f.lastHitBy) &&
+      f.downTime >= 0 &&
+      f.downTime <= 2 &&
       f.wakeUp >= 0 &&
       f.wakeUp <= 1 &&
       typeof f.bounceUsed === "boolean" &&
@@ -152,7 +155,7 @@ export class PeerSession {
     };
     if (role === "host") {
       this.attach(
-        peer.createDataChannel("axis-v5", { ordered: true }),
+        peer.createDataChannel("axis-v6", { ordered: true }),
         generation,
       );
       await peer.setLocalDescription(await peer.createOffer());

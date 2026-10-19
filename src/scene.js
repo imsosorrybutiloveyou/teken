@@ -112,20 +112,28 @@ const smooth = (v) => {
   return x * x * (3 - 2 * x);
 };
 // Two-bone joints keep arms and legs the same length in every pose.
-function fitLimb(root, hint, end, upper, lower) {
-  const dx = end[0] - root[0],
+function fitLimb(root, hint, end, upper, lower, fixedSide = null) {
+  let dx = end[0] - root[0],
     dy = end[1] - root[1];
-  const raw = Math.hypot(dx, dy) || 1,
-    length = Math.max(
-      Math.abs(upper - lower) + 0.5,
-      Math.min(raw, upper + lower - 0.5),
-    );
+  if (Math.hypot(dx, dy) < 1e-6) dx = 1;
+  const raw = Math.hypot(dx, dy),
+    // Knees cannot fold through the thigh or choose the opposite IK solution.
+    minReach =
+      fixedSide === null
+        ? Math.abs(upper - lower) + 0.5
+        : Math.sqrt(
+            upper * upper +
+              lower * lower -
+              2 * upper * lower * Math.cos((35 * Math.PI) / 180),
+          ),
+    length = Math.max(minReach, Math.min(raw, upper + lower - 0.5));
   const ux = dx / raw,
     uy = dy / raw;
   const along =
     (upper * upper - lower * lower + length * length) / (2 * length);
   const side =
-    Math.sign(dx * (hint[1] - root[1]) - dy * (hint[0] - root[0])) || 1;
+    fixedSide ??
+    (Math.sign(dx * (hint[1] - root[1]) - dy * (hint[0] - root[0])) || 1);
   const bend = Math.sqrt(Math.max(0, upper * upper - along * along)) * side;
   return [
     [root[0] + ux * along - uy * bend, root[1] + uy * along + ux * bend],
@@ -154,6 +162,16 @@ export function attackEffectPaths(move, phase = 1) {
           [x + 0.12, 0],
           [x - 0.15, 0.19],
         ];
+        break;
+      }
+      case "electric": {
+        points = Array.from({ length: 10 }, (_, i) => {
+          const t = i / 9;
+          return [
+            0.12 + t * 0.55 + (i % 2 ? 0.12 : -0.09) + offset,
+            0.2 - t * size + Math.sin(i * 2.3 + phase * 6) * 0.06,
+          ];
+        });
         break;
       }
       case "bolt":
@@ -320,7 +338,8 @@ export function spritePose(f, t) {
       ? 1 - smooth((at - activeEnd) / Math.min(0.14, m.recovery / 60))
       : smooth((startup - v.coil) / (1 - v.coil));
     const aimOffset =
-      (((f.attack.height ?? m.impactHeight) - m.impactHeight) * 91) / 2.15;
+      (((f.attack.height ?? m.impactHeight) - f.y - m.impactHeight) * 91) /
+      2.15;
     const set = (part, index, target, weight = e) => {
       pose[part][index] = pose[part][index].map((v, i) =>
         mix(v, target[i], weight),
@@ -338,6 +357,7 @@ export function spritePose(f, t) {
       "rightHook",
       "bodyBlow",
       "elbow",
+      "rushPalm",
     ].includes(m.kind);
     if (punch) {
       const arm = m.side;
@@ -395,10 +415,12 @@ export function spritePose(f, t) {
       "toeKick",
       "sideKick",
       "axeKick",
+      "hellSweep",
+      "runningKick",
     ];
     if (kicks.includes(m.kind)) {
       const leg = m.side;
-      const low = ["low", "sweep", "toeKick"].includes(m.kind);
+      const low = ["low", "sweep", "toeKick", "hellSweep"].includes(m.kind);
       const side = ["sideKick", "backKick"].includes(m.kind);
       // One foot bears the weight; the striking knee folds and the heel retracts.
       pose.hip[0] -= chamber * 3;
@@ -417,6 +439,18 @@ export function spritePose(f, t) {
       ]);
       pose.lean = -chamber * 3 - e * (side ? 5 : 3);
       if (low) pose.hip[1] += e * 4;
+      if (m.kind === "hellSweep") {
+        pose.hip[1] += chamber * 15;
+        pose.head[1] += chamber * 12;
+        set("feet", leg, [94, 107]);
+        set("knees", leg, [74, 95]);
+        set("hands", 1 - leg, [62, 52], chamber);
+      }
+      if (m.kind === "runningKick") {
+        set("knees", 1 - leg, [55, 80], chamber);
+        set("feet", 1 - leg, [34, 91], chamber);
+        pose.hip[0] += 3 * e;
+      }
       contact("feet", leg);
       contact("knees", leg);
       if (m.kind === "spin") {
@@ -481,6 +515,8 @@ export function spritePose(f, t) {
       "sideKick",
       "axeKick",
       "knee",
+      "hellSweep",
+      "runningKick",
     ].includes(m.kind);
     const tip = strikingLeg ? "feet" : "hands",
       joint = strikingLeg ? "knees" : "elbows";
@@ -494,6 +530,15 @@ export function spritePose(f, t) {
     }
     if (f.attack.key === "dashPunch") pose.feet[m.side][0] += 7 * chamber;
     if (f.attack.key === "palm") pose.hands[1 - m.side][1] -= 5 * chamber;
+  }
+  if (f.downTime > 0) {
+    const prone =
+      smooth((0.13 - f.hitFlash) / 0.12) * smooth(f.downTime / 0.14);
+    pose.lean *= 1 - prone;
+    for (const i of [0, 1]) {
+      pose.feet[i][0] = mix(pose.feet[i][0], 43 + i * 12, prone);
+      pose.hands[i][0] = mix(pose.hands[i][0], 48 + i * 14, prone);
+    }
   }
   for (const i of [0, 1]) {
     const shoulder = [pose.shoulders[i][0] + pose.lean, pose.shoulders[i][1]];
@@ -510,6 +555,7 @@ export function spritePose(f, t) {
       pose.feet[i],
       24,
       25,
+      -1,
     );
   }
   return pose;
@@ -523,6 +569,13 @@ function paintSprite(c, f, index, t) {
   c.translate(64, 6);
   c.scale(profile.build, profile.id === "mira" ? 0.98 : 1);
   c.translate(-48, 0);
+  if (f.downTime > 0) {
+    const prone =
+      smooth((0.13 - f.hitFlash) / 0.12) * smooth(f.downTime / 0.14);
+    c.translate(68, 82);
+    c.rotate((-Math.PI / 2) * prone);
+    c.translate(-68, -82);
+  }
   const hip = pose.hip,
     head = [pose.head[0] + pose.lean, pose.head[1]],
     shoulders = pose.shoulders.map((a) => [a[0] + pose.lean, a[1]]);
@@ -971,7 +1024,7 @@ export function createScene(canvas) {
             progress = f.attack.t / m.windup;
           const charged = m.onBlock <= -15;
           if (progress >= (charged ? 0.4 : 0.65) && delta < 6 / 60) {
-            const height = f.attack.height ?? m.impactHeight;
+            const height = (f.attack.height ?? m.impactHeight) - f.y;
             c.save();
             c.translate(p.x, p.y - p.scale * height);
             c.scale(f.facing * p.scale, p.scale);

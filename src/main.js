@@ -589,21 +589,23 @@ function renderMoves(id) {
       frames = document.createElement("div");
     command.textContent = m.command;
     name.textContent = m.name;
-    desc.textContent = `${levels[m.level]} · ${m.damage} DMG · ${m.launch ? "띄우기" : m.bound ? "공중 바운드 · 콤보당 1회" : m.range.toFixed(2) + "m"}`;
+    desc.textContent = `${levels[m.level]} · ${m.damage} DMG · ${m.launch ? "띄우기" : m.knockdown ? "다운 · 기상 심리" : m.bound ? "공중 바운드 · 콤보당 1회" : m.range.toFixed(2) + "m"}`;
     if (m.level !== "throw") {
       const punish = -m.onBlock;
       desc.textContent +=
-        punish >= 16
-          ? " · 가드 후 어퍼 확정(사거리 내)"
-          : punish === 15
-            ? " · 가드 후 15F 어퍼 확정"
-            : punish >= 10
-              ? " · 가드 후 10F 잽 확정"
-              : " · 빠른 반격은 가드 가능";
+        m.onBlock > 0
+          ? ` · 가드돼도 공격자 +${m.onBlock}F`
+          : punish >= 16
+            ? " · 가드 후 어퍼 확정(사거리 내)"
+            : punish === 15
+              ? " · 가드 후 15F 어퍼 확정"
+              : punish >= 10
+                ? " · 가드 후 10F 잽 확정"
+                : " · 빠른 반격은 가드 가능";
     }
     frames.className = "frame-data";
     const sign = (n) => (n > 0 ? "+" + n : String(n));
-    frames.textContent = `S ${m.startup} / A ${m.active} / R ${m.recovery} | G ${m.level === "throw" ? "—" : sign(m.onBlock)} / H ${m.launch ? "L" : m.bound ? sign(m.onHit) + " / B" : sign(m.onHit)}`;
+    frames.textContent = `S ${m.startup} / A ${m.active} / R ${m.recovery} | G ${m.level === "throw" ? "—" : sign(m.onBlock)} / H ${m.launch ? "L" : m.knockdown ? "KD" : m.bound ? sign(m.onHit) + " / B" : sign(m.onHit)}`;
     info.append(name, desc);
     row.append(command, info, frames);
     $("move-list").append(row);

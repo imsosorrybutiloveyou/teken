@@ -33,8 +33,22 @@ export class KeyboardInput {
   down(key, at, attacksEnabled = true) {
     if (this.held.has(key)) return;
     this.held.add(key);
-    if (STATE_KEYS.includes(key))
+    if (STATE_KEYS.includes(key)) {
+      // Complete down→diagonal + punch in either OS key order. A subsequent
+      // guard/movement press must never rewrite an already completed command.
+      const state = this.state();
+      if (
+        this.pending &&
+        at - this.pending.pressedAt <= 18 &&
+        this.pending.z === 1 &&
+        this.pending.x === 0 &&
+        state.z === 1 &&
+        Math.abs(state.x) === 1
+      ) {
+        this.pending.x = state.x;
+      }
       this.queue.push({ ...this.state(), readyAt: at });
+    }
     if (ATTACK_KEYS.includes(key) && attacksEnabled) {
       if (this.pending && at - this.pending.pressedAt <= 18)
         this.pending.buttons.push(key);
