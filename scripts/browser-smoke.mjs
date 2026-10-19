@@ -303,6 +303,18 @@ try {
       window.axis.state.fighters[1].y > 0,
   );
   await host.screenshot({ path: "/tmp/axis-v38-electric.png", fullPage: true });
+  await host.keyboard.press("w");
+  await host.waitForFunction(
+    () =>
+      window.axis.state.fighters[0].jumpActive &&
+      window.axis.state.fighters[0].y > 0,
+  );
+  await guest.waitForFunction(
+    () =>
+      window.axis.state.fighters[0].jumpActive &&
+      window.axis.state.fighters[0].y > 0,
+  );
+  console.log("Physical W after launcher cancels into a synchronized jump");
 
   await newRound(1.05);
   await guest.keyboard.down("d");
@@ -314,6 +326,14 @@ try {
   await host.keyboard.press("u");
   await host.waitForFunction(() => window.axis.state.fighters[1].downTime > 0);
   await guest.waitForFunction(() => window.axis.state.fighters[1].downTime > 0);
+  await guest.waitForTimeout(1000);
+  assert.ok(
+    await guest.evaluate(() => window.axis.state.fighters[1].downTime > 0),
+    "No automatic wake-up after one second",
+  );
+  assert.ok(
+    await host.evaluate(() => window.axis.state.fighters[1].downTime > 0),
+  );
   await guest.keyboard.press("w");
   await guest.waitForFunction(
     () =>
@@ -438,7 +458,7 @@ try {
   );
   assert.deepEqual(errors, []);
   console.log(
-    "PASS: v3.9 player match only, player rooms, matched-only character selection, 8 characters, unique frame tables, automatic P2P, orbit camera, remote combat, practice selection, responsive layout; no page errors.",
+    "PASS: v3.10 player match only, player rooms, matched-only character selection, 8 characters, unique frame tables, automatic P2P, orbit camera, remote combat, practice selection, responsive layout; no page errors.",
   );
 } catch (error) {
   for (const [name, page] of [

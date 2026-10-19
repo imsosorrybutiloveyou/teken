@@ -14,7 +14,7 @@ import (
 
 const discoveryPort = 38787
 const hostPort = 8787
-const discoveryQuery = "AXIS-HOST-v11"
+const discoveryQuery = "AXIS-HOST-v12"
 
 // Only the matchmaking API is exposed to the network. The browser stays on
 // localhost, which is a secure context required by WebRTC even without HTTPS.
@@ -90,7 +90,7 @@ func healthyHost(address string) bool {
 		Service string
 		Version int
 	}
-	return r.StatusCode == 200 && json.NewDecoder(r.Body).Decode(&result) == nil && result.Service == "axis-matchmaking" && result.Version == 11
+	return r.StatusCode == 200 && json.NewDecoder(r.Body).Decode(&result) == nil && result.Service == "axis-matchmaking" && result.Version == 12
 }
 func discoverHost(timeout time.Duration) string {
 	conn, err := net.ListenUDP("udp4", &net.UDPAddr{})

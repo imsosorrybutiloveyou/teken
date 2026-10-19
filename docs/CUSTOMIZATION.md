@@ -124,3 +124,6 @@ v3.8의 추가 로스터·앉기/점프/기상 기술·카운터 목록은 `src/
 
 
 v3.9 밸런스는 `src/expanded-roster.js`의 `comboScale`(후속 콤보 피해), `speed`(이동 배율), `anatomy`(위팔/아래팔/허벅지/종아리 길이), 각 기술의 `range`에서 조정합니다. BORU는 27/28/17/18 길이의 전용 골격을 쓰며 부품 rig도 같은 관절을 따릅니다. `wakeLow`/`wakeMid`는 누운 상태 J/K 전용 기술, `jumpPunch.bound`는 공중 내려찍기 바운드입니다. 섬뢰권 입력 허용치는 `justFrames`, 일반판은 `windGod` 슬롯입니다. 파일 수정 후 반드시 EXE를 다시 빌드하세요.
+
+
+v3.10의 `jumpActive`는 직접 점프/공중 버튼 기술에만 사용하며 `hop` 기술의 도약과 구분합니다. `jumpBuffer`는 W 입력을 최대 0.25초 보관합니다. `downTime`이 양수이면 기상 입력 전까지 최소 0.2를 유지합니다. 공중 밀어내기는 `src/combat.js`의 `push` 공식에서 조정합니다.

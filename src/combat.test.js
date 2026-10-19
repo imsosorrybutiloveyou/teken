@@ -829,6 +829,7 @@ test("KAI's low starter only completes its knockdown with a separate U, and all 
       f = m.fighters[0],
       p = character(id);
     for (const [from, button, to] of p.followUps) {
+      f.jumpActive = from.startsWith("jump");
       f.attack = { key: from, t: p.moves[from].windup, angle: 0 };
       assert.equal(resolveMove(f, button), to);
       f.attack = null;
@@ -879,6 +880,7 @@ test("every added button follow-up is a real reachable second hit", () => {
       const m = setup([id, "kai"]),
         a = m.fighters[0],
         p = character(id);
+      a.jumpActive = from.startsWith("jump");
       a.attack = { key: from, t: p.moves[from].windup - 1 / 60, angle: 0 };
       feed(m);
       const hp = m.fighters[1].hp;
@@ -1142,4 +1144,95 @@ test("terminal bound fall cannot be lifted again by a low before landing", () =>
   feed(m);
   assert.equal(b.hp, MAX_HP);
   assert.ok(b.vy < 0);
+});
+
+test("launcher hit permits a buffered jump cancel for either player", () => {
+  for (const index of [0, 1]) {
+    const m = setup(["kai", "kai"]),
+      a = m.fighters[index],
+      b = m.fighters[1 - index];
+    feed(
+      m,
+      { ...dirInput(3, index), action: "i" },
+      character("kai").moves.upper.startup,
+      index,
+    );
+    assert.ok(b.y > 0);
+    feed(m, { z: -1 }, 1, index);
+    let jumped = false;
+    for (let n = 0; n < 25; n++) {
+      feed(m, {}, 1, index);
+      jumped ||= a.jumpActive && a.y > 0;
+    }
+    assert.ok(
+      jumped,
+      "W tapped during launcher hitstop must survive until jump cancel",
+    );
+  }
+});
+test("move hops never turn later grounded attacks into jumping attacks", () => {
+  for (const id of CHARACTER_IDS)
+    for (const key of ["runningKick", "hopKick"]) {
+      const m = setup([id, "kai"]),
+        a = m.fighters[0];
+      a.y = 0.3;
+      a.vy = 1.5;
+      a.lastMove = key;
+      a.lastMoveAge = 0.1;
+      assert.equal(resolveMove(a, "u"), "u", id + " " + key);
+      feed(m, { action: "u" });
+      assert.equal(a.lastMove, "u");
+      assert.equal(a.y, 0);
+      assert.equal(a.vy, 0);
+      assert.equal(resolveMove(a, "k"), "k");
+    }
+});
+test("a landed jumping string cannot restart an airborne follow-up", () => {
+  const m = setup(),
+    a = m.fighters[0];
+  a.jumpActive = true;
+  a.y = 0.001;
+  a.vy = -4;
+  a.lastMove = "jumpKick";
+  a.lastMoveAge = character("kai").moves.jumpKick.duration;
+  a.buffer = "jumpFollow";
+  feed(m);
+  assert.equal(a.jumpActive, false);
+  assert.equal(a.buffer, null);
+  assert.equal(resolveMove(a, "k"), "k");
+});
+test("downed fighters remain prone without input, but training HP still regenerates", () => {
+  const m = setup(),
+    b = m.fighters[1];
+  b.downTime = 0.65;
+  b.wakeUp = 0.75;
+  b.stun = 0.18;
+  b.hp = 30;
+  for (let n = 0; n < 360; n++)
+    stepPractice(m, emptyInput(), { behavior: "dummy", infiniteHealth: true });
+  assert.ok(b.downTime > 0);
+  assert.equal(b.hp, MAX_HP);
+  assert.equal(b.y, 0);
+  feed(m, { z: -1 }, 1, 1);
+  assert.equal(b.downTime, 0);
+  assert.equal(b.y, 0);
+});
+test("air combo pushback grows faster with accumulated hits", () => {
+  const push = [];
+  for (const count of [0, 3, 6]) {
+    const m = setup(),
+      a = m.fighters[0],
+      b = m.fighters[1],
+      move = character("kai").moves.u;
+    b.y = 0.8;
+    b.airOwner = 0;
+    b.airHits = count;
+    a.attack = { key: "u", t: move.windup - 1 / 60, angle: 0 };
+    feed(m);
+    assert.ok(b.hp < MAX_HP);
+    const old = move.push * (0.38 + count * 0.18) + count * 0.22;
+    assert.ok(b.vx > old);
+    push.push(b.vx);
+  }
+  assert.ok(push[2] > push[1] && push[1] > push[0]);
 });

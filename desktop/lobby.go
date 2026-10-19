@@ -163,7 +163,7 @@ func (l *portableLobby) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		l.Lock()
 		n := len(l.clients)
 		l.Unlock()
-		jsonResponse(w, 200, map[string]any{"service": "axis-matchmaking", "version": 11, "online": n, "portable": true})
+		jsonResponse(w, 200, map[string]any{"service": "axis-matchmaking", "version": 12, "online": n, "portable": true})
 		return
 	}
 	var body struct {

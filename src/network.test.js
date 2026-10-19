@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { validSnapshot } from "./network.js";
 import { createMatch } from "./combat.js";
-test("v11 snapshots accept eight-fighter roster and infinite world coordinates", () => {
+test("v12 snapshots accept eight-fighter roster and infinite world coordinates", () => {
   const m = createMatch(["mira", "goro"]);
   m.fighters[0].x = 30000;
   m.fighters[1].z = -12000;
@@ -61,4 +61,16 @@ test("heavy knockdown and wake-up attacks synchronize with bounded recovery", ()
     m.fighters[1].wakeUp = 2.1;
     assert.equal(validSnapshot(m), false);
   }
+});
+
+test("jump mode and jump buffer are validated for synchronized jump cancels", () => {
+  const m = createMatch();
+  m.fighters[0].jumpActive = true;
+  m.fighters[0].jumpBuffer = 0.25;
+  assert.ok(validSnapshot(m));
+  m.fighters[0].jumpBuffer = 1;
+  assert.equal(validSnapshot(m), false);
+  m.fighters[0].jumpBuffer = 0;
+  m.fighters[0].jumpActive = "true";
+  assert.equal(validSnapshot(m), false);
 });
