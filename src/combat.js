@@ -4,6 +4,9 @@ export const MAX_HP = 120;
 export const JUGGLE_LIMIT = 6;
 const GRAVITY = 20;
 export const WALK_SPEED = 3.5;
+export const FORWARD_SPEED = 4.0;
+export const BACKWARD_SPEED = 2.6;
+export const GUARD_BUFFER_FRAMES = 6;
 export const SIDESTEP_SPEED = 3.8;
 export const DASH_SPEED = 5.6;
 export const ACTIONS = ["u", "i", "j", "k", "u+i", "j+k"];
@@ -122,7 +125,7 @@ function fighter(x, id, index) {
 }
 export function createMatch(ids = ["kai", "ren"]) {
   return {
-    version: 4,
+    version: 5,
     axisAngle: 0,
     hitstop: 0,
     fighters: [
@@ -190,12 +193,11 @@ function resolveHit(m, index) {
   if (move.level === "high" && b.crouch && b.y === 0) return false;
   const blocked =
     b.guard &&
-    (b.stun <= 0 || b.blockstun) &&
     b.y === 0 &&
-    !b.attack &&
     (move.level === "low" ? b.crouch : !b.crouch) &&
     move.level !== "throw";
   if (blocked) {
+    atk.blocked = true;
     b.stun = move.blockStun;
     b.blockstun = true;
     b.statusTick = m.tick;
@@ -209,10 +211,18 @@ function resolveHit(m, index) {
       z: b.z,
       heavy: move.damage > 23,
       kind: move.kind,
+      key: atk.key,
+      character: a.character,
+      advantage: -move.onBlock,
+      launcherWindow:
+        -move.onBlock >= character(b.character).moves.upper.startup &&
+        Math.hypot(dx, dz) <= character(b.character).moves.upper.range - 0.12,
       level: move.level,
     });
     return true;
   }
+  const punish = !!b.attack?.blocked;
+  atk.punish = punish;
   atk.connected = true;
   const continuing = airborne
     ? b.airOwner === index
@@ -270,6 +280,8 @@ function resolveHit(m, index) {
     key: atk.key,
     damage,
     kind: move.kind,
+    character: a.character,
+    punish,
     level: move.level,
     combo: a.combo,
     total: a.comboDamage,
@@ -329,10 +341,13 @@ export function step(m, rawInputs, dt = 1 / 60) {
   for (let i = 0; i < 2; i++) {
     const f = m.fighters[i],
       input = sanitizeInput(rawInputs[i]),
-      back = input.x * f.facing < -0.25;
-    f.guard = back && !f.attack && (f.stun <= 0 || f.blockstun) && f.y === 0;
+      back = input.x * f.facing < -0.25,
+      recovered = !f.attack || f.attack.t + dt + 1e-9 >= moveFor(f).duration;
+    // Guard becomes available on the recovery boundary for BOTH player orders.
+    f.guard =
+      back && recovered && (f.stun <= dt + 1e-9 || f.blockstun) && f.y === 0;
     f.crouch =
-      (input.crouch || (back && input.z > 0.25)) && !f.attack && f.y === 0;
+      (input.crouch || (back && input.z > 0.25)) && recovered && f.y === 0;
   }
   if (m.hitstop > 0) {
     m.hitstop = Math.max(0, m.hitstop - dt);
@@ -341,7 +356,11 @@ export function step(m, rawInputs, dt = 1 / 60) {
       const f = m.fighters[i],
         input = sanitizeInput(rawInputs[i]);
       recordDirection(f, input, dt);
-      if (input.action && f.stun === 0) {
+      if (
+        input.action &&
+        (f.stun === 0 ||
+          (f.blockstun && f.stun <= GUARD_BUFFER_FRAMES / 60 + 1e-9))
+      ) {
         f.buffer = resolveMove(f, input.action);
         f.bufferAge = 0;
       }
@@ -396,7 +415,12 @@ export function step(m, rawInputs, dt = 1 / 60) {
     }
     recordDirection(f, input, dt);
     // Resolve the command when the attack button is pressed, not after its buffered recovery.
-    if (input.action && f.stun === 0 && f.y === 0) {
+    if (
+      input.action &&
+      f.y === 0 &&
+      (f.stun === 0 ||
+        (f.blockstun && f.stun <= GUARD_BUFFER_FRAMES / 60 + 1e-9))
+    ) {
       // Correct a split-frame chord before the basic strike becomes active.
       if (
         ["u+i", "j+k"].includes(input.action) &&
@@ -460,16 +484,25 @@ export function step(m, rawInputs, dt = 1 / 60) {
     if (!f.attack && f.stun === 0 && f.y === 0) {
       if (f.buffer && f.bufferAge < 0.65) startAttack(m, i, f.buffer);
       else {
+        const forward = input.x * f.facing;
+        if (forward < -0.1) f.dash = 0;
+        const dashing = f.dash > 0 && forward > 0.25;
         const len = Math.max(1, Math.hypot(input.x, input.z)),
           speed = f.crouch
             ? 1.45
-            : f.dash > 0
+            : dashing
               ? DASH_SPEED
               : Math.abs(input.z) > 0.1
                 ? SIDESTEP_SPEED
                 : WALK_SPEED;
-        const adjusted =
-            speed * character(f.character).speed * (f.guard ? 0.7 : 1),
+        const directional = dashing
+          ? 1
+          : forward > 0.1
+            ? FORWARD_SPEED / WALK_SPEED
+            : forward < -0.1
+              ? BACKWARD_SPEED / WALK_SPEED
+              : 1;
+        const adjusted = speed * character(f.character).speed * directional,
           c = Math.cos(m.axisAngle),
           s = Math.sin(m.axisAngle);
         const dx = ((input.x * c - input.z * s) / len) * adjusted * dt,

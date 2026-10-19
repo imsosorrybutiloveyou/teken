@@ -132,6 +132,96 @@ function fitLimb(root, hint, end, upper, lower) {
     [root[0] + ux * length, root[1] + uy * length],
   ];
 }
+// Local-space stroke paths; each move has its own silhouette, count and angle.
+export function attackEffectPaths(move, phase = 1) {
+  const v = move.visual,
+    paths = [],
+    size = v.size;
+  for (let ray = 0; ray < v.rays; ray++) {
+    const offset = (ray - (v.rays - 1) / 2) * 0.09;
+    let points;
+    switch (v.shape) {
+      case "line":
+        points = [
+          [-0.12, offset],
+          [size, offset + 0.04 * ray],
+        ];
+        break;
+      case "chevron": {
+        const x = ray * 0.19;
+        points = [
+          [x - 0.15, -0.19],
+          [x + 0.12, 0],
+          [x - 0.15, 0.19],
+        ];
+        break;
+      }
+      case "bolt":
+        points = [
+          [-0.2, offset],
+          [0.1, offset - 0.08],
+          [0.22, offset + 0.09],
+          [0.42, offset - 0.06],
+          [size, offset],
+        ];
+        break;
+      case "rise":
+        points = [
+          [-0.2 + offset, 0.2],
+          [0.1 + offset, 0.04],
+          [0.32 + offset, -size * 0.55],
+          [0.18 + offset, -size],
+        ];
+        break;
+      case "fall":
+        points = [
+          [-0.18 + offset, -size],
+          [0.12 + offset, -size * 0.4],
+          [0.2 + offset, 0.18],
+          [0.08 + offset, 0.08],
+        ];
+        break;
+      case "fan": {
+        const angle = -0.6 + (ray / Math.max(1, v.rays - 1)) * 1.15;
+        points = [
+          [-0.05, 0],
+          [Math.cos(angle) * size, Math.sin(angle) * size],
+        ];
+        break;
+      }
+      case "grip": {
+        const side = ray === 0 ? -1 : 1;
+        points = [
+          [side * size * 0.45, -0.18],
+          [side * size * 0.7, -0.18],
+          [side * size * 0.7, 0.18],
+          [side * size * 0.45, 0.18],
+        ];
+        break;
+      }
+      default:
+        points = Array.from({ length: 17 }, (_, i) => {
+          const t = i / 16,
+            spiral = v.shape === "spiral",
+            ring = v.shape === "ring";
+          const angle =
+            (ring ? 0 : -1.25) +
+            t * (spiral ? Math.PI * 3 : ring ? Math.PI * 1.85 : 2.1) +
+            phase * 0.25;
+          const radius = spiral
+            ? 0.1 + t * size * 0.6 + ray * 0.04
+            : ring
+              ? size * 0.4 + ray * 0.08
+              : size + ray * 0.045;
+          return [Math.cos(angle) * radius, Math.sin(angle) * radius];
+        });
+    }
+    const c = Math.cos(v.angle),
+      sn = Math.sin(v.angle);
+    paths.push(points.map(([x, y]) => [0.62 + x * c - y * sn, x * sn + y * c]));
+  }
+  return paths;
+}
 export function spritePose(f, t) {
   const walk = Math.sin(f.travel * 8),
     bob = Math.round(Math.sin(t * 5) * 1.1),
@@ -217,6 +307,7 @@ export function spritePose(f, t) {
   if (f.attack) {
     const m = moveFor(f),
       at = f.attack.t;
+    const v = m.visual;
     const activeEnd = m.windup + m.active / 60;
     const recovering = at > activeEnd;
     const recovery = recovering ? (at - activeEnd) / (m.recovery / 60) : 0;
@@ -224,10 +315,10 @@ export function spritePose(f, t) {
     // Chamber first, snap through contact, then fold back before settling.
     const chamber = recovering
       ? 1 - smooth(recovery / 0.72)
-      : smooth(startup / 0.55);
+      : smooth(startup / v.coil);
     const e = recovering
       ? 1 - smooth((at - activeEnd) / Math.min(0.14, m.recovery / 60))
-      : smooth((startup - 0.55) / 0.45);
+      : smooth((startup - v.coil) / (1 - v.coil));
     const aimOffset =
       (((f.attack.height ?? m.impactHeight) - m.impactHeight) * 91) / 2.15;
     const set = (part, index, target, weight = e) => {
@@ -373,6 +464,36 @@ export function spritePose(f, t) {
       pose.lean = e * 5;
       pose.hip[0] += e * 2;
     }
+    // Authored overlays separate moves that share the same striking limb.
+    const weight = m.motionWeight,
+      swing = Math.sin(Math.PI * Math.min(1, startup));
+    pose.hip[0] += v.step * chamber * weight;
+    pose.lean += v.lean * e * weight - v.lean * 0.35 * chamber * (1 - e);
+    pose.head[1] += Math.abs(v.lean) * 0.25 * chamber * (1 - e);
+    const strikingLeg = [
+      "leftKick",
+      "rightKick",
+      "spin",
+      "low",
+      "sweep",
+      "backKick",
+      "toeKick",
+      "sideKick",
+      "axeKick",
+      "knee",
+    ].includes(m.kind);
+    const tip = strikingLeg ? "feet" : "hands",
+      joint = strikingLeg ? "knees" : "elbows";
+    pose[tip][m.side][0] += v.reach * e * weight;
+    pose[tip][m.side][1] += v.arc * swing * chamber * weight;
+    pose[joint][m.side][1] += v.arc * swing * 0.4;
+    if (["qcfKick", "finish"].includes(f.attack.key)) {
+      pose.shoulders[0][0] += 5 * e;
+      pose.shoulders[1][0] -= 5 * e;
+      pose.hands[1 - m.side][0] -= 9 * chamber;
+    }
+    if (f.attack.key === "dashPunch") pose.feet[m.side][0] += 7 * chamber;
+    if (f.attack.key === "palm") pose.hands[1 - m.side][1] -= 5 * chamber;
   }
   for (const i of [0, 1]) {
     const shoulder = [pose.shoulders[i][0] + pose.lean, pose.shoulders[i][1]];
@@ -846,31 +967,72 @@ export function createScene(canvas) {
         }
         if (f.attack) {
           const m = moveFor(f),
-            delta = f.attack.t - m.windup;
-          if (delta >= -1 / 60 && delta < 3 / 60 && m.level !== "throw") {
+            delta = f.attack.t - m.windup,
+            progress = f.attack.t / m.windup;
+          const charged = m.onBlock <= -15;
+          if (progress >= (charged ? 0.4 : 0.65) && delta < 6 / 60) {
             const height = f.attack.height ?? m.impactHeight;
-            c.strokeStyle = character(f.character).color + "88";
-            c.lineWidth = 1;
-            for (let n = 0; n < 2; n++) {
-              const x = p.x + f.facing * p.scale * (0.45 + n * 0.12);
-              const y = p.y - p.scale * height + n * 3;
+            c.save();
+            c.translate(p.x, p.y - p.scale * height);
+            c.scale(f.facing * p.scale, p.scale);
+            c.globalAlpha =
+              delta < 0
+                ? charged
+                  ? 0.28
+                  : 0.18
+                : Math.max(0, 0.9 - delta * 8);
+            c.strokeStyle = m.color;
+            c.lineWidth = charged ? 0.052 : 0.032;
+            c.lineCap = "round";
+            for (const path of attackEffectPaths(m, progress)) {
               c.beginPath();
-              c.moveTo(x, y);
-              c.lineTo(x + f.facing * p.scale * 0.23, y - (m.launch ? 4 : 1));
+              path.forEach(([x, y], n) =>
+                n ? c.lineTo(x, y) : c.moveTo(x, y),
+              );
               c.stroke();
             }
+            if (delta >= 0 && delta < 2 / 60) {
+              c.globalAlpha = 0.7;
+              c.strokeStyle = "#fff2ce";
+              c.lineWidth = 0.015;
+              for (const path of attackEffectPaths(m, progress)) {
+                c.beginPath();
+                path.forEach(([x, y], n) =>
+                  n ? c.lineTo(x, y) : c.moveTo(x, y),
+                );
+                c.stroke();
+              }
+            }
+            c.restore();
           }
         }
       }
       for (let i = effects.length - 1; i >= 0; i--) {
         const e = effects[i];
         e.age += dt;
-        if (e.age > 0.3) {
+        if (e.age > (e.punish || e.type === "block" ? 0.65 : 0.3)) {
           effects.splice(i, 1);
           continue;
         }
         const p = project(e.x, e.y, e.z),
           expand = e.age * (e.heavy ? 130 : 90);
+        if (e.punish || e.type === "block") {
+          c.font = "bold 8px monospace";
+          c.textAlign = "center";
+          c.fillStyle = e.punish
+            ? "#ffda70"
+            : e.launcherWindow
+              ? "#ffac8f"
+              : "#b5e5ed";
+          c.fillText(
+            e.punish
+              ? "PUNISH"
+              : `GUARD ${e.advantage >= 0 ? "+" : ""}${e.advantage}F${e.launcherWindow ? " / UPPER" : ""}`,
+            p.x,
+            p.y - 18 - e.age * 25,
+          );
+        }
+        if (e.age > 0.3) continue;
         c.strokeStyle = e.type === "block" ? "#c4ecf2" : "#ffe2a0";
         c.lineWidth = e.age < 0.1 ? (e.heavy ? 4 : 3) : 1;
         if (e.type === "hit") {
@@ -892,6 +1054,26 @@ export function createScene(canvas) {
             Math.round(p.y + Math.sin(a) * (expand + 8)),
           );
           c.stroke();
+        }
+        const impactMove =
+          e.character && e.key
+            ? moveFor({ character: e.character }, e.key)
+            : null;
+        if (impactMove && e.type === "hit" && e.age < 0.16) {
+          c.save();
+          c.translate(p.x, p.y);
+          c.scale(p.scale * 0.55, p.scale * 0.55);
+          c.globalAlpha = 1 - e.age / 0.16;
+          c.strokeStyle = impactMove.color;
+          c.lineWidth = 0.045;
+          for (const path of attackEffectPaths(impactMove, 1)) {
+            c.beginPath();
+            path.forEach(([x, y], n) =>
+              n ? c.lineTo(x - 0.62, y) : c.moveTo(x - 0.62, y),
+            );
+            c.stroke();
+          }
+          c.restore();
         }
         if (e.age < 0.08) {
           rect(c, p.x - 3, p.y - 3, 6, 6, "#fff8d7");

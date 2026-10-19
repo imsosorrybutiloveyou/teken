@@ -42,7 +42,8 @@ test("four fighters have independently authored commands, startup and recovery",
   );
   assert.equal(new Set(signatures).size, 4);
   assert.equal(
-    new Set(CHARACTER_IDS.map((id) => character(id).moves.u.startup)).size,
+    new Set(CHARACTER_IDS.map((id) => character(id).moves.qcfPunch.startup))
+      .size,
     4,
   );
   for (const id of CHARACTER_IDS) {
@@ -390,5 +391,111 @@ test("combo follow-ups tolerate a six-frame reaction delay after each confirmed 
     }
     assert.equal(hits, 5, id);
     assert.equal(m.fighters[0].combo, 5, id);
+  }
+});
+
+function guardPunish(defender = "kai", attackerIndex = 0, disadvantage = null) {
+  const defenderIndex = 1 - attackerIndex,
+    m = setup(attackerIndex === 0 ? ["ren", defender] : [defender, "ren"]);
+  const attacker = m.fighters[attackerIndex],
+    target = m.fighters[defenderIndex],
+    p = character("ren"),
+    original = p.moves.qcfPunch;
+  if (disadvantage !== null)
+    p.moves.qcfPunch = {
+      ...original,
+      onBlock: -disadvantage,
+      blockStun: (original.active + original.recovery - disadvantage) / 60,
+    };
+  attacker.commands = [
+    { dir: 4, at: 0 },
+    { dir: 6, at: 0.04 },
+  ];
+  attacker.direction = 6;
+  attacker.commandTime = 0.04;
+  let blocked = false,
+    sent = false,
+    result = null;
+  try {
+    for (let frame = 0; frame < 180; frame++) {
+      const inputs = [emptyInput(), emptyInput()];
+      inputs[attackerIndex] = { ...emptyInput(), x: -attacker.facing };
+      inputs[defenderIndex] = { ...emptyInput(), x: -target.facing };
+      if (frame === 0)
+        inputs[attackerIndex] = {
+          ...emptyInput(),
+          x: attacker.facing,
+          action: "i",
+        };
+      if (blocked && !sent && target.stun <= 6 / 60 + 1e-9) {
+        const [, button] = character(defender).commands.find(
+          (r) => r[0] === "upper",
+        );
+        inputs[defenderIndex] = {
+          ...emptyInput(),
+          x: target.facing,
+          z: 1,
+          action: button,
+        };
+        sent = true;
+      }
+      step(m, inputs);
+      for (const e of m.events) {
+        if (e.type === "block" && e.index === defenderIndex) blocked = true;
+        else if (blocked && e.type === "hit" && e.index === defenderIndex)
+          result = { type: "hit", punish: e.punish, launched: attacker.y > 0 };
+        else if (
+          blocked &&
+          sent &&
+          e.type === "block" &&
+          e.index === attackerIndex
+        )
+          result = { type: "block" };
+      }
+      if (result) break;
+    }
+    assert.ok(blocked, "Blood Cross must be guarded before retaliation");
+    assert.ok(sent, "uppercut must be buffered during guard stun");
+    return result;
+  } finally {
+    p.moves.qcfPunch = original;
+  }
+}
+test("blocking Blood Cross guarantees every fighter's uppercut even against held-back guard", () => {
+  assert.equal(character("ren").moves.qcfPunch.onBlock, -20);
+  for (const id of CHARACTER_IDS)
+    for (const index of [0, 1])
+      assert.deepEqual(
+        guardPunish(id, index),
+        { type: "hit", punish: true, launched: true },
+        `${id} attacker P${index + 1}`,
+      );
+});
+test("punish boundary is exact: S-frame retaliation beats -S, but is blocked at -(S-1)", () => {
+  for (const id of CHARACTER_IDS)
+    for (const index of [0, 1]) {
+      const startup = character(id).moves.upper.startup;
+      assert.deepEqual(guardPunish(id, index, startup), {
+        type: "hit",
+        punish: true,
+        launched: true,
+      });
+      assert.deepEqual(guardPunish(id, index, startup - 1), { type: "block" });
+    }
+});
+test("forward walking is faster than back guard on either side and a dash cannot boost retreat", () => {
+  for (const index of [0, 1]) {
+    const distance = (forward, dash = false) => {
+      const m = setup(["kai", "kai"]);
+      m.fighters[0].x = -30;
+      m.fighters[1].x = 30;
+      const f = m.fighters[index],
+        before = f.x;
+      if (dash) f.dash = 0.24;
+      feed(m, { x: forward * f.facing }, 6, index);
+      return Math.abs(f.x - before);
+    };
+    assert.ok(distance(1) > distance(-1) * 1.5);
+    assert.ok(Math.abs(distance(-1, true) - distance(-1)) < 1e-9);
   }
 });

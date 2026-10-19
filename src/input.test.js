@@ -85,3 +85,25 @@ test("a split-frame chord upgrades the opening basic without delaying single att
   step(m, [keyboard.sample(17), emptyInput()]);
   assert.equal(m.fighters[0].attack.key, "throw");
 });
+
+test("all four fighters hit a physical jab on exactly frame 10 from either side", () => {
+  for (const id of ["kai", "ren", "mira", "goro"])
+    for (const index of [0, 1]) {
+      const keyboard = new KeyboardInput(),
+        m = createMatch(index === 0 ? [id, "kai"] : ["kai", id]);
+      m.phase = "fight";
+      m.fighters[0].x = -0.5;
+      m.fighters[1].x = 0.5;
+      keyboard.down("u", 0);
+      for (let frame = 1; frame <= 10; frame++) {
+        const inputs = [emptyInput(), emptyInput()];
+        inputs[index] = keyboard.sample(((frame - 1) * 1000) / 60);
+        step(m, inputs);
+        assert.equal(
+          m.fighters[1 - index].hp < 120,
+          frame === 10,
+          `${id} P${index + 1} frame ${frame}`,
+        );
+      }
+    }
+});

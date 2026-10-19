@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { spritePose } from "./scene.js";
+import { spritePose, attackEffectPaths } from "./scene.js";
 import { createMatch } from "./combat.js";
 import { CHARACTERS } from "./characters.js";
 const distance = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
@@ -49,4 +49,28 @@ test("a kick chambers its knee, extends at contact and folds back during recover
   assert.ok(impact.feet[1][0] > chamber.feet[1][0] + 20);
   assert.ok(recovery.feet[1][0] < impact.feet[1][0] - 10);
   assert.ok(impact.hands[0][1] < 50, "opposite hand stays near the guard");
+});
+
+test("all 25 moves have different visible paths and pose sequences for every fighter", () => {
+  for (const p of Object.values(CHARACTERS)) {
+    const effects = new Set(),
+      poses = new Set();
+    for (const [key, move] of Object.entries(p.moves)) {
+      const paths = attackEffectPaths(move, 1);
+      assert.ok(paths.length > 0);
+      assert.ok(paths.flat().flat().every(Number.isFinite));
+      effects.add(JSON.stringify(paths));
+      const f = createMatch([p.id, "kai"]).fighters[0];
+      poses.add(
+        JSON.stringify(
+          [0.35, 0.7, 1, 1.2].map((phase) => {
+            f.attack = { key, t: move.windup * phase };
+            return spritePose(f, 0);
+          }),
+        ),
+      );
+    }
+    assert.equal(effects.size, 25, p.id + " effect silhouettes");
+    assert.equal(poses.size, 25, p.id + " authored motion sequences");
+  }
 });

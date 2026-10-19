@@ -36,8 +36,14 @@ try {
   assert.equal(await host.locator(".move-item").count(), 25);
   await host.locator('#move-character-tabs [data-character="goro"]').click();
   assert.ok(
-    (await host.locator(".frame-data").first().innerText()).includes("14"),
+    (await host.locator(".frame-data").first().innerText()).includes("10"),
   );
+  await host.locator('#move-character-tabs [data-character="ren"]').click();
+  const bloodCross = host
+    .locator(".move-item")
+    .filter({ hasText: "블러드 크로스" });
+  assert.ok((await bloodCross.innerText()).includes("-20"));
+  assert.ok((await bloodCross.innerText()).includes("어퍼 확정"));
   await host.locator("#moves-dialog .close").click();
   await openLobby(host, "ALPHA");
   await host.locator("#quick-match").click();
@@ -55,7 +61,7 @@ try {
   await guest.locator("#quick-match").click();
   await host.locator("#select-dialog").waitFor({ state: "visible" });
   await guest.locator("#select-dialog").waitFor({ state: "visible" });
-  await host.screenshot({ path: "/tmp/axis-v32-select.png", fullPage: true });
+  await host.screenshot({ path: "/tmp/axis-v33-select.png", fullPage: true });
   assert.equal(await host.locator(".character-card").count(), 4);
   assert.equal(await host.evaluate(() => window.axis.battleActive), false);
   await choose(host, "mira");
@@ -127,7 +133,7 @@ try {
   console.log(
     "Opponent-centered sidestep, stable left/right composition, remote damage and roster synchronization passed",
   );
-  await host.screenshot({ path: "/tmp/axis-v32-online.png", fullPage: true });
+  await host.screenshot({ path: "/tmp/axis-v33-online.png", fullPage: true });
   await host.locator("#online-button").click();
   await host.locator("#disconnect-button").click();
   await guest.waitForFunction(() => !window.axis.matched);
@@ -209,11 +215,53 @@ try {
       window.axis.state.fighters[1].bounceUsed,
   );
   await host.screenshot({
-    path: "/tmp/axis-v32-air-combo.png",
+    path: "/tmp/axis-v33-air-combo.png",
     fullPage: true,
   });
   console.log(
     "Physical keyboard launcher → jab → string → bound → side kick: 5-hit P2P combo synchronized on both clients",
+  );
+
+  await host.locator("#reset-button").click();
+  await host.waitForFunction(() => window.axis.state.phase === "ready");
+  await host.waitForFunction(() => window.axis.state.phase === "fight");
+  await guest.waitForFunction(() => window.axis.state.phase === "fight");
+  await host.keyboard.down("d");
+  await host.waitForFunction(() => {
+    const [a, b] = window.axis.state.fighters;
+    return Math.hypot(a.x - b.x, a.z - b.z) < 1.05;
+  });
+  await host.keyboard.up("d");
+  await host.keyboard.down("a");
+  await guest.keyboard.press("d");
+  await guest.keyboard.down("a");
+  await guest.keyboard.press("i");
+  await guest.keyboard.up("a");
+  await guest.keyboard.down("d");
+  await host.waitForFunction(() => {
+    const f = window.axis.state.fighters[0];
+    return f.blockstun && f.stun <= 6 / 60 + 1e-9;
+  });
+  await host.keyboard.up("a");
+  await host.keyboard.down("s");
+  await host.keyboard.down("d");
+  await host.keyboard.press("i");
+  await host.keyboard.up("s");
+  await host.keyboard.up("d");
+  await host.waitForFunction(
+    () =>
+      window.axis.state.fighters[0].attack?.punish &&
+      window.axis.state.fighters[1].y > 0,
+  );
+  await guest.waitForFunction(
+    () =>
+      window.axis.state.fighters[0].attack?.punish &&
+      window.axis.state.fighters[1].y > 0,
+  );
+  await guest.keyboard.up("d");
+  await host.screenshot({ path: "/tmp/axis-v33-punish.png", fullPage: true });
+  console.log(
+    "Blood Cross guarded → buffered uppercut beats held-back guard: confirmed PUNISH on both P2P clients",
   );
 
   await host.locator("#online-button").click();
@@ -225,7 +273,7 @@ try {
     () => window.axis.state.fighters[0].character === "goro",
   );
   await host.setViewportSize({ width: 390, height: 844 });
-  await host.screenshot({ path: "/tmp/axis-v32-mobile.png", fullPage: true });
+  await host.screenshot({ path: "/tmp/axis-v33-mobile.png", fullPage: true });
   assert.ok(
     await host.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,
@@ -233,7 +281,7 @@ try {
   );
   assert.deepEqual(errors, []);
   console.log(
-    "PASS: v3.2 quick match, player rooms, matched-only character selection, 4 characters, unique frame tables, automatic P2P, orbit camera, remote combat, practice selection, responsive layout; no page errors.",
+    "PASS: v3.3 quick match, player rooms, matched-only character selection, 4 characters, unique frame tables, automatic P2P, orbit camera, remote combat, practice selection, responsive layout; no page errors.",
   );
 } catch (error) {
   for (const [name, page] of [
