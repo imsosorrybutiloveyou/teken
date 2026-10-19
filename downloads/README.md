@@ -1,4 +1,4 @@
-# AXIS ADVANCE v3.10 Windows 다운로드
+# AXIS ADVANCE v3.11 Windows 다운로드
 
 [**AXIS-Windows-x64.exe 다운로드**](https://github.com/imsosorrybutiloveyou/teken/raw/refs/heads/main/downloads/AXIS-Windows-x64.exe)
 
@@ -8,7 +8,7 @@ v3는 KAI/REN/MIRA/GORO 4명, 고유 커맨드·프레임, 후퇴 가드, 완화
 
 **첫 실행자가 매칭 호스트가 되며 같은 LAN의 다음 실행자는 자동 검색해 참가합니다.** 인터넷에서는 첫 PC의 공인/VPN 주소를 온라인 로비에 넣고, 호스트 TCP 8787 접근이 가능해야 합니다. 별도 Node.js 설치는 필요 없습니다. 호스트 EXE는 계속 켜 두세요. 공용 서버 없이 인터넷의 낯선 상대를 주소 없이 검색하는 기능은 없습니다. [상세 접속 방법](../사용설명서.md#6-온라인-준비-첫-pc가-호스트)
 
-v3.10은 띄우기 뒤 점프 전환, 공참각·홉킥 뒤 지상 연속기의 잘못된 공중 공격 전환 수정, 자동 기상 제거, 공중 콤보 밀어내기 증가를 포함합니다. v3.8/v3.9 실행 창에서 y로 자동 업데이트할 수 있습니다. 온라인 양쪽과 첫 호스트를 모두 v3.10으로 교체하세요.
+v3.11은 7명 아케이드와 난이도 설정, 연습 상대 자동 기상·타격 높이 표시, 모바일 터치·전체화면, 천공 니와 방향 커맨드 개선, 한 장 격자 스킨을 포함합니다. 기존 실행 창에서 y로 자동 업데이트할 수 있습니다. 온라인 양쪽과 첫 호스트를 모두 v3.11로 교체하세요.
 
 제작자 인증서로 서명되지 않은 빌드이며 실제 Windows에서의 직접 실행 검증은 아직 하지 않았습니다. [SHA-256](AXIS-Windows-x64.exe.sha256)은 PowerShell에서 다음 명령으로 비교할 수 있습니다.
 
@@ -17,3 +17,8 @@ Get-FileHash .\AXIS-Windows-x64.exe -Algorithm SHA256
 ```
 
 개발자는 Node.js 의존성과 Go 1.26 이상을 준비한 뒤 `npm run package:windows`로 EXE를 다시 만들고 `release/`의 EXE·체크섬·latest.json을 이 폴더에 함께 복사합니다.
+
+
+[AXIS SERVER 다운로드](AXIS-SERVER-Windows-x64.exe) · [같은 네트워크 접속 설명서](../docs/AXIS_SERVER.md) · [격자 스킨 편집](../docs/SKINS.md)
+
+v3.11은 아케이드·난이도, 연습 자동 기상·타격 높이 표시, LAN 브라우저 서버, 모바일 터치·전체화면, 천공 니 입력 개선과 한 장 스킨을 포함합니다.

@@ -60,3 +60,17 @@ test("a complete eight-part rig is accepted, incomplete or remote rigs use the n
     undefined,
   );
 });
+
+test("one skin atlas maps all eight cells and rejects nonlocal paths", () => {
+  const p = parseAssetConfig({
+    characters: {
+      kai: { skin: "/mods/test.png" },
+      ren: { skin: "https://example.com/x.png" },
+    },
+  }).characters;
+  assert.equal(Object.keys(p.kai.rig).length, 8);
+  assert.deepEqual(p.kai.rig.head.cell, [0, 0]);
+  assert.deepEqual(p.kai.rig.foot.cell, [3, 1]);
+  assert.equal(p.kai.rig.torso.src, "/mods/test.png");
+  assert.equal(p.ren.rig, undefined);
+});

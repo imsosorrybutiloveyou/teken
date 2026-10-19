@@ -163,3 +163,23 @@ test("an immediate backward guard after a motion attack does not rewrite the mov
     step(m, [k.sample(frame * 17), emptyInput()]);
   assert.equal(m.fighters[0].lastMove, "qcfPunch");
 });
+
+test("neutral motion commands tolerate extra keyboard transition directions", () => {
+  const k = new KeyboardInput(),
+    m = createMatch(["ren", "kai"]);
+  m.phase = "fight";
+  for (const [key, down, t] of [
+    ["d", true, 0],
+    ["d", false, 20],
+    ["a", true, 40],
+    ["a", false, 60],
+    ["s", true, 80],
+    ["d", true, 100],
+    ["k", true, 102],
+  ]) {
+    if (down) k.down(key, t);
+    else k.up(key, t);
+  }
+  for (let n = 0; n < 18; n++) step(m, [k.sample(n * 17), emptyInput()]);
+  assert.equal(m.fighters[0].lastMove, "hopKick");
+});

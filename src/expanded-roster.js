@@ -165,7 +165,11 @@ export function expandRoster(roster) {
       9: "↗",
     };
     for (const rule of p.commands) {
-      if (rule[2].some((d) => d >= 7))
+      if (p.id === "kai" && rule[0] === "hopKick") rule[2] = [9];
+      if (
+        rule[2].some((d) => d >= 7) &&
+        !(p.id === "kai" && rule[0] === "hopKick")
+      )
         rule[2] = rule[0] === "hopKick" ? [6, 5, 4, 3] : [4, 5, 6, 3];
       if (
         rule[2].length === 1 &&
@@ -297,6 +301,7 @@ export function expandRoster(roster) {
     }
     if (p.id === "kai") {
       p.specialty = "승류권 / 정밀 입력 섬뢰권 / 나락 이지선다";
+      p.moves.hopKick.hop = 4.8;
       p.moves.windGod.name = "청룡 승류권";
       p.moves.electric.name = "청룡 섬뢰권";
       p.moves.electric.damage = 26;

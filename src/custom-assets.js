@@ -61,6 +61,37 @@ export function parseAssetConfig(input) {
       }
       if (Object.keys(rig).length === 8) p.rig = rig;
     }
+    if (localPath(entry.skin)) {
+      p.rig = Object.fromEntries(
+        [
+          "head",
+          "torso",
+          "upperArm",
+          "forearm",
+          "hand",
+          "thigh",
+          "shin",
+          "foot",
+        ].map((key, i) => [
+          key,
+          {
+            src: entry.skin,
+            cell: [i % 4, Math.floor(i / 4)],
+            width: {
+              head: 24,
+              torso: 28,
+              upperArm: 9,
+              forearm: 8,
+              hand: 11,
+              thigh: 12,
+              shin: 10,
+              foot: 19,
+            }[key],
+            height: { head: 29, hand: 11, foot: 10 }[key] ?? 20,
+          },
+        ]),
+      );
+    }
     if (localPath(entry.portrait)) p.portrait = entry.portrait;
     if (
       localPath(entry.sheet) &&
@@ -253,7 +284,36 @@ export function playCustomHit(audio, event) {
 
 function rigReady(id) {
   const rig = config.characters[id]?.rig;
-  return rig && Object.values(rig).every((part) => images.has(part.src));
+  return (
+    rig &&
+    Object.values(rig).every((part) => {
+      const img = images.get(part.src);
+      return (
+        img &&
+        (!part.cell ||
+          (img.naturalWidth >= 128 &&
+            img.naturalWidth % 128 === 0 &&
+            img.naturalWidth === img.naturalHeight * 2))
+      );
+    })
+  );
+}
+function drawPart(c, part, x, y, width, height) {
+  const img = images.get(part.src);
+  if (part.cell) {
+    const size = img.naturalWidth / 4;
+    c.drawImage(
+      img,
+      part.cell[0] * size,
+      part.cell[1] * size,
+      size,
+      size,
+      x,
+      y,
+      width,
+      height,
+    );
+  } else c.drawImage(img, x, y, width, height);
 }
 // Draw each vertical limb from joint to joint. IK supplies all attack/guard/walk poses.
 export function paintCustomRig(c, f, pose) {
@@ -265,13 +325,7 @@ export function paintCustomRig(c, f, pose) {
     c.save();
     c.translate(...a);
     c.rotate(Math.atan2(b[1] - a[1], b[0] - a[0]) - Math.PI / 2);
-    c.drawImage(
-      images.get(part.src),
-      -part.width / 2,
-      -1,
-      part.width,
-      length + 2,
-    );
+    drawPart(c, part, -part.width / 2, -1, part.width, length + 2);
     c.restore();
   };
   const stamp = (key, at, angle = 0) => {
@@ -279,8 +333,9 @@ export function paintCustomRig(c, f, pose) {
     c.save();
     c.translate(...at);
     c.rotate(angle);
-    c.drawImage(
-      images.get(part.src),
+    drawPart(
+      c,
+      part,
       -part.width / 2,
       -part.height / 2,
       part.width,

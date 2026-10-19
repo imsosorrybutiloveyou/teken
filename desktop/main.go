@@ -21,6 +21,8 @@ import (
 
 //go:embed all:web
 var gameFiles embed.FS
+var serverBuild = "false"
+var lanMode bool
 
 func gameHandler() (http.Handler, error) {
 	files, err := fs.Sub(gameFiles, "web")
@@ -36,6 +38,9 @@ func gameHandler() (http.Handler, error) {
 				return
 			}
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			if lanMode {
+				index = []byte(strings.Replace(string(index), "<head>", `<head><meta name="axis-server" content="true">`, 1))
+			}
 			fmt.Fprint(w, strings.Replace(string(index), "<head>", `<head><meta name="axis-desktop" content="true">`, 1))
 			return
 		}
@@ -55,6 +60,7 @@ func openBrowser(url string) error {
 }
 
 func run() error {
+	serverMode := flag.Bool("server", serverBuild == "true", "Serve game and LAN matches on port 8080")
 	noBrowser := flag.Bool("no-browser", false, "Start the local game server without opening a browser")
 	hostAddress := flag.String("host", "", "Join an existing host URL; empty automatically discovers a LAN host or becomes the host")
 	skipUpdate := flag.Bool("no-update", false, "Skip GitHub update check")
@@ -73,7 +79,8 @@ func run() error {
 			fmt.Println("Previous file cleanup failed:", err)
 		}
 	}
-	if runtime.GOOS == "windows" && !*skipUpdate {
+	lanMode = *serverMode
+	if runtime.GOOS == "windows" && !*skipUpdate && !lanMode {
 		exe, err := os.Executable()
 		if err == nil {
 			if next := offerUpdate(os.Stdin, os.Stdout, &http.Client{Timeout: 6 * time.Second}, updateManifestURL, updateDownloadURL, filepath.Dir(exe)); next != "" {
@@ -96,7 +103,15 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	api, closeHost, err := startHost(*hostAddress)
+	var api http.Handler
+	var closeHost func()
+	if lanMode {
+		lobby := newPortableLobby()
+		api = lobby
+		closeHost = func() { lobby.close() }
+	} else {
+		api, closeHost, err = startHost(*hostAddress)
+	}
 	if err != nil {
 		fmt.Println("  Online unavailable: " + err.Error())
 		fmt.Println("  CPU practice is still available. Restart after fixing the host address or port.")
@@ -111,7 +126,11 @@ func run() error {
 	mux.Handle("/api/", api)
 	mux.Handle("/", handler)
 	// Keep the actual game in a localhost secure context for WebRTC.
-	listener, err := net.Listen("tcp4", "127.0.0.1:0")
+	bind := "127.0.0.1:0"
+	if lanMode {
+		bind = "0.0.0.0:8080"
+	}
+	listener, err := net.Listen("tcp4", bind)
 	if err != nil {
 		return fmt.Errorf("cannot start AXIS: %w", err)
 	}
@@ -120,13 +139,28 @@ func run() error {
 	url := "http://" + listener.Addr().String()
 	fmt.Println("\n  AXIS ADVANCE - Pixel Fighting | v" + currentVersion)
 	fmt.Println("  --------------------------------")
+	if lanMode {
+		url = "http://127.0.0.1:8080"
+		fmt.Println("  AXIS SERVER · LAN browser play · allow TCP 8080 through firewall")
+		if addresses, e := net.InterfaceAddrs(); e == nil {
+			for _, a := range addresses {
+				if ip, _, e := net.ParseCIDR(a.String()); e == nil && ip.To4() != nil && !ip.IsLoopback() {
+					fmt.Printf("  Open on phones/PCs: http://%s:8080\n", ip)
+				}
+			}
+		}
+	}
 	fmt.Println("  Game ready: " + url)
 	fmt.Println("  Your browser will open the game automatically.")
 	fmt.Println("  Keep this window open while playing.")
 	fmt.Println("  To quit: close this window or press Ctrl+C.")
 	fmt.Println("\n  Move: A/D | Orbit: Q/E | Crouch: S | Jump: W | U: Left Punch | I: Right Punch | J: Left Kick | K: Right Kick")
 	fmt.Print("  Guard: Hold Back | Crouch: Shift | 8 unique fighters | Check each fighter frame list\n")
-	fmt.Print("  Online: PLAYER MATCH uses the first LAN host automatically; internet: run EXE --host http://HOST-IP:8787\n\n")
+	if lanMode {
+		fmt.Println("  LAN online: open the same :8080 URL on both devices and choose PLAYER MATCH.")
+	} else {
+		fmt.Print("  Online: PLAYER MATCH uses the first LAN host automatically; internet: run EXE --host http://HOST-IP:8787\n\n")
+	}
 	if !*noBrowser {
 		go func() {
 			if err := openBrowser(url); err != nil {

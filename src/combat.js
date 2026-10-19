@@ -41,6 +41,16 @@ export function matchesCommand(
   const entries = f.commands.filter(
     (e) => f.commandTime - e.at <= window && (keepNeutral || e.dir !== 5),
   );
+  if (keepNeutral) {
+    if (entries.at(-1)?.dir !== sequence.at(-1)) return false;
+    let cursor = entries.length - 1;
+    for (let i = sequence.length - 1; i >= 0; i--) {
+      while (cursor >= 0 && entries[cursor].dir !== sequence[i]) cursor--;
+      if (cursor < 0) return false;
+      cursor--;
+    }
+    return true;
+  }
   return (
     entries.length >= sequence.length &&
     sequence.every(
@@ -79,6 +89,8 @@ export function resolveMove(f, action) {
         f.lastMoveAge <= prior.duration + 0.18)
   )
     return follow[2];
+  if (f.character === "kai" && f.direction === 9 && action === "j")
+    return "hopKick";
   if (f.jumpActive || (f.y === 0 && f.direction >= 7))
     return action === "u" || action === "i" ? "jumpPunch" : "jumpKick";
   if (f.riseWindow > 0 && f.direction === 5 && action === "i")
@@ -164,7 +176,7 @@ function fighter(x, id, index) {
 }
 export function createMatch(ids = ["kai", "ren"]) {
   return {
-    version: 12,
+    version: 13,
     axisAngle: 0,
     viewAngle: 0,
     hitstop: 0,
@@ -902,6 +914,16 @@ export function stepPractice(
   input,
   { behavior = "cpu", infiniteHealth = true } = {},
 ) {
+  if (
+    m.fighters[1].downTime > 0 &&
+    m.fighters[1].throwTime === 0 &&
+    m.fighters[1].y === 0 &&
+    m.fighters[1].stun === 0
+  ) {
+    const f = m.fighters[1];
+    f.downTime = 0;
+    f.wakeUp = 0;
+  }
   m.time = 60;
   step(
     m,

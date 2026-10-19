@@ -3,7 +3,7 @@ import { CHARACTER_IDS, character } from "./characters.js";
 export function validSnapshot(v) {
   if (
     !v ||
-    v.version !== 12 ||
+    v.version !== 13 ||
     !["ready", "fight", "roundEnd", "matchEnd"].includes(v.phase) ||
     !Number.isFinite(v.time) ||
     v.time < 0 ||
@@ -129,6 +129,29 @@ export class PeerSession {
   }
   async connect(role, sendSignal) {
     this.close();
+    if (document.querySelector('meta[name="axis-server"]')) {
+      this.role = role;
+      this.closed = false;
+      this.opened = true;
+      this.relayQueue = [];
+      this.relayTimer = setInterval(async () => {
+        if (this.relayBusy || !this.relayQueue.length) return;
+        this.relayBusy = true;
+        try {
+          await sendSignal({
+            type: "relay",
+            packets: this.relayQueue.splice(0, 8),
+          });
+        } catch {
+          this.fail("LAN 서버 연결이 끊겼습니다.");
+        } finally {
+          this.relayBusy = false;
+        }
+      }, 20);
+      this.callbacks.onStatus("AXIS SERVER · LAN 중계 연결");
+      this.callbacks.onOpen(role);
+      return;
+    }
     if (!globalThis.RTCPeerConnection)
       throw Error("최신 Chrome, Edge 또는 Firefox가 필요합니다.");
     this.role = role;
@@ -170,7 +193,7 @@ export class PeerSession {
     };
     if (role === "host") {
       this.attach(
-        peer.createDataChannel("axis-v12", { ordered: true }),
+        peer.createDataChannel("axis-v13", { ordered: true }),
         generation,
       );
       await peer.setLocalDescription(await peer.createOffer());
@@ -185,6 +208,19 @@ export class PeerSession {
     }, 30000);
   }
   receive(data) {
+    if (this.relayTimer && data?.type === "relay") {
+      for (const packet of (Array.isArray(data.packets)
+        ? data.packets
+        : []
+      ).slice(0, 8))
+        if (
+          packet &&
+          typeof packet === "object" &&
+          ["input", "state"].includes(packet.type)
+        )
+          this.callbacks.onMessage(packet);
+      return;
+    }
     const generation = this.generation;
     this.signalChain = this.signalChain
       .then(async () => {
@@ -256,6 +292,14 @@ export class PeerSession {
     };
   }
   send(message) {
+    if (this.relayTimer && !this.closed) {
+      if (this.relayQueue.length >= 32) {
+        this.fail("LAN 서버가 응답하지 않습니다.");
+        return;
+      }
+      this.relayQueue.push(message);
+      return;
+    }
     if (
       this.channel?.readyState === "open" &&
       this.channel.bufferedAmount < 64000
@@ -275,6 +319,10 @@ export class PeerSession {
     this.callbacks.onClose(wasOpen, message);
   }
   close() {
+    clearInterval(this.relayTimer);
+    this.relayTimer = null;
+    this.relayQueue = [];
+    this.relayBusy = false;
     this.closed = true;
     this.generation++;
     this.opened = false;

@@ -73,3 +73,26 @@ writeFileSync(
 console.log(
   `\nWindows x64 executable created: ${executable}\nSize: ${(bytes.length / 1024 / 1024).toFixed(1)} MiB\nSHA-256: ${checksum}`,
 );
+
+const serverFilename = "AXIS-SERVER-Windows-x64.exe";
+run(
+  go,
+  [
+    "build",
+    "-trimpath",
+    `-ldflags=-s -w -X main.currentVersion=${version} -X main.serverBuild=true`,
+    "-o",
+    path.join(release, serverFilename),
+    ".",
+  ],
+  path.join(root, "desktop"),
+  { GOOS: "windows", GOARCH: "amd64" },
+);
+const serverChecksum = createHash("sha256")
+  .update(readFileSync(path.join(release, serverFilename)))
+  .digest("hex");
+writeFileSync(
+  path.join(release, serverFilename + ".sha256"),
+  `${serverChecksum}  ${serverFilename}\n`,
+);
+console.log("AXIS SERVER built: " + serverFilename);

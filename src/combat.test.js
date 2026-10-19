@@ -1201,7 +1201,7 @@ test("a landed jumping string cannot restart an airborne follow-up", () => {
   assert.equal(a.buffer, null);
   assert.equal(resolveMove(a, "k"), "k");
 });
-test("downed fighters remain prone without input, but training HP still regenerates", () => {
+test("training dummy automatically rises and HP regenerates, while player stays prone", () => {
   const m = setup(),
     b = m.fighters[1];
   b.downTime = 0.65;
@@ -1210,12 +1210,18 @@ test("downed fighters remain prone without input, but training HP still regenera
   b.hp = 30;
   for (let n = 0; n < 360; n++)
     stepPractice(m, emptyInput(), { behavior: "dummy", infiniteHealth: true });
-  assert.ok(b.downTime > 0);
+  assert.equal(b.downTime, 0);
   assert.equal(b.hp, MAX_HP);
   assert.equal(b.y, 0);
-  feed(m, { z: -1 }, 1, 1);
-  assert.equal(b.downTime, 0);
-  assert.equal(b.y, 0);
+  const a = m.fighters[0];
+  a.downTime = 0.5;
+  a.stun = 0.2;
+  for (let n = 0; n < 90; n++)
+    stepPractice(m, emptyInput(), { behavior: "dummy", infiniteHealth: true });
+  assert.ok(a.downTime > 0);
+  feed(m, { z: -1 });
+  assert.equal(a.downTime, 0);
+  assert.equal(a.y, 0);
 });
 test("air combo pushback grows faster with accumulated hits", () => {
   const push = [];

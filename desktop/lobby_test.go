@@ -148,3 +148,23 @@ func TestHostDiscovery(t *testing.T) {
 	}
 	leave()
 }
+
+func TestLANRelay(t *testing.T) {
+	l := newPortableLobby()
+	defer l.close()
+	s := httptest.NewServer(l)
+	defer s.Close()
+	a, b := player(t, s.URL, "A"), player(t, s.URL, "B")
+	defer a.close()
+	defer b.close()
+	action(t, s.URL, a, map[string]any{"type": "createRoom", "name": "LAN"})
+	room := event(t, a, "queued")["roomId"]
+	action(t, s.URL, b, map[string]any{"type": "joinRoom", "roomId": room})
+	if action(t, s.URL, a, map[string]any{"type": "signal", "data": map[string]any{"type": "relay", "packets": []any{map[string]any{"type": "input", "input": map[string]any{"action": "u"}}}}}) != 200 {
+		t.Fatal("relay rejected")
+	}
+	event(t, b, "signal")
+	if action(t, s.URL, a, map[string]any{"type": "signal", "data": map[string]any{"type": "relay", "packets": []any{}}}) != 400 {
+		t.Fatal("empty relay accepted")
+	}
+}

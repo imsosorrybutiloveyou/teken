@@ -1,3 +1,4 @@
+import { createCampaign, advanceCampaign, createCPU } from "./arcade.js";
 import { STYLE_MOTIONS } from "./style-motion.js";
 import "./style.css";
 import { createMatch, step, stepPractice, MAX_HP } from "./combat.js";
@@ -11,6 +12,8 @@ const $ = (id) => document.getElementById(id),
   keyboard = new KeyboardInput(),
   remoteInput = new RemoteInput(),
   remoteEvents = [];
+let campaign = null,
+  arcadeCPU = null;
 let practiceIds = ["kai", "ren"],
   match = createMatch(practiceIds),
   role = null,
@@ -130,6 +133,8 @@ function effects(events) {
 function resetMatch(
   ids = activePair && lockedRoster ? lockedRoster : practiceIds,
 ) {
+  if (campaign && !activePair)
+    ids = [campaign.id, campaign.opponents[Math.min(campaign.stage, 6)]];
   match = createMatch(ids);
   paused = false;
   connectionLost = false;
@@ -150,20 +155,27 @@ function updateMode() {
     ? role === "guest"
       ? "YOU · PEER"
       : "OPPONENT"
-    : practiceBehavior === "cpu"
-      ? "CPU · 공격"
-      : "DUMMY · 정지";
+    : campaign
+      ? "CPU · " + campaign.difficulty
+      : practiceBehavior === "cpu"
+        ? "CPU · 공격"
+        : "DUMMY · 정지";
+  $("arcade-button").classList.toggle("selected", !!campaign);
   $("arena-mode").textContent = activePair
     ? "ONLINE P2P MATCH"
-    : "PRACTICE MATCH";
+    : campaign
+      ? `ARCADE ${Math.min(campaign.stage + 1, 7)}/7 · ${campaign.difficulty.toUpperCase()}`
+      : "PRACTICE MATCH";
   $("connection-status").textContent = activePair
     ? battleActive
       ? "P2P 대전 중"
       : connected
         ? "캐릭터 선택 대기 · P2P 연결 완료"
         : "매칭 완료 · P2P 연결 중"
-    : `연습 · ${practiceBehavior === "cpu" ? "CPU 공격" : "정지 샌드백"} · ${infiniteHealth ? "1.2초 뒤 체력 회복" : "일반 체력"}`;
-  $("practice-button").classList.toggle("selected", !activePair);
+    : campaign
+      ? `아케이드 ${Math.min(campaign.stage + 1, 7)}/7 · ${campaign.difficulty}`
+      : `연습 · ${practiceBehavior === "cpu" ? "CPU 공격" : "정지 샌드백"} · ${infiniteHealth ? "1.2초 뒤 체력 회복" : "일반 체력"}`;
+  $("practice-button").classList.toggle("selected", !activePair && !campaign);
   $("pvp-button").classList.toggle("selected", !!activePair);
   $("pause-button").innerHTML = paused
     ? "▶ <span>계속하기</span>"
@@ -190,6 +202,7 @@ function startBattle() {
   );
 }
 async function leaveOnline(message = "연습 대전으로 돌아왔습니다.") {
+  campaign = null;
   activePair = null;
   lockedRoster = null;
   battleActive = false;
@@ -271,6 +284,7 @@ const lobby = new LobbyClient(
         status("대기를 취소했습니다.");
         break;
       case "paired": {
+        campaign = null;
         ownRoomId = null;
         activePair = event;
         role = event.role;
@@ -474,13 +488,16 @@ function openSelection() {
     : "PRACTICE / SELECT FIGHTER";
   $("select-title").textContent = online
     ? "상대가 정해졌습니다. 캐릭터를 선택하세요."
-    : "연습할 격투가를 선택하세요.";
+    : selectionMode === "arcade"
+      ? "아케이드 캐릭터와 난이도를 선택하세요."
+      : "연습할 격투가를 선택하세요.";
   $("select-opponent").textContent = online
     ? `VS ${activePair.opponent} · PLAYER MATCH`
     : "내 캐릭터와 CPU 상대를 고를 수 있습니다.";
-  $("cpu-character").hidden = online;
-  $("cpu-label").hidden = online;
-  $("practice-settings").hidden = online;
+  $("cpu-character").hidden = online || selectionMode === "arcade";
+  $("cpu-label").hidden = online || selectionMode === "arcade";
+  $("practice-settings").hidden = online || selectionMode === "arcade";
+  $("arcade-settings").hidden = selectionMode !== "arcade";
   $("practice-behavior").value = practiceBehavior;
   $("infinite-health").checked = infiniteHealth;
   $("opponent-pick").hidden = !online;
@@ -511,7 +528,13 @@ $("confirm-character").onclick = async () => {
       toast(error.message);
       $("confirm-character").disabled = false;
     }
+  } else if (selectionMode === "arcade") {
+    campaign = createCampaign(chosen, $("arcade-difficulty").value);
+    arcadeCPU = createCPU(campaign.difficulty);
+    $("select-dialog").close();
+    resetMatch([chosen, campaign.opponents[0]]);
   } else {
+    campaign = null;
     practiceIds = [chosen, $("cpu-character").value];
     practiceBehavior = $("practice-behavior").value;
     infiniteHealth = $("infinite-health").checked;
@@ -536,6 +559,7 @@ $("select-dialog").addEventListener("cancel", (event) => {
 });
 async function practice() {
   if (activePair) await leaveOnline();
+  campaign = null;
   selectionMode = "practice";
   ownLocked = false;
   chosen = practiceIds[0];
@@ -544,8 +568,55 @@ async function practice() {
   updateMode();
   openSelection();
 }
+$("arcade-button").onclick = async () => {
+  if (activePair) await leaveOnline();
+  selectionMode = "arcade";
+  chosen = practiceIds[0];
+  paused = true;
+  openSelection();
+};
 $("practice-button").onclick = practice;
 $("character-button").onclick = practice;
+$("fullscreen-button").onclick = async () => {
+  const arena = document.querySelector(".arena");
+  if (arena.classList.contains("fullscreen-fallback")) {
+    arena.classList.remove("fullscreen-fallback");
+    return;
+  }
+  try {
+    if (document.fullscreenElement) {
+      await document.exitFullscreen();
+      return;
+    }
+    if (!document.fullscreenEnabled || !arena.requestFullscreen) {
+      arena.classList.add("fullscreen-fallback");
+      return;
+    }
+    const request = arena.requestFullscreen();
+    await Promise.race([
+      request,
+      new Promise((resolve) => setTimeout(resolve, 300)),
+    ]);
+    if (!document.fullscreenElement) arena.classList.add("fullscreen-fallback");
+  } catch {
+    arena.classList.add("fullscreen-fallback");
+  }
+};
+for (const button of document.querySelectorAll("[data-key]")) {
+  const release = (e) => {
+    e.preventDefault();
+    keyboard.up(button.dataset.key, performance.now());
+  };
+  button.onpointerdown = (e) => {
+    e.preventDefault();
+    button.setPointerCapture(e.pointerId);
+    unlockAudio();
+    keyboard.down(button.dataset.key, performance.now(), !paused);
+  };
+  button.onpointerup = release;
+  button.onpointercancel = release;
+  button.onlostpointercapture = release;
+}
 $("camera-button").onclick = () => scene?.toggleCamera();
 $("pause-button").onclick = () => {
   if (activePair) return;
@@ -555,6 +626,10 @@ $("pause-button").onclick = () => {
 };
 $("reset-button").onclick = () => {
   if (activePair && (!battleActive || role !== "host")) return;
+  if (campaign) {
+    campaign = createCampaign(campaign.id, campaign.difficulty);
+    arcadeCPU = createCPU(campaign.difficulty);
+  }
   resetMatch();
 };
 $("sound-button").onclick = () => {
@@ -732,7 +807,11 @@ function updateHUD() {
       match.winner === -1
         ? "DRAW"
         : `${character(match.fighters[match.winner].character).name} WINS`;
-    sub = "다시 시작 ↻ 또는 로비로 돌아가기";
+    sub = campaign
+      ? campaign.stage === 7
+        ? "ARCADE CLEAR · 7명 격파"
+        : "GAME OVER · 아케이드 버튼으로 다시 도전"
+      : "다시 시작 ↻ 또는 로비로 돌아가기";
   }
   $("announcement").classList.toggle("hidden", !title);
   $("announcement-text").textContent = title;
@@ -760,6 +839,14 @@ function updateHUD() {
     f.lastMoveAge < 1.8 && move
       ? `${move.name} · ${move.startup}F`
       : "U LP / I RP / J LK / K RK";
+  $("training-level").hidden = !!activePair || !!campaign;
+  $("training-level").textContent = match.fighters
+    .map((f, i) => {
+      const move = f.attack ? moveFor(f) : null;
+      const level = move?.level ?? (f.hitFlash > 0 ? f.hitLevel : null);
+      return `P${i + 1}: ${level ? { high: "상단", mid: "중단", low: "하단", throw: "잡기" }[level] : "—"}`;
+    })
+    .join("  /  ");
   $("stage-depth").textContent =
     `AXIS ${((match.axisAngle * 180) / Math.PI).toFixed(0)}° · ∞`;
   $("combo-display").hidden = f.combo < 2 || f.comboAge > 1.5;
@@ -787,7 +874,22 @@ function frame(now) {
         remoteInput.clear();
       const opponent = battleActive ? remoteInput.sample() : null;
       if (battleActive) step(match, [input, opponent]);
-      else
+      else if (campaign) {
+        if (match.phase === "matchEnd" && !campaign.finished) {
+          const result = advanceCampaign(campaign, match.winner);
+          if (result === "next") {
+            arcadeCPU = createCPU(campaign.difficulty);
+            resetMatch([campaign.id, campaign.opponents[campaign.stage]]);
+          } else {
+            campaign.finished = true;
+            toast(
+              result === "cleared"
+                ? "ARCADE CLEAR · 7명 모두 격파!"
+                : "GAME OVER · 아케이드를 다시 시작하세요.",
+            );
+          }
+        } else step(match, [input, arcadeCPU(match)]);
+      } else
         stepPractice(match, input, {
           behavior: practiceBehavior,
           infiniteHealth,
@@ -812,6 +914,9 @@ updateMode();
 updateRecommendations();
 requestAnimationFrame(frame);
 window.axis = {
+  get arcade() {
+    return campaign ? structuredClone(campaign) : null;
+  },
   get practice() {
     return { behavior: practiceBehavior, infiniteHealth };
   },

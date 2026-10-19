@@ -163,7 +163,7 @@ func (l *portableLobby) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		l.Lock()
 		n := len(l.clients)
 		l.Unlock()
-		jsonResponse(w, 200, map[string]any{"service": "axis-matchmaking", "version": 12, "online": n, "portable": true})
+		jsonResponse(w, 200, map[string]any{"service": "axis-matchmaking", "version": 13, "online": n, "portable": true})
 		return
 	}
 	var body struct {
@@ -190,7 +190,11 @@ func (l *portableLobby) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		l.rates[address] = rate
 	}
 	rate.Count++
-	if rate.Count > 600 {
+	limit := 600
+	if body.Type == "signal" {
+		limit = 1200
+	}
+	if rate.Count > limit {
 		l.Unlock()
 		fail(429, "요청이 너무 많습니다.")
 		return
@@ -348,17 +352,22 @@ func (l *portableLobby) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			Type      string
 			SDP       string
 			Candidate json.RawMessage
+			Packets   []json.RawMessage
 		}
 		if m == nil || json.Unmarshal(body.Data, &signal) != nil {
 			fail(400, "연결할 상대가 없습니다.")
 			return
 		}
-		if signal.Type != "offer" && signal.Type != "answer" && signal.Type != "candidate" {
+		if signal.Type != "offer" && signal.Type != "answer" && signal.Type != "candidate" && signal.Type != "relay" {
 			fail(400, "올바른 연결 메시지가 아닙니다.")
 			return
 		}
-		if signal.Type != "candidate" && (signal.SDP == "" || len(signal.SDP) > 64000) {
+		if signal.Type != "candidate" && signal.Type != "relay" && (signal.SDP == "" || len(signal.SDP) > 64000) {
 			fail(400, "올바른 SDP가 필요합니다.")
+			return
+		}
+		if signal.Type == "relay" && (len(signal.Packets) == 0 || len(signal.Packets) > 8 || len(body.Data) > 64000) {
+			fail(400, "Invalid relay packet")
 			return
 		}
 		if signal.Type == "candidate" && string(signal.Candidate) != "null" {
