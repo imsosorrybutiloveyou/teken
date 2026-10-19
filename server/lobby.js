@@ -10,7 +10,6 @@ export function createLobby({
   const clients = new Map(),
     rooms = new Map(),
     matches = new Map(),
-    queue = [],
     rates = new Map();
   const send = (client, message) => {
     if (!client) return;
@@ -34,13 +33,10 @@ export function createLobby({
       type: "rooms",
       rooms: roomList(),
       online: clients.size,
-      waiting: queue.length,
     };
     for (const c of clients.values()) send(c, message);
   };
   function leave(c, notify = true) {
-    for (let n = queue.length - 1; n >= 0; n--)
-      if (queue[n] === c.id) queue.splice(n, 1);
     for (const [key, r] of rooms) if (r.host === c.id) rooms.delete(key);
     if (c.match) {
       const match = matches.get(c.match);
@@ -155,7 +151,7 @@ export function createLobby({
         response.end(
           JSON.stringify({
             service: "axis-matchmaking",
-            version: 6,
+            version: 7,
             online: clients.size,
           }),
         );
@@ -207,7 +203,6 @@ export function createLobby({
           type: "rooms",
           rooms: roomList(),
           online: clients.size,
-          waiting: queue.length,
         });
         if (c.match) {
           const m = matches.get(c.match);
@@ -233,27 +228,6 @@ export function createLobby({
           return true;
         }
         switch (body.type) {
-          case "quick": {
-            if (c.match) throw Error("현재 대전을 먼저 종료하세요.");
-            leave(c);
-            const candidate = queue
-              .map((key) => clients.get(key))
-              .find(
-                (other) =>
-                  other &&
-                  other.id !== c.id &&
-                  !other.match &&
-                  other.stream &&
-                  !other.stream.destroyed,
-              );
-            if (candidate) pair(candidate, c, "quick");
-            else {
-              queue.push(c.id);
-              send(c, { type: "queued", mode: "quick" });
-              broadcast();
-            }
-            break;
-          }
           case "createRoom": {
             if (c.match) throw Error("현재 대전을 먼저 종료하세요.");
             leave(c);
@@ -366,13 +340,11 @@ export function createLobby({
       clients.clear();
       rooms.clear();
       matches.clear();
-      queue.length = 0;
     },
     stats: () => ({
       sessions: clients.size,
       rooms: rooms.size,
       matches: matches.size,
-      queued: queue.length,
     }),
   };
 }

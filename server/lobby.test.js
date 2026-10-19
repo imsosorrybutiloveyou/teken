@@ -98,14 +98,15 @@ async function fixture(t) {
   }
   return { base, lobby, client };
 }
-test("quick match pairs distinct waiting players and selects characters only after matching", async (t) => {
+test("player match pairs the room host and chosen guest and selects characters only after matching", async (t) => {
   const f = await fixture(t),
     a = await f.client("Alpha"),
     b = await f.client("Beta");
   assert.equal((await a.action("select", { character: "kai" })).status, 400);
-  await a.action("quick");
-  await a.wait("queued");
-  await b.action("quick");
+  assert.equal((await a.action("quick")).status, 400);
+  await a.action("createRoom", { name: "Test room" });
+  const { roomId } = await a.wait("queued");
+  await b.action("joinRoom", { roomId });
   const pa = await a.wait("paired"),
     pb = await b.wait("paired");
   assert.equal(pa.matchId, pb.matchId);
@@ -142,15 +143,15 @@ test("only paired players relay signals and cancellation permits another match",
     (await c.action("signal", { data: { type: "offer", sdp: "v=0" } })).status,
     400,
   );
-  await a.action("quick");
-  await b.action("quick");
+  await a.action("createRoom", { name: "Room" });
+  await b.action("joinRoom", { roomId: (await a.wait("queued")).roomId });
   await a.wait("paired");
   await a.action("signal", { data: { type: "offer", sdp: "v=0\r\ns=test" } });
   assert.equal((await b.wait("signal")).data.type, "offer");
   await b.action("cancel");
   await a.wait("opponentLeft");
-  await a.action("quick");
-  await c.action("quick");
+  await a.action("createRoom", { name: "Next room" });
+  await c.action("joinRoom", { roomId: (await a.wait("queued")).roomId });
   assert.equal((await c.wait("paired")).opponent, "A");
 });
 test("invalid session tokens cannot select, spoof or relay", async (t) => {
@@ -172,8 +173,8 @@ test("disconnect removes waiting rooms and informs a paired opponent", async (t)
   const f = await fixture(t),
     a = await f.client("A"),
     b = await f.client("B");
-  await a.action("quick");
-  await b.action("quick");
+  await a.action("createRoom", { name: "Room" });
+  await b.action("joinRoom", { roomId: (await a.wait("queued")).roomId });
   await b.wait("paired");
   a.abort();
   await b.wait("opponentLeft");
