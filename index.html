@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0b0d12" />
+    <title>AXIS — 3D Fighting Arena</title>
+  </head>
+  <body>
+    <div id="app">
+      <header class="topbar">
+        <a class="brand" href="./" aria-label="AXIS 홈"
+          >AXIS<span>FIGHTING ARENA</span></a
+        >
+        <div class="top-center">
+          <span class="live-dot"></span> REAL-TIME 3D COMBAT
+          <span class="version">/ VOL. 01</span>
+        </div>
+        <button id="online-button" class="button small">
+          <span class="connection-icon">⌁</span> 온라인 대전 <span>↗</span>
+        </button>
+      </header>
+      <main>
+        <section class="title-row">
+          <div>
+            <div class="eyebrow">ENTER THE NEXT DIMENSION</div>
+            <h1>한계를 넘어, <em>다음 한 수.</em></h1>
+            <p>거리를 읽고, 축을 바꾸고, 당신의 콤보를 완성하세요.</p>
+          </div>
+          <div class="mode-switch" aria-label="게임 모드">
+            <button id="practice-button" class="selected">
+              연습 대전 <span>CPU</span></button
+            ><button id="pvp-button">온라인 <span>P2P</span></button>
+          </div>
+        </section>
+        <section class="arena" aria-label="3D 대전 경기장">
+          <canvas id="game" aria-label="3D 격투 게임"></canvas>
+          <div class="arena-grain"></div>
+          <div class="hud">
+            <div class="fighter-hud">
+              <div class="fighter-label">
+                <span><i class="player-tag">P1</i> <b id="p1-name">KAI</b></span
+                ><small id="p1-role">YOU</small>
+              </div>
+              <div class="health-track">
+                <div id="health-0" class="health-fill"></div>
+              </div>
+              <div class="round-dots" id="rounds-0">
+                <i></i><i></i><span>AZURE FIST</span>
+              </div>
+            </div>
+            <div class="timer-block">
+              <span>ROUND <b id="round-number">01</b></span
+              ><strong id="timer">60</strong><small>FIRST TO 2</small>
+            </div>
+            <div class="fighter-hud right">
+              <div class="fighter-label">
+                <span
+                  ><b id="p2-name">REN</b>
+                  <i class="player-tag red">P2</i></span
+                ><small id="p2-role">CPU · NORMAL</small>
+              </div>
+              <div class="health-track">
+                <div id="health-1" class="health-fill"></div>
+              </div>
+              <div class="round-dots" id="rounds-1">
+                <i></i><i></i><span>CRIMSON EDGE</span>
+              </div>
+            </div>
+          </div>
+          <div class="arena-label">
+            <span class="live-dot"></span
+            ><span id="arena-mode">PRACTICE MATCH</span
+            ><span class="divider">/</span> SECTOR 07 · THE GRID
+          </div>
+          <div id="announcement" class="announcement">
+            <small id="announcement-sub">SECTOR 07</small
+            ><strong id="announcement-text">READY</strong>
+          </div>
+          <div id="combo-display" class="combo-display" hidden>
+            <strong id="combo-count">2</strong
+            ><span>HIT COMBO<small id="combo-damage">24 DAMAGE</small></span>
+          </div>
+          <div class="arena-bottom">
+            <span
+              ><i></i>
+              <span id="connection-status">로컬 연습 · CPU 활성</span></span
+            ><button id="camera-button" title="카메라 시점 변경">
+              ◈ <span>시점 변경</span></button
+            ><button id="pause-button" title="일시정지">
+              Ⅱ <span>일시정지</span></button
+            ><button id="reset-button" title="대전 다시 시작">
+              ↻ <span>다시 시작</span></button
+            ><button id="sound-button" aria-pressed="false" title="효과음 켜기">
+              ♫ <span>사운드 OFF</span>
+            </button>
+          </div>
+          <div class="key-hint">
+            W / S <span>횡이동</span> <b>↔</b> A / D <span>앞뒤 이동</span>
+          </div>
+          <div id="loading" class="loading">경기장을 준비하고 있습니다…</div>
+        </section>
+        <section class="below-arena">
+          <div class="control-panel">
+            <div class="panel-heading">
+              <h2><span>01</span> CONTROLS <small>조작법</small></h2>
+              <span class="keyboard-note">KEYBOARD PLAY</span>
+            </div>
+            <div class="control-groups">
+              <div class="control-group movement">
+                <div class="keys">
+                  <kbd>W</kbd>
+                  <div><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></div>
+                </div>
+                <div>
+                  <b>MOVE & SIDESTEP</b>
+                  <p>A / D 앞뒤 이동 · W / S 횡이동</p>
+                </div>
+              </div>
+              <div class="control-group">
+                <div class="attack-keys">
+                  <kbd>J</kbd><kbd>K</kbd><kbd>U</kbd><kbd>I</kbd>
+                </div>
+                <b>ATTACK</b>
+                <p>잽 · 돌려차기 · 하단킥 · 띄우기</p>
+              </div>
+              <div class="control-group">
+                <div class="attack-keys">
+                  <kbd>L</kbd><kbd class="wide">SHIFT</kbd><kbd>O</kbd>
+                </div>
+                <b>DEFENSE & THROW</b>
+                <p>L 가드 · Shift 앉기 · O 잡기</p>
+              </div>
+            </div>
+          </div>
+          <div class="combo-panel">
+            <div class="panel-heading">
+              <h2><span>02</span> COMBO LAB <small>추천 연속기</small></h2>
+              <button id="moves-button">기술표 보기 ↗</button>
+            </div>
+            <div class="combo-row">
+              <span class="combo-type">BASIC</span>
+              <div><kbd>J</kbd><i>→</i><kbd>J</kbd><i>→</i><kbd>K</kbd></div>
+              <span>원 투 피니시</span>
+            </div>
+            <div class="combo-row">
+              <span class="combo-type accent">AIR</span>
+              <div><kbd>I</kbd><i>→</i><kbd>J</kbd><i>→</i><kbd>K</kbd></div>
+              <span>런처 에어 콤보</span>
+            </div>
+            <p class="lab-tip">
+              <span>↳</span> 공격 중 다음 키를 입력하면 기술이 이어집니다.
+            </p>
+          </div>
+        </section>
+        <div class="footer">
+          <span
+            >AXIS PROJECT <span class="footer-slash">/</span> BUILT FOR THE
+            FIGHT.</span
+          ><span
+            >3D FREE MOVEMENT <i>·</i> P2P MULTIPLAYER <i>·</i> NO ACCOUNT
+            NEEDED</span
+          >
+        </div>
+      </main>
+    </div>
+    <dialog id="online-dialog">
+      <form method="dialog">
+        <button class="close" aria-label="닫기">×</button>
+      </form>
+      <div class="eyebrow">PEER TO PEER</div>
+      <h2>당신의 다음 상대는?</h2>
+      <p class="dialog-intro">
+        초대 코드와 응답 코드를 메신저로 교환하세요.<br />연결 후 게임 데이터는
+        두 브라우저 사이로 직접 전달됩니다.
+      </p>
+      <div class="online-tabs">
+        <button id="host-tab" class="selected">방 만들기</button
+        ><button id="guest-tab">초대받아 참가</button>
+      </div>
+      <div id="host-panel">
+        <ol class="steps">
+          <li>초대 코드를 생성해 상대에게 보내세요.</li>
+          <li>상대가 보낸 응답 코드를 아래에 붙여넣으세요.</li>
+        </ol>
+        <button id="create-offer" class="button primary">
+          초대 코드 생성 ↗
+        </button>
+      </div>
+      <div id="guest-panel" hidden>
+        <p>받은 초대 코드를 아래에 붙여넣고 응답을 생성하세요.</p>
+      </div>
+      <label class="field-label" for="remote-code" id="remote-label"
+        >상대의 응답 코드</label
+      ><textarea
+        id="remote-code"
+        placeholder="여기에 연결 코드를 붙여넣으세요"
+        spellcheck="false"
+      ></textarea
+      ><button id="apply-code" class="button primary">응답 적용 · 연결</button>
+      <div id="local-code-panel" hidden>
+        <label class="field-label" for="local-code" id="local-label"
+          >나의 초대 코드</label
+        ><textarea id="local-code" readonly spellcheck="false"></textarea
+        ><button id="copy-code" class="button">코드 복사</button>
+      </div>
+      <p id="online-status" role="status">연결 대기 중</p>
+      <p class="network-note">
+        일부 회사망·통신사 NAT에서는 직접 연결이 제한될 수 있습니다. 이 버전은
+        TURN 중계 서버를 사용하지 않습니다. 연결 중에는 창을 열어 두세요.
+      </p>
+      <button id="disconnect-button" class="text-button">
+        연결 해제 · CPU로 돌아가기
+      </button>
+    </dialog>
+    <dialog id="moves-dialog">
+      <form method="dialog">
+        <button class="close" aria-label="닫기">×</button>
+      </form>
+      <div class="eyebrow">KNOW YOUR FIGHTER</div>
+      <h2>기술 & 전투 가이드</h2>
+      <div id="move-list"></div>
+      <p class="network-note">
+        상단: 서서 가드 / 앉아서 회피 · 중단: 서서 가드 · 하단: Shift + L로
+        가드. 가드는 상대를 향할 때 자동 적용됩니다. 횡이동으로 공격 축을 피할
+        수 있습니다. 잡기는 근거리에서 가드를 무시합니다.
+      </p>
+      <p class="network-note">
+        연습전은 P1을 조작합니다. 온라인 호스트는 P1, 참가자는 P2입니다. A/D는
+        화면 좌우 방향이며, 두 캐릭터는 항상 상대를 바라봅니다. Shift로 앉으면
+        이동이 느려집니다.
+      </p>
+    </dialog>
+    <div id="toast" role="status" hidden></div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
