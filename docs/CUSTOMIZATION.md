@@ -109,8 +109,11 @@ npm run package:windows
 ```text
 release/AXIS-Windows-x64.exe
 release/AXIS-Windows-x64.exe.sha256
+release/latest.json
 ```
 
-두 파일을 `downloads/`에 복사해 기존 파일을 교체하세요. GitHub 웹에서는 `downloads/`의 **Add file → Upload files**로 같은 이름의 두 파일을 함께 업로드해 커밋할 수 있습니다. 소스·JSON·에셋·생성한 프레임표도 함께 반영하세요. 기존 **Windows EXE 다운로드** 링크가 새 파일을 가리킵니다. 이전 버전의 커밋에 고정된 링크는 계속 이전 파일을 받습니다.
+세 파일을 `downloads/`에 복사해 기존 파일을 교체하세요. GitHub 웹에서는 `downloads/`의 **Add file → Upload files**로 같은 이름의 세 파일을 함께 업로드해 커밋할 수 있습니다. 소스·JSON·에셋·생성한 프레임표도 함께 반영하세요. 기존 **Windows EXE 다운로드** 링크가 새 파일을 가리킵니다. 이전 버전의 커밋에 고정된 링크는 계속 이전 파일을 받습니다.
 
 로컬 확인은 `npm run dev`로 실행한 뒤 캐릭터 선택·기술·타격음을 확인하세요. 개발자 도구 Console/Network에서 파일명 오타·404·JSON 문법을 확인할 수 있습니다. EXE 배포 뒤에는 두 플레이어가 새 EXE를 다시 다운로드해야 합니다.
+
+새 버전 번호 변경과 업데이트 감지 게시 방법은 [업데이트 안내](UPDATES.md)를 참고하세요.

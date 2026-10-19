@@ -1,7 +1,7 @@
 import { CHARACTERS, character, moveFor } from "./characters.js";
 export { CHARACTERS, moveFor };
 export const MAX_HP = 120;
-export const JUGGLE_LIMIT = 6;
+
 const GRAVITY = 20;
 export const WALK_SPEED = 3.5;
 export const FORWARD_SPEED = 4.0;
@@ -132,7 +132,7 @@ function fighter(x, id, index) {
 }
 export function createMatch(ids = ["kai", "ren"]) {
   return {
-    version: 7,
+    version: 8,
     axisAngle: 0,
     hitstop: 0,
     fighters: [
@@ -191,13 +191,7 @@ function resolveHit(m, index) {
   )
     return false;
   const airborne = b.y > 0.01 || b.vy !== 0;
-  if (
-    airborne &&
-    (b.airHits >= JUGGLE_LIMIT ||
-      b.bouncePending ||
-      b.y > move.airMax ||
-      b.y < move.airMin)
-  )
+  if (airborne && (b.bouncePending || b.y > move.airMax || b.y < move.airMin))
     return false;
   if (move.level === "throw" && (b.y > 0.2 || b.crouch || b.stun > 0))
     return false;
@@ -291,7 +285,9 @@ function resolveHit(m, index) {
   b.buffer = null;
   b.guard = false;
   b.hitFlash = 0.13;
-  const push = move.push * (airborne ? 0.38 : move.launch ? 0.65 : 1);
+  const push = airborne
+    ? move.push * (0.38 + b.airHits * 0.18) + b.airHits * 0.22
+    : move.push * (move.launch ? 0.65 : 1);
   b.vx = Math.cos(atk.angle) * push;
   b.vz = Math.sin(atk.angle) * push;
   if (move.knockdown && !airborne) {
@@ -316,7 +312,7 @@ function resolveHit(m, index) {
       b.vy = -6;
     } else {
       // Keep the target reachable without raising it indefinitely on repeated hits.
-      const lift = Math.max(2.4, 5 - b.airHits * 0.4);
+      const lift = Math.max(0.2, 5 - b.airHits * 0.36);
       b.vy = Math.min(lift, Math.sqrt(Math.max(0, 2 * GRAVITY * (1.85 - b.y))));
     }
     b.stun = Math.max(b.stun, 0.5);
@@ -367,6 +363,7 @@ export function step(m, rawInputs, dt = 1 / 60) {
     if (m.phaseTime <= 0) {
       if (m.phase === "ready") {
         m.phase = "fight";
+        m.phaseTime = 0.6;
         emit(m, "fight");
       } else {
         m.round++;
@@ -385,6 +382,7 @@ export function step(m, rawInputs, dt = 1 / 60) {
     }
     return;
   }
+  m.phaseTime = Math.max(0, m.phaseTime - dt);
   const [fa, fb] = m.fighters;
   m.axisAngle = Math.atan2(fb.z - fa.z, fb.x - fa.x);
   // Defense is sampled for both players before either attack resolves; player order grants no guard advantage.
@@ -526,7 +524,6 @@ export function step(m, rawInputs, dt = 1 / 60) {
         f.buffer &&
         other.y > 0 &&
         other.airOwner === i &&
-        other.airHits < JUGGLE_LIMIT &&
         move.juggleCancel !== null &&
         f.attack.t >= move.windup + move.juggleCancel / 60;
       const chainCancel =
@@ -647,7 +644,6 @@ export function cpuInput(m, index = 1) {
   if (
     o.y > 0 &&
     o.airOwner === index &&
-    o.airHits < JUGGLE_LIMIT &&
     f.stun === 0 &&
     !f.buffer &&
     (!f.attack || f.attack.connected) &&

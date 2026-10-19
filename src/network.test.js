@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { validSnapshot } from "./network.js";
 import { createMatch } from "./combat.js";
-test("v7 snapshots accept four-fighter roster and infinite world coordinates", () => {
+test("v8 snapshots accept four-fighter roster and infinite world coordinates", () => {
   const m = createMatch(["mira", "goro"]);
   m.fighters[0].x = 30000;
   m.fighters[1].z = -12000;
@@ -31,7 +31,9 @@ test("juggle and landing state are validated for new moves", () => {
   m.fighters[1].airHits = 4;
   m.fighters[1].bounceUsed = true;
   assert.ok(validSnapshot(m));
-  m.fighters[1].airHits = 7;
+  m.fighters[1].airHits = 8;
+  assert.ok(validSnapshot(m));
+  m.fighters[1].airHits = 1000001;
   assert.equal(validSnapshot(m), false);
   m.fighters[1].airHits = 2;
   m.fighters[1].bouncePending = "yes";

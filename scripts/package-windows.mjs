@@ -12,6 +12,9 @@ import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const go = process.env.GO_BINARY || "go";
+const version = JSON.parse(
+  readFileSync(path.join(root, "package.json"), "utf8"),
+).version;
 const env = { ...process.env, CGO_ENABLED: "0" };
 const run = (exe, args, cwd = root, extraEnv = {}) =>
   execFileSync(exe, args, {
@@ -31,7 +34,14 @@ const filename = "AXIS-Windows-x64.exe";
 const executable = path.join(release, filename);
 run(
   go,
-  ["build", "-trimpath", "-ldflags=-s -w", "-o", executable, "."],
+  [
+    "build",
+    "-trimpath",
+    `-ldflags=-s -w -X main.currentVersion=${version}`,
+    "-o",
+    executable,
+    ".",
+  ],
   path.join(root, "desktop"),
   { GOOS: "windows", GOARCH: "amd64" },
 );
@@ -48,6 +58,17 @@ const checksum = createHash("sha256").update(bytes).digest("hex");
 writeFileSync(
   path.join(release, filename + ".sha256"),
   `${checksum}  ${filename}\n`,
+);
+writeFileSync(
+  path.join(release, "latest.json"),
+  JSON.stringify(
+    {
+      version,
+      sha256: checksum,
+    },
+    null,
+    2,
+  ) + "\n",
 );
 console.log(
   `\nWindows x64 executable created: ${executable}\nSize: ${(bytes.length / 1024 / 1024).toFixed(1)} MiB\nSHA-256: ${checksum}`,

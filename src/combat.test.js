@@ -314,7 +314,7 @@ test("a missed or blocked launcher cannot cancel into a follow-up", () => {
     assert.equal(m.fighters[1].y, 0);
   }
 });
-test("airborne pressure ends at six follow-ups, and landing grants recovery protection", () => {
+test("unmoving jab pressure ends through pushback and falling, and landing grants recovery protection", () => {
   const m = setup(["kai", "kai"]);
   feed(m, { ...dirInput(3), action: "i" });
   let launched = false,
@@ -327,7 +327,7 @@ test("airborne pressure ends at six follow-ups, and landing grants recovery prot
     if (target.y > 0) launched = true;
     for (const hit of m.events.filter((e) => e.type === "hit")) {
       hits++;
-      assert.ok(hit.combo <= 7);
+      assert.ok(hit.combo >= 1);
     }
     peak = Math.max(peak, target.airHits);
     if (launched && target.y === 0) {
@@ -341,8 +341,8 @@ test("airborne pressure ends at six follow-ups, and landing grants recovery prot
     }
   }
   assert.ok(landed);
-  assert.equal(peak, 6);
-  assert.equal(hits, 7);
+  assert.ok(peak > 1);
+  assert.ok(hits > 1);
 });
 test("low kicks cannot juggle a high airborne opponent and throw cannot grab it", () => {
   for (const action of ["j+k", "u+i"]) {
@@ -769,4 +769,39 @@ test("practice dummy stays still with infinite HP/time while keeping real combos
     });
   assert.ok(other.fighters[1].hp < MAX_HP);
   assert.ok(other.time < 60);
+});
+
+test("airborne hits beyond seven remain hittable with increasing recoil and less lift on either side", () => {
+  for (const index of [0, 1]) {
+    const recoils = [],
+      lifts = [];
+    for (const count of [0, 3, 7, 10]) {
+      const m = setup(["kai", "kai"]),
+        a = m.fighters[index],
+        b = m.fighters[1 - index];
+      b.y = 0.9;
+      b.vy = 0;
+      b.airHits = count;
+      b.airOwner = index;
+      b.stun = 0.5;
+      a.attack = { key: "u", t: 9 / 60, angle: index === 0 ? 0 : Math.PI };
+      feed(m, {}, 1, index);
+      assert.equal(b.airHits, count + 1);
+      assert.ok(b.hp < MAX_HP);
+      recoils.push(Math.hypot(b.vx, b.vz));
+      lifts.push(b.vy);
+    }
+    for (let n = 1; n < recoils.length; n++) {
+      assert.ok(recoils[n] > recoils[n - 1]);
+      assert.ok(lifts[n] < lifts[n - 1]);
+    }
+  }
+});
+test("infinite practice clock does not keep the fight announcement alive", () => {
+  const m = createMatch();
+  for (let n = 0; n < 180; n++)
+    stepPractice(m, emptyInput(), { behavior: "dummy", infiniteHealth: true });
+  assert.equal(m.phase, "fight");
+  assert.equal(m.time, 60);
+  assert.equal(m.phaseTime, 0);
 });

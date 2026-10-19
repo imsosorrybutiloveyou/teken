@@ -571,6 +571,10 @@ window.addEventListener("keydown", (event) => {
     unlockAudio();
     if (!event.repeat) keyboard.down(key, performance.now(), !paused);
   }
+  if (key === "h" && !event.repeat) {
+    event.preventDefault();
+    openMoves();
+  }
   if (key === "escape" && !activePair) {
     paused = !paused;
     keyboard.clear();
@@ -640,15 +644,17 @@ for (const id of CHARACTER_IDS) {
   button.onclick = () => renderMoves(id);
   $("move-character-tabs").append(button);
 }
-$("moves-button").onclick = () => {
+function openMoves() {
   keyboard.clear();
   if (!activePair) {
     paused = true;
     updateMode();
   }
   renderMoves(match.fighters[role === "guest" ? 1 : 0].character);
-  $("moves-dialog").showModal();
-};
+  if (!$("moves-dialog").open) $("moves-dialog").showModal();
+}
+$("moves-button").onclick = openMoves;
+$("arena-moves-button").onclick = openMoves;
 function updateRecommendations() {
   const p = character(match.fighters[role === "guest" ? 1 : 0].character);
   $("recommended-string").textContent = p.chain.join(" › ").toUpperCase();
@@ -699,7 +705,7 @@ function updateHUD() {
   } else if (match.phase === "ready") {
     title = match.phaseTime > 0.5 ? `ROUND ${match.round}` : "READY";
     sub = activePair ? "ONLINE P2P MATCH" : "PRACTICE MATCH";
-  } else if (match.phase === "fight" && match.time > 59.4) {
+  } else if (match.phase === "fight" && match.phaseTime > 0) {
     title = "FIGHT";
   } else if (match.phase === "roundEnd") {
     title = match.time > 0 ? "K.O." : "TIME UP";

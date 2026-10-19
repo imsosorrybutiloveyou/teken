@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
@@ -56,7 +57,14 @@ func openBrowser(url string) error {
 func run() error {
 	noBrowser := flag.Bool("no-browser", false, "Start the local game server without opening a browser")
 	hostAddress := flag.String("host", "", "Join an existing host URL; empty automatically discovers a LAN host or becomes the host")
+	skipUpdate := flag.Bool("no-update", false, "Skip GitHub update check")
 	flag.Parse()
+	if runtime.GOOS == "windows" && !*skipUpdate {
+		exe, err := os.Executable()
+		if err == nil {
+			offerUpdate(os.Stdin, os.Stdout, &http.Client{Timeout: 6 * time.Second}, updateManifestURL, updateDownloadURL, filepath.Dir(exe))
+		}
+	}
 	handler, err := gameHandler()
 	if err != nil {
 		return err
@@ -83,7 +91,7 @@ func run() error {
 	defer listener.Close()
 	server := &http.Server{Handler: mux, ReadHeaderTimeout: 5 * time.Second}
 	url := "http://" + listener.Addr().String()
-	fmt.Println("\n  AXIS ADVANCE - Pixel Fighting | v3.5.0")
+	fmt.Println("\n  AXIS ADVANCE - Pixel Fighting | v" + currentVersion)
 	fmt.Println("  --------------------------------")
 	fmt.Println("  Game ready: " + url)
 	fmt.Println("  Your browser will open the game automatically.")
