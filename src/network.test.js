@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { validSnapshot } from "./network.js";
 import { createMatch } from "./combat.js";
-test("v9 snapshots accept four-fighter roster and infinite world coordinates", () => {
+test("v11 snapshots accept eight-fighter roster and infinite world coordinates", () => {
   const m = createMatch(["mira", "goro"]);
   m.fighters[0].x = 30000;
   m.fighters[1].z = -12000;
@@ -49,4 +49,16 @@ test("knockdown duration is bounded and advanced attack keys are accepted", () =
   assert.equal(validSnapshot(m), false);
   m.fighters[1].downTime = 10;
   assert.equal(validSnapshot(m), false);
+});
+
+test("heavy knockdown and wake-up attacks synchronize with bounded recovery", () => {
+  for (const id of ["boru", "atlas"]) {
+    const m = createMatch([id, "kai"]);
+    m.fighters[1].downTime = 0.94;
+    m.fighters[1].wakeUp = 1.04;
+    m.fighters[0].attack = { key: "wakeLow", t: 0.1, angle: 0 };
+    assert.ok(validSnapshot(m));
+    m.fighters[1].wakeUp = 2.1;
+    assert.equal(validSnapshot(m), false);
+  }
 });

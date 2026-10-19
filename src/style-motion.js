@@ -1,6 +1,9 @@
 // Authored chamber/contact targets. Anatomy is constrained by scene.js after blending.
 // arm / foot / knee / body determine the actual striking part, not just an effect tint.
 export const STYLE_MOTIONS = {
+  divingElbow: ["arm", [60, 15], [84, 68]],
+  fallingPalm: ["arm", [42, 12], [90, 72]],
+  craneChop: ["arm", [68, 10], [86, 70]],
   swordThrust: ["arm", [46, 50], [97, 40]],
   swordSlash: ["arm", [32, 19], [91, 58]],
   swordRise: ["arm", [46, 74], [75, 21]],

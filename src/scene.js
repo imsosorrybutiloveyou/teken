@@ -550,21 +550,33 @@ export function spritePose(f, t) {
       pose.hands[i][0] = mix(pose.hands[i][0], 48 + i * 14, prone);
     }
   }
+  const anatomy = character(f.character).anatomy ?? {
+    upperArm: 19,
+    forearm: 20,
+    thigh: 24,
+    shin: 25,
+  };
+  if (f.character === "boru") {
+    pose.hip[1] += 12;
+    pose.shoulders[0][0] -= 3;
+    pose.shoulders[1][0] += 3;
+    for (const hand of pose.hands) hand[0] += 10;
+  }
   for (const i of [0, 1]) {
     const shoulder = [pose.shoulders[i][0] + pose.lean, pose.shoulders[i][1]];
     [pose.elbows[i], pose.hands[i]] = fitLimb(
       shoulder,
       pose.elbows[i],
       pose.hands[i],
-      19,
-      20,
+      anatomy.upperArm,
+      anatomy.forearm,
     );
     [pose.knees[i], pose.feet[i]] = fitLimb(
       [pose.hip[0] + (i ? 5 : -5), pose.hip[1]],
       pose.knees[i],
       pose.feet[i],
-      24,
-      25,
+      anatomy.thigh,
+      anatomy.shin,
       -1,
     );
   }
@@ -607,6 +619,17 @@ function paintSprite(c, f, index, t) {
     c.translate(55, 75);
     c.rotate(-swing * 1.5);
     c.translate(-55, -75 - swing * 12);
+  }
+  if (
+    f.attack?.key.startsWith("wake") ||
+    (f.lastMove === "backRise" && f.lastMoveAge < 0.2)
+  ) {
+    const rise = f.attack
+      ? f.attack.t / (moveFor(f).windup * 0.7)
+      : f.lastMoveAge / 0.2;
+    c.translate(68, 82);
+    c.rotate((-Math.PI / 2) * (1 - smooth(rise)));
+    c.translate(-68, -82);
   }
   if (f.downTime > 0) {
     const prone =
@@ -679,11 +702,18 @@ function paintSprite(c, f, index, t) {
       c,
       shoulders[i],
       pose.elbows[i],
-      9,
+      f.character === "boru" ? 15 : 9,
       i ? p.skin : p.skinDark,
       p.skinLight,
     );
-    limb(c, pose.elbows[i], pose.hands[i], 8, p.skin, p.skinLight);
+    limb(
+      c,
+      pose.elbows[i],
+      pose.hands[i],
+      f.character === "boru" ? 13 : 8,
+      p.skin,
+      p.skinLight,
+    );
     const hand = pose.hands[i];
     rect(c, hand[0] - 5, hand[1] - 5, 11, 11, OUTLINE);
     rect(c, hand[0] - 4, hand[1] - 4, 9, 8, p.glove);

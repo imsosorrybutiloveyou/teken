@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import { spritePose, attackEffectPaths } from "./scene.js";
 import { createMatch } from "./combat.js";
 import { CHARACTERS } from "./characters.js";
+const anatomy = (p) =>
+  p.anatomy ?? { upperArm: 19, forearm: 20, thigh: 24, shin: 25 };
 const distance = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
 test("every attack keeps fixed upper/lower limb lengths throughout its animation", () => {
   for (const p of Object.values(CHARACTERS))
@@ -23,10 +25,10 @@ test("every attack keeps fixed upper/lower limb lengths throughout its animation
             ];
             const hip = [pose.hip[0] + (i ? 5 : -5), pose.hip[1]];
             for (const [a, b, length] of [
-              [shoulder, pose.elbows[i], 19],
-              [pose.elbows[i], pose.hands[i], 20],
-              [hip, pose.knees[i], 24],
-              [pose.knees[i], pose.feet[i], 25],
+              [shoulder, pose.elbows[i], anatomy(p).upperArm],
+              [pose.elbows[i], pose.hands[i], anatomy(p).forearm],
+              [hip, pose.knees[i], anatomy(p).thigh],
+              [pose.knees[i], pose.feet[i], anatomy(p).shin],
             ])
               assert.ok(
                 Math.abs(distance(a, b) - length) < 1e-6,
@@ -51,7 +53,7 @@ test("a kick chambers its knee, extends at contact and folds back during recover
   assert.ok(impact.hands[0][1] < 50, "opposite hand stays near the guard");
 });
 
-test("all 40 moves have different visible paths and pose sequences for every fighter", () => {
+test("all 42 moves have different visible paths and pose sequences for every fighter", () => {
   for (const p of Object.values(CHARACTERS)) {
     const effects = new Set(),
       poses = new Set();
@@ -70,8 +72,8 @@ test("all 40 moves have different visible paths and pose sequences for every fig
         ),
       );
     }
-    assert.equal(effects.size, 40, p.id + " effect silhouettes");
-    assert.equal(poses.size, 40, p.id + " authored motion sequences");
+    assert.equal(effects.size, 42, p.id + " effect silhouettes");
+    assert.equal(poses.size, 42, p.id + " authored motion sequences");
   }
 });
 
@@ -85,7 +87,11 @@ test("knees keep their anatomical bend side in every attack frame, stance and fa
         (foot[0] - root[0]) * (knee[1] - root[1]) -
         (foot[1] - root[1]) * (knee[0] - root[0]);
       assert.ok(cross < 0, label + " reversed knee " + i);
-      assert.ok(distance(root, foot) > 14.7, label + " over-folded knee " + i);
+      assert.ok(
+        distance(root, foot) >
+          (distance(root, knee) + distance(knee, foot)) * 0.3,
+        label + " over-folded knee " + i,
+      );
     }
   };
   for (const p of Object.values(CHARACTERS))

@@ -3,7 +3,7 @@ import { CHARACTER_IDS, character } from "./characters.js";
 export function validSnapshot(v) {
   if (
     !v ||
-    v.version !== 10 ||
+    v.version !== 11 ||
     !["ready", "fight", "roundEnd", "matchEnd"].includes(v.phase) ||
     !Number.isFinite(v.time) ||
     v.time < 0 ||
@@ -97,7 +97,7 @@ export function validSnapshot(v) {
       f.downTime >= 0 &&
       f.downTime <= 2 &&
       f.wakeUp >= 0 &&
-      f.wakeUp <= 1 &&
+      f.wakeUp <= 2 &&
       typeof f.bounceUsed === "boolean" &&
       typeof f.bouncePending === "boolean" &&
       ["high", "mid", "low", "throw"].includes(f.hitLevel) &&
@@ -166,7 +166,7 @@ export class PeerSession {
     };
     if (role === "host") {
       this.attach(
-        peer.createDataChannel("axis-v10", { ordered: true }),
+        peer.createDataChannel("axis-v11", { ordered: true }),
         generation,
       );
       await peer.setLocalDescription(await peer.createOffer());

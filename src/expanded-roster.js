@@ -57,7 +57,7 @@ export function expandRoster(roster) {
       style: "야수권 · 발톱과 곰 포옹",
       color: "#d8a575",
       build: 1.45,
-      speed: 0.77,
+      speed: 0.93,
       scale: 1.14,
       prefix: "산곰",
       kinds: [
@@ -68,7 +68,7 @@ export function expandRoster(roster) {
         "clawLow",
         "bearCharge",
       ],
-      specialty: "넓은 발톱 / 강한 포옹 / 느린 접근",
+      specialty: "긴 앞발 / 짧은 하단 / 강한 포옹",
       counter: ["hook", "bodyBlow", "palm"],
     },
     atlas: {
@@ -78,7 +78,7 @@ export function expandRoster(roster) {
       style: "기계식 격투 · 피스톤과 강철 팔",
       color: "#8bc5d8",
       build: 1.38,
-      speed: 0.8,
+      speed: 0.94,
       scale: 1.12,
       prefix: "강철",
       kinds: [
@@ -203,6 +203,8 @@ export function expandRoster(roster) {
       ["jumpKick", "k", "공중 차기", "W › J", 15, "mid", false],
       ["jumpFollow", "finish", "공중 이연각", "W › J › K", 13, "mid", false],
       ["crouchFollow", "i", "앉아 연환권", "S + U › I", 12, "mid", false],
+      ["wakeLow", "low", "누워 하단 기상각", "누운 상태 J", 20, "low", false],
+      ["wakeMid", "k", "누워 중단 기상각", "누운 상태 K", 22, "mid", false],
     ];
     for (const [
       n,
@@ -247,6 +249,58 @@ export function expandRoster(roster) {
         size: m.visual.size + 0.2 + n * 0.01,
         angle: m.visual.angle + 0.013 + n * 0.07,
       };
+    }
+    p.comboScale = {
+      kai: 1,
+      ren: 0.97,
+      mira: 1.12,
+      goro: 0.86,
+      hana: 1.1,
+      shin: 1.04,
+      boru: 0.8,
+      atlas: 0.82,
+    }[p.id];
+    if (p.id === "boru")
+      p.anatomy = { upperArm: 27, forearm: 28, thigh: 17, shin: 18 };
+    for (const [key, m] of Object.entries(p.moves)) {
+      if (m.level === "low") {
+        if (p.id === "boru") m.range = Math.min(m.range, 1.4);
+        else if (p.id !== "atlas") m.range += 0.3;
+      } else if (
+        p.id === "boru" &&
+        !["j", "k", "jumpKick", "jumpFollow", "risingKick", "wakeMid"].includes(
+          key,
+        )
+      ) {
+        m.range += m.level === "throw" ? 0.2 : 0.65;
+      }
+      if (key === "jumpPunch") {
+        m.bound = true;
+        m.kind = {
+          kai: "hammer",
+          ren: "divingElbow",
+          mira: "fallingPalm",
+          goro: "hammer",
+          hana: "craneChop",
+          shin: "swordFall",
+          boru: "bearSlam",
+          atlas: "robotHammer",
+        }[p.id];
+      }
+      if (key.startsWith("wake")) {
+        m.onBlock = key === "wakeLow" ? -18 : -15;
+        m.recovery = 27;
+        m.duration = (m.startup + m.active + m.recovery) / 60;
+        m.blockStun = (m.active + m.recovery + m.onBlock) / 60;
+        m.stun = (m.active + m.recovery + m.onHit) / 60;
+      }
+    }
+    if (p.id === "kai") {
+      p.specialty = "승류권 / 정밀 입력 섬뢰권 / 나락 이지선다";
+      p.moves.windGod.name = "청룡 승류권";
+      p.moves.electric.name = "청룡 섬뢰권";
+      p.moves.electric.damage = 26;
+      p.moves.electric.hitstop = 7;
     }
     p.followUps.push(
       ["jumpKick", "k", "jumpFollow"],

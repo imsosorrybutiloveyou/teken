@@ -53,7 +53,7 @@ test("four fighters have independently authored commands, startup and recovery",
     4,
   );
   for (const id of CHARACTER_IDS) {
-    assert.equal(Object.keys(character(id).moves).length, 40);
+    assert.equal(Object.keys(character(id).moves).length, 42);
     for (const move of Object.values(character(id).moves)) {
       assert.equal(
         move.duration,
@@ -962,4 +962,184 @@ test("physical crouch, jump, aerial strings and while-rising inputs work", () =>
     j.fighters[0].buffer === "jumpFollow" ||
       j.fighters[0].lastMove === "jumpFollow",
   );
+});
+
+test("first aerial slam bounds once; a second bound forces a grounded fall", () => {
+  for (const id of CHARACTER_IDS) {
+    const m = setup([id, "kai"]),
+      a = m.fighters[0],
+      b = m.fighters[1];
+    b.y = 0.8;
+    b.vy = 0;
+    b.airOwner = 0;
+    const strike = () => {
+      a.attack = {
+        key: "jumpPunch",
+        t: character(id).moves.jumpPunch.windup - 1 / 60,
+        angle: 0,
+      };
+      feed(m);
+      assert.ok(
+        m.events.some((e) => e.type === "hit"),
+        id,
+      );
+    };
+    strike();
+    assert.equal(b.bouncePending, true, id);
+    assert.equal(b.bounceUsed, true);
+    while (b.bouncePending || m.hitstop > 0 || b.y < 0.3) feed(m);
+    a.x = b.x - 1;
+    a.z = b.z;
+    strike();
+    assert.equal(b.bouncePending, false);
+    assert.ok(b.vy < 0 && b.downTime > 0);
+    for (let n = 0; n < 60 && b.y > 0; n++) feed(m);
+    assert.equal(b.y, 0);
+    assert.ok(b.downTime > 0);
+  }
+});
+test("downed players get up with W, attack with J/K or recover backwards on either side", () => {
+  for (const index of [0, 1])
+    for (const mode of ["up", "j", "k", "back"]) {
+      const m = setup(),
+        f = m.fighters[index];
+      f.downTime = 0.7;
+      f.wakeUp = 0.8;
+      f.stun = 0.5;
+      const input =
+        mode === "up"
+          ? { z: -1 }
+          : mode === "back"
+            ? { x: -f.facing }
+            : { action: mode };
+      feed(m, input, 1, index);
+      assert.equal(f.downTime, 0);
+      assert.equal(f.y, 0, "W must not immediately jump");
+      if (mode === "j" || mode === "k")
+        assert.equal(f.attack.key, mode === "j" ? "wakeLow" : "wakeMid");
+      if (mode === "back") assert.ok(f.vx * f.facing < 0 && f.stun > 0);
+    }
+});
+test("only lows hit prone targets and cannot relaunch them; throws keep paired animation protection", () => {
+  for (const key of ["u", "upper", "low", "throw"]) {
+    const m = setup(),
+      a = m.fighters[0],
+      b = m.fighters[1];
+    b.downTime = 0.7;
+    b.wakeUp = 0.8;
+    b.stun = 0.5;
+    a.attack = {
+      key,
+      t: character("kai").moves[key].windup - 1 / 60,
+      angle: 0,
+    };
+    feed(m);
+    assert.equal(b.hp < MAX_HP, key === "low", key);
+    assert.equal(b.y, 0);
+  }
+  const m = setup(),
+    a = m.fighters[0],
+    b = m.fighters[1];
+  b.downTime = 0.7;
+  b.wakeUp = 0.8;
+  b.throwTime = 0.3;
+  a.attack = {
+    key: "low",
+    t: character("kai").moves.low.windup - 1 / 60,
+    angle: 0,
+  };
+  feed(m);
+  assert.equal(b.hp, MAX_HP);
+});
+test("both wake-up kicks are launch punishable after a correct block", () => {
+  for (const index of [0, 1])
+    for (const key of ["wakeLow", "wakeMid"]) {
+      const m = setup(["kai", "kai"]),
+        a = m.fighters[index],
+        b = m.fighters[1 - index],
+        move = character("kai").moves[key];
+      a.attack = {
+        key,
+        t: move.windup - 1 / 60,
+        angle: index === 0 ? 0 : Math.PI,
+      };
+      feed(m, {}, 1, index, {
+        x: -b.facing,
+        crouch: key === "wakeLow",
+        z: key === "wakeLow" ? 1 : 0,
+      });
+      assert.ok(
+        m.events.some((e) => e.type === "block"),
+        key,
+      );
+      let launch = false,
+        sent = false;
+      for (let n = 0; n < 100; n++) {
+        const send = !sent && b.stun <= 6 / 60 + 1e-9;
+        if (send) sent = true;
+        feed(m, { x: -a.facing }, 1, index, {
+          x: b.facing,
+          z: 1,
+          action: send ? "i" : null,
+        });
+        launch ||= a.y > 0;
+      }
+      assert.ok(launch, key + " must allow a guarded upper punish");
+    }
+});
+test("heavy hitters sacrifice combo scaling while light hitters retain more follow-up damage", () => {
+  for (const id of CHARACTER_IDS) {
+    const ratio = [];
+    for (const combo of [0, 3]) {
+      const m = setup([id, "kai"]),
+        a = m.fighters[0],
+        b = m.fighters[1],
+        move = character(id).moves.u;
+      a.combo = combo;
+      if (combo) {
+        b.lastHitBy = 0;
+        b.stun = 0.5;
+      }
+      a.attack = { key: "u", t: move.windup - 1 / 60, angle: 0 };
+      feed(m);
+      ratio.push((MAX_HP - b.hp) / move.damage);
+    }
+    assert.ok(ratio[1] < ratio[0], id);
+  }
+  assert.ok(character("mira").comboScale > character("goro").comboScale);
+  assert.ok(character("hana").comboScale > character("boru").comboScale);
+  assert.ok(
+    character("boru").moves.u.range > character("kai").moves.u.range + 0.5,
+  );
+  assert.ok(
+    character("boru").moves.low.range < character("kai").moves.low.range,
+  );
+  assert.ok(character("boru").speed >= 0.9 && character("atlas").speed >= 0.9);
+  assert.notEqual(
+    character("kai").moves.electric.name,
+    character("kai").moves.windGod.name,
+  );
+  assert.ok(
+    character("kai").moves.electric.damage >
+      character("kai").moves.windGod.damage,
+  );
+});
+
+test("terminal bound fall cannot be lifted again by a low before landing", () => {
+  const m = setup(),
+    a = m.fighters[0],
+    b = m.fighters[1];
+  b.y = 0.2;
+  b.vy = -8;
+  b.bounceUsed = true;
+  b.downTime = 0.8;
+  b.wakeUp = 0.9;
+  a.attack = {
+    key: "low",
+    t: character("kai").moves.low.windup - 1 / 60,
+    angle: 0,
+  };
+  feed(m);
+  assert.equal(b.hp, MAX_HP);
+  assert.ok(b.vy < 0);
 });

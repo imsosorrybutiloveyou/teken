@@ -55,7 +55,7 @@ try {
     () => window.axis && document.getElementById("loading").hidden,
   );
   await host.locator("#arena-moves-button").click();
-  assert.equal(await host.locator(".move-item").count(), 40);
+  assert.equal(await host.locator(".move-item").count(), 42);
   await host.locator('#move-character-tabs [data-character="goro"]').click();
   assert.ok(
     (await host.locator(".frame-data").first().innerText()).includes("10"),
@@ -310,10 +310,22 @@ try {
   await host.waitForFunction(
     () => window.axis.state.fighters[0].attack?.connected,
   );
+  await guest.keyboard.up("d");
   await host.keyboard.press("u");
   await host.waitForFunction(() => window.axis.state.fighters[1].downTime > 0);
   await guest.waitForFunction(() => window.axis.state.fighters[1].downTime > 0);
-  await guest.keyboard.up("d");
+  await guest.keyboard.press("w");
+  await guest.waitForFunction(
+    () =>
+      window.axis.state.fighters[1].downTime === 0 &&
+      window.axis.state.fighters[1].y === 0,
+  );
+  await host.waitForFunction(
+    () => window.axis.state.fighters[1].downTime === 0,
+  );
+  console.log(
+    "Downed remote player recovers with physical W without jumping; recovery synchronized",
+  );
   await host.screenshot({
     path: "/tmp/axis-v38-hellsweep.png",
     fullPage: true,
@@ -399,7 +411,7 @@ try {
   );
   await host.keyboard.press("h");
   await host.locator("#moves-dialog").waitFor();
-  assert.equal(await host.locator(".move-item").count(), 40);
+  assert.equal(await host.locator(".move-item").count(), 42);
   await host.locator("#moves-dialog .close").click();
   await host.locator("#character-button").click();
   await host.locator("#practice-behavior").selectOption("cpu");
@@ -426,7 +438,7 @@ try {
   );
   assert.deepEqual(errors, []);
   console.log(
-    "PASS: v3.8 player match only, player rooms, matched-only character selection, 8 characters, unique frame tables, automatic P2P, orbit camera, remote combat, practice selection, responsive layout; no page errors.",
+    "PASS: v3.9 player match only, player rooms, matched-only character selection, 8 characters, unique frame tables, automatic P2P, orbit camera, remote combat, practice selection, responsive layout; no page errors.",
   );
 } catch (error) {
   for (const [name, page] of [

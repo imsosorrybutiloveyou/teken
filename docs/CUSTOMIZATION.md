@@ -56,7 +56,7 @@ v3.5부터 `public/custom-assets.json`으로 그림·소리를 교체합니다. 
 
 상태 키: `idle` 대기, `walk` 이동, `guard` 가드, `crouch` 앉기, `hit` 피격, `jump` 공중, `down` 다운. `down`을 등록한다면 눕는 자세부터 일어나는 자세까지 전환은 이미지에서 직접 표현해야 합니다(현재 상태 시트는 fps 반복 방식).
 
-기술 키는 아래와 같습니다. 키는 입력/연계 처리를 위한 슬롯 이름이며 **캐릭터가 같다는 뜻이 아닙니다.** 예를 들어 `upper`는 KAI의 어퍼, REN의 뒤꿈치, MIRA의 탁장, GORO의 어깨받기입니다. `electric`은 KAI만 초풍이며 다른 캐릭터는 훅킥·회피장·헤드차지입니다.
+기술 키는 아래와 같습니다. 키는 입력/연계 처리를 위한 슬롯 이름이며 **캐릭터가 같다는 뜻이 아닙니다.** 예를 들어 `upper`는 KAI의 어퍼, REN의 뒤꿈치, MIRA의 탁장, GORO의 어깨받기입니다. `electric`은 KAI의 섬뢰권이며 다른 캐릭터는 훅킥·회피장·헤드차지입니다.
 
 ```text
 u i j k oneTwo finish upper low sweep qcfPunch dragon qcfKick
@@ -121,3 +121,6 @@ release/latest.json
 새 버전 번호 변경과 업데이트 감지 게시 방법은 [업데이트 안내](UPDATES.md)를 참고하세요.
 
 v3.8의 추가 로스터·앉기/점프/기상 기술·카운터 목록은 `src/expanded-roster.js`에서 조정합니다. `counterLaunch`는 일반 적중이 아닌 카운터 적중일 때 띄우는 판정입니다.
+
+
+v3.9 밸런스는 `src/expanded-roster.js`의 `comboScale`(후속 콤보 피해), `speed`(이동 배율), `anatomy`(위팔/아래팔/허벅지/종아리 길이), 각 기술의 `range`에서 조정합니다. BORU는 27/28/17/18 길이의 전용 골격을 쓰며 부품 rig도 같은 관절을 따릅니다. `wakeLow`/`wakeMid`는 누운 상태 J/K 전용 기술, `jumpPunch.bound`는 공중 내려찍기 바운드입니다. 섬뢰권 입력 허용치는 `justFrames`, 일반판은 `windGod` 슬롯입니다. 파일 수정 후 반드시 EXE를 다시 빌드하세요.

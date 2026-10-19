@@ -93,7 +93,7 @@ export function resolveMove(f, action) {
     if (
       p.moves[key].justFrames !== null &&
       f.commandTime - (f.commands.at(-1)?.at ?? -Infinity) >
-        p.moves.electric.justFrames / 60 + 1e-9
+        p.moves[key].justFrames / 60 + 1e-9
     )
       continue;
     if (
@@ -161,7 +161,7 @@ function fighter(x, id, index) {
 }
 export function createMatch(ids = ["kai", "ren"]) {
   return {
-    version: 10,
+    version: 11,
     axisAngle: 0,
     viewAngle: 0,
     hitstop: 0,
@@ -217,14 +217,21 @@ function resolveHit(m, index, training) {
   const lateral = Math.abs(
     -dx * Math.sin(atk.angle) + dz * Math.cos(atk.angle),
   );
+  const airborne = b.y > 0.01 || b.vy !== 0;
   if (
     forward < 0.15 ||
     forward > move.range ||
     lateral > move.width ||
-    b.wakeUp > 0
+    (b.wakeUp > 0 &&
+      !(
+        b.downTime > 0 &&
+        !airborne &&
+        move.level === "low" &&
+        b.throwTime === 0
+      )) ||
+    (b.downTime > 0 && (airborne || move.level !== "low"))
   )
     return false;
-  const airborne = b.y > 0.01 || b.vy !== 0;
   if (airborne && (b.bouncePending || b.y > move.airMax || b.y < move.airMin))
     return false;
   if (move.level === "throw" && (b.y > 0.2 || b.crouch || b.stun > 0))
@@ -283,7 +290,10 @@ function resolveHit(m, index, training) {
       move.damage *
         (counter ? 1.15 : 1) *
         (airborne ? 0.8 : 1) *
-        (continuing ? Math.max(0.2, 1 - a.combo * 0.12) : 1),
+        (continuing
+          ? Math.max(0.2, 1 - a.combo * 0.12) *
+            character(a.character).comboScale
+          : 1),
     ),
   );
   b.hitLevel = move.level;
@@ -328,7 +338,11 @@ function resolveHit(m, index, training) {
     : move.push * (move.launch ? 0.65 : 1);
   b.vx = Math.cos(atk.angle) * push;
   b.vz = Math.sin(atk.angle) * push;
-  if (move.knockdown && !airborne && !launch) {
+  if (b.downTime > 0 && !airborne) {
+    b.stun = 0.25;
+    b.downTime = 0.45;
+    b.wakeUp = 0.55;
+  } else if (move.knockdown && !airborne && !launch) {
     b.downTime = move.stun;
     b.wakeUp = move.stun + 0.1;
     b.vx *= 1.15;
@@ -348,6 +362,13 @@ function resolveHit(m, index, training) {
       b.bounceUsed = true;
       b.bouncePending = true;
       b.vy = -6;
+    } else if (move.bound && b.bounceUsed) {
+      // A second bound ends the juggle instead of granting another bounce.
+      b.bouncePending = false;
+      b.airOwner = -1;
+      b.downTime = 0.8;
+      b.wakeUp = 0.9;
+      b.vy = -8;
     } else {
       // Keep the target reachable without raising it indefinitely on repeated hits.
       const lift = Math.max(0.2, 5 - b.airHits * 0.36);
@@ -471,9 +492,16 @@ export function step(m, rawInputs, dt = 1 / 60, training = false) {
       f.angle = m.axisAngle + (i === 1 ? Math.PI : 0);
     // Guard becomes available on the recovery boundary for BOTH player orders.
     f.guard =
-      back && recovered && (f.stun <= dt + 1e-9 || f.blockstun) && f.y === 0;
+      back &&
+      recovered &&
+      (f.stun <= dt + 1e-9 || f.blockstun) &&
+      f.y === 0 &&
+      f.downTime === 0;
     f.crouch =
-      (input.crouch || (back && input.z > 0.25)) && recovered && f.y === 0;
+      (input.crouch || (back && input.z > 0.25)) &&
+      recovered &&
+      f.y === 0 &&
+      f.downTime === 0;
   }
   if (m.hitstop > 0) {
     m.hitstop = Math.max(0, m.hitstop - dt);
@@ -481,6 +509,15 @@ export function step(m, rawInputs, dt = 1 / 60, training = false) {
     for (let i = 0; i < 2; i++) {
       const f = m.fighters[i],
         input = sanitizeInput(rawInputs[i]);
+      if (
+        f.downTime > 0 &&
+        f.throwTime === 0 &&
+        ["j", "k"].includes(input.action)
+      ) {
+        f.buffer = input.action === "j" ? "wakeLow" : "wakeMid";
+        f.bufferAge = 0;
+        continue;
+      }
       recordDirection(f, input, dt);
       if (
         input.action &&
@@ -539,7 +576,8 @@ export function step(m, rawInputs, dt = 1 / 60, training = false) {
           f.airOwner = -1;
           if (knockedOutOfAir) {
             f.stun = Math.max(f.stun, 0.18);
-            f.wakeUp = 0.28;
+            f.downTime = Math.max(f.downTime, 0.65);
+            f.wakeUp = Math.max(f.wakeUp, 0.75);
           }
         }
       }
@@ -555,9 +593,39 @@ export function step(m, rawInputs, dt = 1 / 60, training = false) {
       )
         f.angle = m.axisAngle + (i === 1 ? Math.PI : 0);
     }
+    // Ground recovery consumes the input so W gets up rather than jumping.
+    if (f.downTime > 0 && f.y === 0 && f.throwTime === 0) {
+      const back = input.x * f.facing < -0.25;
+      const wakeKey =
+        input.action === "j"
+          ? "wakeLow"
+          : input.action === "k"
+            ? "wakeMid"
+            : f.buffer;
+      const kick = wakeKey === "wakeLow" || wakeKey === "wakeMid";
+      if (input.z < -0.25 || back || kick) {
+        f.downTime = 0;
+        f.wakeUp = 0;
+        f.stun = 0;
+        f.blockstun = false;
+        f.buffer = null;
+        f.crouch = false;
+        if (kick) startAttack(m, i, wakeKey);
+        if (back && !kick && input.z >= -0.25) {
+          f.stun = 0.2;
+          f.lastMove = "backRise";
+          f.lastMoveAge = 0;
+          f.vx = -Math.cos(f.angle) * 4;
+          f.vz = -Math.sin(f.angle) * 4;
+        }
+        f.jumpHeld = input.z < -0.25;
+        input.action = null;
+      }
+    }
     recordDirection(f, input, dt);
     if (
       input.z < -0.25 &&
+      f.downTime === 0 &&
       !f.jumpHeld &&
       !input.action &&
       !f.attack &&
@@ -572,6 +640,7 @@ export function step(m, rawInputs, dt = 1 / 60, training = false) {
     // Resolve the command when the attack button is pressed, not after its buffered recovery.
     if (
       input.action &&
+      f.downTime === 0 &&
       (f.stun === 0 ||
         (f.blockstun && f.stun <= GUARD_BUFFER_FRAMES / 60 + 1e-9))
     ) {
@@ -587,7 +656,13 @@ export function step(m, rawInputs, dt = 1 / 60, training = false) {
       f.bufferAge = 0;
     }
     // The input frame is startup frame 1, rather than an extra idle frame.
-    if (!f.attack && f.stun === 0 && f.buffer && f.bufferAge < 0.65)
+    if (
+      !f.attack &&
+      f.downTime === 0 &&
+      f.stun === 0 &&
+      f.buffer &&
+      f.bufferAge < 0.65
+    )
       startAttack(m, i, f.buffer);
     if (f.attack) {
       f.attack.t += dt;
@@ -640,7 +715,7 @@ export function step(m, rawInputs, dt = 1 / 60, training = false) {
       )
         f.attack = null;
     }
-    if (!f.attack && f.stun === 0 && f.y === 0) {
+    if (!f.attack && f.downTime === 0 && f.stun === 0 && f.y === 0) {
       if (f.buffer && f.bufferAge < 0.65) startAttack(m, i, f.buffer);
       else {
         const forward = input.x * f.facing;

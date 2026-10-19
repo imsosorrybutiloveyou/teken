@@ -607,7 +607,7 @@ const levels = { high: "상단", mid: "중단", low: "하단", throw: "잡기" }
 function renderMoves(id) {
   const p = character(id);
   $("move-air-combo").textContent =
-    `공중 5타: ${p.moves.upper.command} › ${p.chain.slice(0, 2).join(" › ").toUpperCase()} › ${p.moves.bound.command} › ${p.moves.sideKick.command}. 띄우고 적중을 확인하며 다음 버튼을 입력하세요. 방향 기술 뒤에는 방향키를 떼세요.`;
+    `공중 5타: ${p.moves.upper.command} › ${p.chain.slice(0, 2).join(" › ").toUpperCase()} › ${p.moves.bound.command} › ${p.moves.sideKick.command}. 띄우고 적중을 확인하며 다음 버튼을 입력하세요. 방향 기술 뒤에는 방향키를 떼세요. 재바운드는 다운. 누웠을 때 W 즉시 기상 · J/K 기상각 · 뒤로 기상. 후속 피해 계수 ${p.comboScale.toFixed(2)}.`;
   $("move-list").replaceChildren();
   for (const [key, m] of Object.entries(p.moves)) {
     const row = document.createElement("div");
