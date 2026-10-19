@@ -1,3 +1,4 @@
+import { STYLE_MOTIONS } from "./style-motion.js";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
@@ -10,6 +11,7 @@ import {
   DASH_SPEED,
   resolveMove,
   cpuInput,
+  stepPractice,
 } from "./combat.js";
 import { CHARACTERS, CHARACTER_IDS, character, moveFor } from "./characters.js";
 function setup(ids = ["kai", "ren"]) {
@@ -58,18 +60,34 @@ test("four fighters have independently authored commands, startup and recovery",
     }
   }
 });
-test("all four basic buttons keep their limb identity", () => {
+test("basic buttons retain left/right hand and foot identity with independent style motions", () => {
   for (const id of CHARACTER_IDS)
-    for (const [key, kind] of Object.entries({
-      u: "leftPunch",
-      i: "rightPunch",
-      j: "leftKick",
-      k: "rightKick",
-    })) {
+    for (const key of ["u", "i", "j", "k"]) {
       const m = setup([id, "kai"]);
       feed(m, { action: key });
-      assert.equal(moveFor(m.fighters[0]).kind, kind);
+      const move = moveFor(m.fighters[0]);
+      assert.equal(move.side, ["u", "j"].includes(key) ? 1 : 0);
+      assert.ok(move.kind);
+      const part =
+        STYLE_MOTIONS[move.kind]?.[0] ??
+        (key === "u" || key === "i" ? "arm" : "foot");
+      assert.equal(part, key === "u" || key === "i" ? "arm" : "foot");
     }
+  for (const key of [
+    "u",
+    "i",
+    "j",
+    "k",
+    "upper",
+    "electric",
+    "hellSweep",
+    "runningKick",
+  ])
+    assert.equal(
+      new Set(CHARACTER_IDS.map((id) => character(id).moves[key].kind)).size,
+      4,
+      key,
+    );
 });
 test("backward input guards mids while retreating; an obsolete guard flag does not block", () => {
   let m = setup();
@@ -350,8 +368,8 @@ test("basic kicks are shorter and recover faster than the previous slow kicks", 
     assert.ok(p.moves.k.startup <= 20);
     assert.ok(p.moves.j.recovery <= 21);
     assert.ok(p.moves.k.recovery <= 25);
-    assert.ok(p.moves.j.range < 2);
-    assert.ok(p.moves.k.range <= 2.05);
+    assert.ok(p.moves.j.range <= (id === "ren" ? 2.3 : 2));
+    assert.ok(p.moves.k.range <= (id === "ren" ? 2.4 : 2.05));
     assert.ok(p.moves.u.startup <= 14);
   }
 });
@@ -541,7 +559,7 @@ test("rush palm, sweep, electrics and running kick actually advance without cros
       }
 });
 test("hellsweep beats standing back guard, knocks down and cannot be hit again while down", () => {
-  for (const id of CHARACTER_IDS)
+  for (const id of ["kai", "ren"])
     for (const index of [0, 1]) {
       const m = setup(index === 0 ? [id, "kai"] : ["kai", id]),
         target = m.fighters[1 - index];
@@ -672,4 +690,83 @@ test("CPU also performs real inputs for advancing palm, electric, hellsweep and 
       step(m, [emptyInput(), cpuInput(m)]);
     assert.equal(m.fighters[1].lastMove, key);
   }
+});
+
+test("four styles have different special mechanics, not reskinned universal electrics", () => {
+  const [kai, ren, mira, goro] = CHARACTER_IDS.map((id) => character(id).moves);
+  assert.equal(kai.electric.justFrames, 2);
+  assert.ok(ren.windGod.hop > 0 && ren.runningKick.hop > 0);
+  assert.ok(mira.electric.highCrushFrom < 3 / 60 && !mira.electric.launch);
+  assert.equal(goro.hellSweep.level, "throw");
+  assert.ok(goro.qcfPunch.armorFrom > 0);
+  assert.equal(
+    new Set(CHARACTER_IDS.map((id) => character(id).moves.electric.command))
+      .size,
+    4,
+  );
+});
+test("GORO armor absorbs one high/mid but loses to lows and a second strike", () => {
+  for (const key of ["u", "low"]) {
+    const m = setup(["kai", "goro"]),
+      a = m.fighters[0],
+      b = m.fighters[1];
+    b.attack = { key: "qcfPunch", t: 9 / 60, angle: Math.PI };
+    a.attack = {
+      key,
+      t: character("kai").moves[key].windup - 1 / 60,
+      angle: 0,
+    };
+    feed(m);
+    assert.ok(b.hp < MAX_HP, "armor still takes damage");
+    assert.equal(!!b.attack, key === "u");
+    if (key === "u") {
+      assert.ok(b.attack.armorUsed);
+      m.hitstop = 0;
+      a.attack = { key: "u", t: 9 / 60, angle: 0 };
+      feed(m);
+      assert.equal(b.attack, null, "second strike interrupts armor");
+    }
+  }
+});
+test("MIRA low-profile palm evades a high jab but can be stopped by a mid", () => {
+  for (const key of ["u", "i"]) {
+    const m = setup(["kai", "mira"]);
+    m.fighters[1].attack = { key: "electric", t: 3 / 60, angle: Math.PI };
+    m.fighters[0].attack = {
+      key,
+      t: character("kai").moves[key].windup - 1 / 60,
+      angle: 0,
+    };
+    feed(m);
+    assert.equal(m.fighters[1].hp < MAX_HP, key === "i");
+  }
+});
+test("practice dummy stays still with infinite HP/time while keeping real combos and hitstun", () => {
+  const m = setup();
+  const target = m.fighters[1],
+    initialX = target.x;
+  for (let n = 0; n < 700; n++)
+    stepPractice(
+      m,
+      { ...emptyInput(), action: n % 50 === 0 ? "u" : null },
+      { behavior: "dummy", infiniteHealth: true },
+    );
+  assert.equal(target.hp, MAX_HP);
+  assert.equal(m.time, 60);
+  assert.equal(m.phase, "fight");
+  assert.equal(target.lastMove, "");
+  assert.ok(target.x >= initialX);
+  const other = setup();
+  stepPractice(
+    other,
+    { ...emptyInput(), action: "u" },
+    { behavior: "dummy", infiniteHealth: false },
+  );
+  for (let n = 0; n < 15; n++)
+    stepPractice(other, emptyInput(), {
+      behavior: "dummy",
+      infiniteHealth: false,
+    });
+  assert.ok(other.fighters[1].hp < MAX_HP);
+  assert.ok(other.time < 60);
 });

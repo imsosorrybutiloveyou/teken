@@ -67,7 +67,7 @@ export function resolveMove(f, action) {
   )) {
     if (action !== button) continue;
     if (
-      key === "electric" &&
+      p.moves[key].justFrames !== null &&
       f.commandTime - (f.commands.at(-1)?.at ?? -Infinity) >
         p.moves.electric.justFrames / 60 + 1e-9
     )
@@ -132,7 +132,7 @@ function fighter(x, id, index) {
 }
 export function createMatch(ids = ["kai", "ren"]) {
   return {
-    version: 6,
+    version: 7,
     axisAngle: 0,
     hitstop: 0,
     fighters: [
@@ -258,6 +258,31 @@ function resolveHit(m, index) {
   b.hitKind = move.kind;
   b.lastHitBy = index;
   b.hp = Math.max(0, b.hp - damage);
+  const armored =
+    defendingMove?.armorFrom != null &&
+    b.attack.t >= defendingMove.armorFrom &&
+    b.attack.t < defendingMove.windup &&
+    !b.attack.armorUsed &&
+    !airborne &&
+    ["high", "mid"].includes(move.level);
+  if (armored) {
+    b.attack.armorUsed = true;
+    b.hitFlash = 0.13;
+    m.hitstop = Math.max(m.hitstop, 2 / 60);
+    emit(m, "hit", {
+      index,
+      key: atk.key,
+      character: a.character,
+      kind: move.kind,
+      level: move.level,
+      damage,
+      x: b.x,
+      y: move.impactHeight,
+      z: b.z,
+      armor: true,
+    });
+    return true;
+  }
   b.stun = move.stun;
   b.statusTick = m.tick;
   b.blockstun = false;
@@ -656,4 +681,28 @@ export function cpuInput(m, index = 1) {
   }
   if (o.attack && m.tick % 140 < 24 && input.x * f.facing >= 0) input.z = 0.8;
   return input;
+}
+
+// Local practice keeps the real hit/stun/launch/combo simulation. Only HP and the clock are restored.
+export function stepPractice(
+  m,
+  input,
+  { behavior = "cpu", infiniteHealth = true } = {},
+) {
+  if (infiniteHealth) {
+    m.time = 60;
+    for (const f of m.fighters) f.hp = MAX_HP;
+  }
+  step(m, [input, behavior === "cpu" ? cpuInput(m) : emptyInput()]);
+  if (infiniteHealth) {
+    for (const f of m.fighters) f.hp = MAX_HP;
+    m.time = 60;
+    // A lethal hit must not end an infinite-health training session.
+    if (m.phase === "roundEnd" || m.phase === "matchEnd") {
+      m.phase = "fight";
+      m.winner = null;
+      m.wins = [0, 0];
+      m.events = m.events.filter((e) => e.type !== "roundEnd");
+    }
+  }
 }

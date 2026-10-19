@@ -1,3 +1,5 @@
+import { STYLE_MOTIONS, styleStance, styleAttack } from "./style-motion.js";
+import { paintCustomSprite, customPortrait } from "./custom-assets.js";
 import { character, moveFor } from "./characters.js";
 const W = 480,
   H = 270,
@@ -269,6 +271,7 @@ export function spritePose(f, t) {
     ],
     lean: 0,
   };
+  styleStance(pose, f.character, f.crouch);
   if (f.crouch) {
     pose.knees = [
       [26, 94],
@@ -498,26 +501,29 @@ export function spritePose(f, t) {
       pose.lean = e * 5;
       pose.hip[0] += e * 2;
     }
+    styleAttack(pose, m, chamber, e, aimOffset);
     // Authored overlays separate moves that share the same striking limb.
     const weight = m.motionWeight,
       swing = Math.sin(Math.PI * Math.min(1, startup));
     pose.hip[0] += v.step * chamber * weight;
     pose.lean += v.lean * e * weight - v.lean * 0.35 * chamber * (1 - e);
     pose.head[1] += Math.abs(v.lean) * 0.25 * chamber * (1 - e);
-    const strikingLeg = [
-      "leftKick",
-      "rightKick",
-      "spin",
-      "low",
-      "sweep",
-      "backKick",
-      "toeKick",
-      "sideKick",
-      "axeKick",
-      "knee",
-      "hellSweep",
-      "runningKick",
-    ].includes(m.kind);
+    const strikingLeg =
+      ["foot", "knee"].includes(STYLE_MOTIONS[m.kind]?.[0]) ||
+      [
+        "leftKick",
+        "rightKick",
+        "spin",
+        "low",
+        "sweep",
+        "backKick",
+        "toeKick",
+        "sideKick",
+        "axeKick",
+        "knee",
+        "hellSweep",
+        "runningKick",
+      ].includes(m.kind);
     const tip = strikingLeg ? "feet" : "hands",
       joint = strikingLeg ? "knees" : "elbows";
     pose[tip][m.side][0] += v.reach * e * weight;
@@ -565,6 +571,7 @@ function paintSprite(c, f, index, t) {
     p = palettes[{ kai: 0, ren: 1, mira: 2, goro: 3 }[profile.id]],
     pose = spritePose(f, t);
   c.clearRect(0, 0, c.canvas.width, c.canvas.height);
+  if (paintCustomSprite(c, f)) return;
   c.save();
   c.translate(64, 6);
   c.scale(profile.build, profile.id === "mira" ? 0.98 : 1);
@@ -583,8 +590,40 @@ function paintSprite(c, f, index, t) {
     const h = [hip[0] + (i ? 5 : -5), hip[1]],
       k = pose.knees[i],
       foot = pose.feet[i];
-    limb(c, h, k, 12, p.pants, p.pantShade);
-    limb(c, k, foot, 10, p.pants, p.pantShade);
+    limb(
+      c,
+      h,
+      k,
+      f.character === "goro" ? 15 : 12,
+      f.character === "ren" ? p.skin : p.pants,
+      p.pantShade,
+    );
+    limb(
+      c,
+      k,
+      foot,
+      f.character === "goro" ? 13 : 10,
+      f.character === "ren" ? p.skin : p.pants,
+      p.pantShade,
+    );
+    if (f.character === "ren") {
+      limb(
+        c,
+        h,
+        [h[0] * 0.65 + k[0] * 0.35, h[1] * 0.65 + k[1] * 0.35],
+        14,
+        p.cloth,
+        p.light,
+      );
+      limb(
+        c,
+        [k[0] * 0.45 + foot[0] * 0.55, k[1] * 0.45 + foot[1] * 0.55],
+        foot,
+        11,
+        p.glove,
+        p.belt,
+      );
+    }
     polygon(
       c,
       [
@@ -674,6 +713,53 @@ function paintSprite(c, f, index, t) {
     ],
     p.belt,
   );
+  if (f.character === "goro") {
+    polygon(
+      c,
+      [
+        [34 + lx, 43],
+        [57 + lx, 43],
+        [hip[0] + 9, hip[1] - 2],
+        [hip[0] - 11, hip[1]],
+      ],
+      p.skin,
+    );
+    polygon(
+      c,
+      [
+        [35 + lx, 43],
+        [39 + lx, 43],
+        [hip[0] - 3, hip[1]],
+        [hip[0] - 10, hip[1]],
+      ],
+      p.cloth,
+    );
+    polygon(
+      c,
+      [
+        [53 + lx, 43],
+        [57 + lx, 43],
+        [hip[0] + 9, hip[1]],
+        [hip[0] + 4, hip[1]],
+      ],
+      p.cloth,
+    );
+  }
+  if (f.character === "mira") {
+    polygon(
+      c,
+      [
+        [hip[0] - 11, hip[1] - 2],
+        [hip[0] + 9, hip[1] - 2],
+        [hip[0] + 16, hip[1] + 21],
+        [hip[0] + 2, hip[1] + 14],
+        [hip[0] - 16, hip[1] + 20],
+      ],
+      p.cloth,
+    );
+    for (let n = 0; n < 3; n++)
+      rect(c, 43 + lx, 45 + n * 6 + (f.crouch ? 16 : 0), 8, 2, p.belt);
+  }
   pants(1);
   rect(c, head[0] - 3, head[1] + 8, 9, 9, p.skinDark);
   c.save();
@@ -1069,7 +1155,7 @@ export function createScene(canvas) {
         }
         const p = project(e.x, e.y, e.z),
           expand = e.age * (e.heavy ? 130 : 90);
-        if (e.punish || e.type === "block") {
+        if (e.punish || e.armor || e.type === "block") {
           c.font = "bold 8px monospace";
           c.textAlign = "center";
           c.fillStyle = e.punish
@@ -1078,9 +1164,11 @@ export function createScene(canvas) {
               ? "#ffac8f"
               : "#b5e5ed";
           c.fillText(
-            e.punish
-              ? "PUNISH"
-              : `GUARD ${e.advantage >= 0 ? "+" : ""}${e.advantage}F${e.launcherWindow ? " / UPPER" : ""}`,
+            e.armor
+              ? "ARMOR"
+              : e.punish
+                ? "PUNISH"
+                : `GUARD ${e.advantage >= 0 ? "+" : ""}${e.advantage}F${e.launcherWindow ? " / UPPER" : ""}`,
             p.x,
             p.y - 18 - e.age * 25,
           );
@@ -1160,5 +1248,7 @@ export function createScene(canvas) {
 export function paintPortrait(canvas, fighter) {
   canvas.width = 160;
   canvas.height = 128;
-  paintSprite(canvas.getContext("2d"), fighter, 0, 0);
+  const portrait = customPortrait(fighter.character);
+  if (portrait) canvas.getContext("2d").drawImage(portrait, 0, 0, 160, 128);
+  else paintSprite(canvas.getContext("2d"), fighter, 0, 0);
 }

@@ -1,6 +1,6 @@
 {
   "name": "axis-arena",
-  "version": "3.4.0",
+  "version": "3.5.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -11,7 +11,8 @@
     "test:browser": "node scripts/browser-smoke.mjs",
     "package:windows": "node scripts/package-windows.mjs",
     "start": "node server/start.js",
-    "docs:frames": "node scripts/export-frames.mjs"
+    "docs:frames": "node scripts/export-frames.mjs",
+    "test:assets": "node scripts/custom-assets-smoke.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.55.1",

@@ -92,9 +92,12 @@ func TestPortableLobby(t *testing.T) {
 	if action(t, server.URL, a, map[string]any{"type": "select", "character": "kai"}) != 400 {
 		t.Fatal("selection before pairing")
 	}
-	action(t, server.URL, a, map[string]any{"type": "quick"})
-	event(t, a, "queued")
-	action(t, server.URL, b, map[string]any{"type": "quick"})
+	if action(t, server.URL, a, map[string]any{"type": "quick"}) != 400 {
+		t.Fatal("obsolete quick match accepted")
+	}
+	action(t, server.URL, a, map[string]any{"type": "createRoom", "name": "FIRST ROOM"})
+	firstRoom := event(t, a, "queued")["roomId"]
+	action(t, server.URL, b, map[string]any{"type": "joinRoom", "roomId": firstRoom})
 	if event(t, a, "paired")["role"] != "host" || event(t, b, "paired")["role"] != "guest" {
 		t.Fatal("first waiting player must host")
 	}

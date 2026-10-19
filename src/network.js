@@ -3,7 +3,7 @@ import { CHARACTER_IDS, character } from "./characters.js";
 export function validSnapshot(v) {
   if (
     !v ||
-    v.version !== 6 ||
+    v.version !== 7 ||
     !["ready", "fight", "roundEnd", "matchEnd"].includes(v.phase) ||
     !Number.isFinite(v.time) ||
     v.time < 0 ||
@@ -155,7 +155,7 @@ export class PeerSession {
     };
     if (role === "host") {
       this.attach(
-        peer.createDataChannel("axis-v6", { ordered: true }),
+        peer.createDataChannel("axis-v7", { ordered: true }),
         generation,
       );
       await peer.setLocalDescription(await peer.createOffer());

@@ -1432,3 +1432,28 @@ button:disabled {
     font-size: 10px;
   }
 }
+
+.practice-settings {
+  margin: 16px 0;
+  padding: 16px;
+  border: 1px solid var(--border, #373442);
+  border-radius: 8px;
+}
+.practice-settings legend {
+  color: #dfca91;
+  padding: 0 8px;
+}
+.practice-settings select {
+  width: 100%;
+  margin: 8px 0 14px;
+}
+.practice-settings .health-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.practice-settings input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: #dfca91;
+}

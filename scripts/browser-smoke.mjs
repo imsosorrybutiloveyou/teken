@@ -68,11 +68,13 @@ try {
   assert.ok((await bloodCross.innerText()).includes("어퍼 확정"));
   await host.locator("#moves-dialog .close").click();
   await openLobby(host, "ALPHA");
-  await host.locator("#quick-match").click();
+  assert.equal(await host.locator("#quick-match").count(), 0);
+  await host.locator("#room-name").fill("STYLE ARENA");
+  await host.locator("#create-room").click();
   await host.waitForFunction(() =>
     document
       .getElementById("online-status")
-      .textContent.includes("상대를 찾고"),
+      .textContent.includes("방을 만들었"),
   );
   assert.equal(
     await host.locator("#select-dialog").isVisible(),
@@ -80,10 +82,14 @@ try {
     "no character selection before pairing",
   );
   await openLobby(guest, "BETA");
-  await guest.locator("#quick-match").click();
+  await guest
+    .locator(".room-row")
+    .filter({ hasText: "STYLE ARENA" })
+    .locator("button")
+    .click();
   await host.locator("#select-dialog").waitFor({ state: "visible" });
   await guest.locator("#select-dialog").waitFor({ state: "visible" });
-  await host.screenshot({ path: "/tmp/axis-v34-select.png", fullPage: true });
+  await host.screenshot({ path: "/tmp/axis-v35-select.png", fullPage: true });
   assert.equal(await host.locator(".character-card").count(), 4);
   assert.equal(await host.evaluate(() => window.axis.battleActive), false);
   await choose(host, "mira");
@@ -112,7 +118,7 @@ try {
   await host.waitForFunction(() => window.axis.state.phase === "fight");
   await guest.waitForFunction(() => window.axis.state.phase === "fight");
   console.log(
-    "Quick match → two-sided character confirmation → automatic P2P passed",
+    "Player match only → selected room → two-sided character confirmation → automatic P2P passed",
   );
   await host.keyboard.down("w");
   await host.waitForFunction(
@@ -155,13 +161,12 @@ try {
   console.log(
     "Opponent-centered sidestep, stable left/right composition, remote damage and roster synchronization passed",
   );
-  await host.screenshot({ path: "/tmp/axis-v34-online.png", fullPage: true });
+  await host.screenshot({ path: "/tmp/axis-v35-online.png", fullPage: true });
   await host.locator("#online-button").click();
   await host.locator("#disconnect-button").click();
   await guest.waitForFunction(() => !window.axis.matched);
   await host.waitForFunction(() => !window.axis.matched);
   await openLobby(host, "ALPHA");
-  await host.locator("#rooms-tab").click();
   await host.locator("#room-name").fill("FRAME LAB");
   await host.locator("#create-room").click();
   await host.waitForFunction(() =>
@@ -171,7 +176,6 @@ try {
   );
   assert.equal(await host.locator("#select-dialog").isVisible(), false);
   await openLobby(guest, "BETA");
-  await guest.locator("#rooms-tab").click();
   await guest.locator("#connect-lobby").click();
   const room = guest.locator(".room-row").filter({ hasText: "FRAME LAB" });
   await room.locator("button").click();
@@ -237,7 +241,7 @@ try {
       window.axis.state.fighters[1].bounceUsed,
   );
   await host.screenshot({
-    path: "/tmp/axis-v34-air-combo.png",
+    path: "/tmp/axis-v35-air-combo.png",
     fullPage: true,
   });
   console.log(
@@ -281,7 +285,7 @@ try {
       window.axis.state.fighters[1].y > 0,
   );
   await guest.keyboard.up("d");
-  await host.screenshot({ path: "/tmp/axis-v34-punish.png", fullPage: true });
+  await host.screenshot({ path: "/tmp/axis-v35-punish.png", fullPage: true });
   console.log(
     "Blood Cross guarded → buffered uppercut beats held-back guard: confirmed PUNISH on both P2P clients",
   );
@@ -298,7 +302,7 @@ try {
       window.axis.state.fighters[0].lastMove === "electric" &&
       window.axis.state.fighters[1].y > 0,
   );
-  await host.screenshot({ path: "/tmp/axis-v34-electric.png", fullPage: true });
+  await host.screenshot({ path: "/tmp/axis-v35-electric.png", fullPage: true });
 
   await newRound(1.05);
   await guest.keyboard.down("d");
@@ -307,7 +311,7 @@ try {
   await guest.waitForFunction(() => window.axis.state.fighters[1].downTime > 0);
   await guest.keyboard.up("d");
   await host.screenshot({
-    path: "/tmp/axis-v34-hellsweep.png",
+    path: "/tmp/axis-v35-hellsweep.png",
     fullPage: true,
   });
 
@@ -344,7 +348,7 @@ try {
       window.axis.state.fighters[0].y > 0.2,
   );
   await host.screenshot({
-    path: "/tmp/axis-v34-running-kick.png",
+    path: "/tmp/axis-v35-running-kick.png",
     fullPage: true,
   });
   await host.waitForFunction(() => window.axis.state.fighters[1].hp < 120);
@@ -356,12 +360,54 @@ try {
   await host.locator("#disconnect-button").click();
   await guest.waitForFunction(() => !window.axis.matched);
   await host.locator("#character-button").click();
+  await host.locator("#practice-behavior").selectOption("dummy");
+  await host.locator("#infinite-health").check();
   await choose(host, "goro");
   await host.waitForFunction(
     () => window.axis.state.fighters[0].character === "goro",
   );
+  await host.waitForFunction(() => window.axis.state.phase === "fight");
+  await host.keyboard.down("d");
+  await host.waitForFunction(() => {
+    const [a, b] = window.axis.state.fighters;
+    return Math.hypot(a.x - b.x, a.z - b.z) < 1.05;
+  });
+  await host.keyboard.up("d");
+  await host.keyboard.press("u");
+  await host.waitForFunction(
+    () => window.axis.state.fighters[0].comboDamage > 0,
+  );
+  assert.deepEqual(await host.evaluate(() => window.axis.practice), {
+    behavior: "dummy",
+    infiniteHealth: true,
+  });
+  assert.equal(
+    await host.evaluate(() => window.axis.state.fighters[1].hp),
+    120,
+  );
+  assert.equal(
+    await host.evaluate(() => window.axis.state.fighters[1].lastMove),
+    "",
+  );
+  assert.equal(await host.evaluate(() => window.axis.state.time), 60);
+  await host.locator("#character-button").click();
+  await host.locator("#practice-behavior").selectOption("cpu");
+  await host.locator("#infinite-health").uncheck();
+  await choose(host, "ren");
+  await host.waitForFunction(
+    () =>
+      window.axis.state.phase === "fight" &&
+      window.axis.state.fighters[1].lastMove !== "",
+  );
+  assert.equal(
+    await host.evaluate(() => window.axis.practice.infiniteHealth),
+    false,
+  );
+  console.log(
+    "Practice: stationary infinite-HP dummy keeps damage/hitstun; attacking CPU and normal HP switch work",
+  );
   await host.setViewportSize({ width: 390, height: 844 });
-  await host.screenshot({ path: "/tmp/axis-v34-mobile.png", fullPage: true });
+  await host.screenshot({ path: "/tmp/axis-v35-mobile.png", fullPage: true });
   assert.ok(
     await host.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,
@@ -369,7 +415,7 @@ try {
   );
   assert.deepEqual(errors, []);
   console.log(
-    "PASS: v3.4 quick match, player rooms, matched-only character selection, 4 characters, unique frame tables, automatic P2P, orbit camera, remote combat, practice selection, responsive layout; no page errors.",
+    "PASS: v3.5 player match only, player rooms, matched-only character selection, 4 characters, unique frame tables, automatic P2P, orbit camera, remote combat, practice selection, responsive layout; no page errors.",
   );
 } catch (error) {
   for (const [name, page] of [

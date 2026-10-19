@@ -1,3 +1,4 @@
+import { KIT_MOVES, KIT_RULES } from "./fighter-kits.js";
 // Authored 60 Hz frame data. S/A/R and advantages below drive the actual combat simulation.
 const keys = [
   "u",
@@ -31,39 +32,6 @@ const keys = [
   "hellSweep",
   "runningKick",
 ];
-const base = {
-  u: ["high", 8, 1.7, "leftPunch"],
-  i: ["mid", 12, 1.85, "rightPunch"],
-  j: ["mid", 13, 1.85, "leftKick"],
-  k: ["mid", 16, 1.95, "rightKick"],
-  oneTwo: ["mid", 11, 1.9, "rightPunch"],
-  finish: ["mid", 21, 2.0, "spin"],
-  upper: ["mid", 19, 1.85, "upper"],
-  low: ["low", 11, 1.7, "low"],
-  sweep: ["low", 21, 1.95, "sweep"],
-  qcfPunch: ["mid", 27, 2.3, "powerPunch"],
-  dragon: ["mid", 23, 1.95, "dragon"],
-  qcfKick: ["mid", 23, 2.05, "spin"],
-  dashPunch: ["mid", 25, 2.45, "powerPunch"],
-  palm: ["mid", 29, 2, "palm"],
-  backKick: ["mid", 19, 2.0, "backKick"],
-  hopKick: ["mid", 19, 1.85, "knee"],
-  throw: ["throw", 27, 1.3, "throw"],
-  hook: ["high", 13, 1.65, "hook"],
-  elbow: ["mid", 15, 1.45, "elbow"],
-  bodyBlow: ["mid", 12, 1.6, "bodyBlow"],
-  toeKick: ["low", 10, 1.75, "toeKick"],
-  sideKick: ["mid", 18, 2.0, "sideKick"],
-  axeKick: ["mid", 23, 1.85, "axeKick"],
-  kneeStrike: ["mid", 16, 1.5, "knee"],
-  bound: ["mid", 15, 1.8, "hammer"],
-  rushStrike: ["mid", 23, 1.8, "rushPalm"],
-  windGod: ["mid", 20, 1.85, "dragon"],
-  electric: ["high", 25, 1.9, "dragon"],
-  hellSweep: ["low", 26, 1.85, "hellSweep"],
-  runningKick: ["mid", 24, 1.9, "runningKick"],
-};
-
 const visuals = {
   u: {
     coil: 0.3,
@@ -419,38 +387,6 @@ const profileData = {
     damage: 1,
     build: 1,
     chain: ["u", "i", "k"],
-    names: [
-      "청류 잽",
-      "정권 지르기",
-      "전축 차기",
-      "회전 중단각",
-      "청류 원투",
-      "청룡 회전각",
-      "승천권",
-      "로우 컷",
-      "수면각",
-      "뇌격 정권",
-      "비룡 승천권",
-      "청룡 회오리",
-      "청류 돌파",
-      "파쇄 장타",
-      "백류 회전각",
-      "천공 니",
-      "청류 어깨꺾기",
-      "청류 훅",
-      "청류 팔꿈치",
-      "수월 복부권",
-      "앞발 견제",
-      "청류 옆차기",
-      "내려찍기",
-      "청룡 무릎",
-      "수룡 바운드",
-      "청류 통발",
-      "청룡 풍신권",
-      "청룡 초풍",
-      "수룡 나락",
-      "청룡 공참각",
-    ],
     frames: [
       [10, 2, 17, -1, 5],
       [11, 2, 16, -5, 4],
@@ -517,38 +453,6 @@ const profileData = {
     damage: 1.06,
     build: 1.04,
     chain: ["j", "k", "i"],
-    names: [
-      "붉은 견제",
-      "크림슨 크로스",
-      "레드 프런트",
-      "블레이즈 하이킥",
-      "더블 엣지",
-      "크림슨 피니시",
-      "플레어 런처",
-      "종아리 베기",
-      "레드 스윕",
-      "블러드 크로스",
-      "인페르노 어퍼",
-      "역회전 화염각",
-      "라이징 러시",
-      "스칼렛 장타",
-      "엣지 사이드킥",
-      "볼케이노 니",
-      "크림슨 클린치",
-      "크림슨 훅",
-      "스칼렛 엘보",
-      "리버 샷",
-      "종아리 스냅",
-      "레드 사이드",
-      "화염 내려차기",
-      "크림슨 니",
-      "블레이즈 바운드",
-      "크림슨 통발",
-      "홍염 풍신권",
-      "홍염 초풍",
-      "홍염 나락",
-      "크림슨 공참각",
-    ],
     frames: [
       [10, 2, 17, -1, 4],
       [12, 3, 18, -5, 6],
@@ -605,7 +509,6 @@ const profileData = {
       ["hellSweep", "k", [6, 5, 2, 3]],
       ["runningKick", "j", [6, 5, 6, 5, 6]],
     ],
-    kinds: { upper: "rightKick", dashPunch: "knee", palm: "palm" },
     kickReach: 0.08,
   },
   mira: {
@@ -617,38 +520,6 @@ const profileData = {
     damage: 0.9,
     build: 0.86,
     chain: ["u", "j", "i"],
-    names: [
-      "옥풍 잽",
-      "유선 장타",
-      "초승달 차기",
-      "비취 회전각",
-      "풍연 연계",
-      "옥풍 마무리",
-      "달오름 차기",
-      "그림자 하단권",
-      "비취 쓸기",
-      "질풍 장타",
-      "역풍 승천권",
-      "비취 나선각",
-      "그림자 돌파",
-      "유수 반격각",
-      "옥풍 견제권",
-      "비연 도약권",
-      "유수 넘기기",
-      "유수 갈고리권",
-      "옥풍 팔꿈치",
-      "비취 복부권",
-      "그림자 발끝",
-      "유수 측면각",
-      "낙월 내려차기",
-      "비연 무릎",
-      "낙화 바운드",
-      "유수 통발",
-      "유수 풍신권",
-      "유수 초풍",
-      "낙월 나락",
-      "비연 공참각",
-    ],
     frames: [
       [10, 2, 17, -1, 4],
       [11, 2, 15, -4, 4],
@@ -705,14 +576,6 @@ const profileData = {
       ["hellSweep", "k", [6, 5, 2, 3]],
       ["runningKick", "j", [6, 5, 6, 5, 6]],
     ],
-    kinds: {
-      upper: "leftKick",
-      low: "leftPunch",
-      dashPunch: "low",
-      palm: "backKick",
-      backKick: "leftPunch",
-      hopKick: "upper",
-    },
   },
   goro: {
     name: "GORO",
@@ -723,38 +586,6 @@ const profileData = {
     damage: 1.22,
     build: 1.26,
     chain: ["i", "u", "k"],
-    names: [
-      "철산 견제",
-      "강철 정권",
-      "중량 전축각",
-      "파쇄 중단각",
-      "철산 이연",
-      "산붕 피니시",
-      "철산 어퍼",
-      "대지 밟기",
-      "지진 쓸기",
-      "산맥 파쇄권",
-      "철룡 승천",
-      "대지 분쇄각",
-      "철산 돌진",
-      "거벽 압살",
-      "철산 뒤차기",
-      "대지 도약",
-      "거암 메치기",
-      "철산 훅",
-      "거벽 팔꿈치",
-      "철산 복부권",
-      "대지 발끝",
-      "거암 측면각",
-      "산붕 내려차기",
-      "철룡 무릎",
-      "산붕 바운드",
-      "철산 통발",
-      "철룡 풍신권",
-      "철룡 초풍",
-      "대지 나락",
-      "철산 공참각",
-    ],
     frames: [
       [10, 2, 17, -1, 7],
       [12, 3, 22, -6, 8],
@@ -811,47 +642,60 @@ const profileData = {
       ["hellSweep", "k", [6, 5, 2, 3]],
       ["runningKick", "j", [6, 5, 6, 5, 6]],
     ],
-    kinds: { qcfKick: "sweep" },
     kickReach: 0.04,
   },
 };
+// Each style owns its special motions; only KAI uses the crouch-dash electric pair.
+const specialCommands = {
+  ren: {
+    windGod: ["k", [8, 5, 8]],
+    electric: ["j", [2, 1, 4]],
+    hellSweep: ["j", [2, 3, 6]],
+    runningKick: ["k", [6, 5, 6, 5, 6]],
+  },
+  mira: {
+    windGod: ["i", [4, 6]],
+    electric: ["u", [4, 5, 4]],
+    hellSweep: ["u", [2, 1, 4]],
+    runningKick: ["u", [6, 5, 6, 5, 6]],
+  },
+  goro: {
+    windGod: ["u", [4, 6]],
+    electric: ["i", [4, 5, 4]],
+    hellSweep: ["u", [6, 3, 2]],
+    runningKick: ["i", [6, 5, 6, 5, 6]],
+  },
+};
+for (const [id, p] of Object.entries(profileData)) {
+  p.style = KIT_RULES[id].description;
+  p.specialty = KIT_RULES[id].specialty;
+  for (const rule of p.commands) {
+    const replacement = specialCommands[id]?.[rule[0]];
+    if (replacement) {
+      rule[1] = replacement[0];
+      rule[2] = replacement[1];
+    }
+  }
+}
 export const CHARACTERS = Object.fromEntries(
   Object.entries(profileData).map(([id, p]) => {
     const moves = Object.fromEntries(
       keys.map((key, index) => {
-        const [baseLevel, damage, baseRange, baseKind] = base[key],
+        const authored = KIT_MOVES[id][index];
+        const [baseLevel, damage, baseRange, baseKind] = [
+            authored.level,
+            authored.damage,
+            authored.range,
+            authored.kind,
+          ],
           [startup, active, recovery, onBlock, onHit] = p.frames[index];
         const rule = p.commands.find((r) => r[0] === key);
         const button =
           rule?.[1] ??
           (key === "oneTwo" ? p.chain[1] : key === "finish" ? p.chain[2] : key);
-        const chainKind =
-          key === "oneTwo"
-            ? {
-                u: "leftPunch",
-                i: "rightPunch",
-                j: "leftKick",
-                k: "rightKick",
-              }[button]
-            : key === "finish"
-              ? ["u", "i"].includes(button)
-                ? "powerPunch"
-                : "spin"
-              : null;
-        const kind =
-          p.kinds?.[key] ??
-          chainKind ??
-          (key === "hook"
-            ? rule[1] === "u"
-              ? "leftHook"
-              : "rightHook"
-            : baseKind);
-        const level = ["low", "sweep", "toeKick", "hellSweep"].includes(kind)
-          ? "low"
-          : baseLevel;
-        const range = ["low", "sweep", "toeKick", "hellSweep"].includes(kind)
-          ? Math.min(baseRange, 1.95)
-          : baseRange;
+        const kind = baseKind;
+        const level = baseLevel;
+        const range = baseRange;
         const command = rule
           ? `${rule[2].map((d) => labels[d]).join(" ")} + ${rule[1].toUpperCase()}`
           : key === "oneTwo"
@@ -874,37 +718,45 @@ export const CHARACTERS = Object.fromEntries(
         return [
           key,
           {
-            name: p.names[index],
-            command: command + (key === "electric" ? " [2F]" : ""),
+            name: authored.name,
+            command:
+              command + (key === "electric" && id === "kai" ? " [2F]" : ""),
             level,
-            damage: Math.round(damage * p.damage),
+            damage: damage,
             range:
               range +
               (["j", "k", "qcfKick", "backKick", "sideKick"].includes(key)
                 ? (p.kickReach ?? 0)
                 : 0),
             kind,
-            visual: visuals[key],
-            color: key === "electric" ? "#9befff" : p.color,
+            visual: {
+              ...visuals[key],
+              angle:
+                visuals[key].angle +
+                { kai: 0, ren: -0.18, mira: 0.22, goro: 0.1 }[id],
+              size:
+                visuals[key].size *
+                { kai: 1, ren: 1.16, mira: 0.82, goro: 1.3 }[id],
+            },
+            color: key === "electric" && id === "kai" ? "#9befff" : p.color,
             motionWeight: { kai: 1, ren: 1.12, mira: 0.88, goro: 1.24 }[id],
             side: ["u", "j"].includes(button) ? 1 : 0,
-            impactHeight: ["low", "sweep", "toeKick", "hellSweep"].includes(
-              kind,
-            )
-              ? 0.35
-              : kind === "bodyBlow" ||
-                  ["sideKick", "backKick"].includes(kind) ||
-                  level === "low"
-                ? 1.05
-                : kind === "hammer"
-                  ? 1.12
-                  : ["upper", "dragon"].includes(kind)
-                    ? 1.9
-                    : kind.endsWith("Hook")
-                      ? 1.65
-                      : level === "high"
-                        ? 1.8
-                        : 1.45,
+            impactHeight:
+              level === "low"
+                ? 0.35
+                : kind === "bodyBlow" ||
+                    ["sideKick", "backKick"].includes(kind) ||
+                    level === "low"
+                  ? 1.05
+                  : kind === "hammer"
+                    ? 1.12
+                    : ["upper", "dragon"].includes(kind)
+                      ? 1.9
+                      : kind.endsWith("Hook")
+                        ? 1.65
+                        : level === "high"
+                          ? 1.8
+                          : 1.45,
             width:
               key === "hellSweep"
                 ? 0.82
@@ -924,7 +776,7 @@ export const CHARACTERS = Object.fromEntries(
             blockStun: Math.max(1, remaining + onBlock) / 60,
             launch,
             knockdown: ["rushStrike", "hellSweep"].includes(key),
-            justFrames: key === "electric" ? 2 : null,
+            justFrames: key === "electric" && id === "kai" ? 2 : null,
             highCrushFrom: key === "hellSweep" ? 5 / 60 : null,
             hop: key === "runningKick" ? 5.2 : 0,
             blockPush:
@@ -966,6 +818,23 @@ export const CHARACTERS = Object.fromEntries(
         ];
       }),
     );
+    for (const [key, m] of Object.entries(moves)) {
+      Object.assign(m, KIT_RULES[id].moves[key]);
+      if (id !== "kai") {
+        m.visual.shape =
+          id === "ren" ? "arc" : id === "mira" ? "ring" : "chevron";
+        // Keep the 30 attack trails distinct within each style, as well as between styles.
+        m.visual.angle += keys.indexOf(key) * 0.031;
+        m.visual.size += keys.indexOf(key) * 0.007;
+      }
+      if (m.level === "low") {
+        m.impactHeight = 0.35;
+        m.airMin = 0;
+        m.airMax = 0.35;
+      }
+      m.stun = (m.active + m.recovery + m.onHit) / 60;
+      m.blockStun = Math.max(1, m.active + m.recovery + m.onBlock) / 60;
+    }
     return [id, { id, ...p, moves }];
   }),
 );

@@ -114,3 +114,20 @@ test("knees keep their anatomical bend side in every attack frame, stance and fa
         }
     }
 });
+
+test("the same input slot has a different full-body animation for each fighting style", () => {
+  for (const key of Object.keys(CHARACTERS.kai.moves)) {
+    const poses = new Set(
+      Object.values(CHARACTERS).map((p) => {
+        const f = createMatch([p.id, "kai"]).fighters[0];
+        return JSON.stringify(
+          [0.3, 0.6, 1, 1.2].map((phase) => {
+            f.attack = { key, t: p.moves[key].windup * phase };
+            return spritePose(f, 0);
+          }),
+        );
+      }),
+    );
+    assert.equal(poses.size, 4, key);
+  }
+});

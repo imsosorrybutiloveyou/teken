@@ -44,7 +44,6 @@ type portableLobby struct {
 	clients map[string]*lobbyClient
 	rooms   map[string]lobbyRoom
 	matches map[string]*lobbyMatch
-	queue   []string
 	done    chan struct{}
 }
 
@@ -103,19 +102,12 @@ func (l *portableLobby) roomList() []lobbyRoom {
 	return result
 }
 func (l *portableLobby) broadcast() {
-	v := map[string]any{"type": "rooms", "rooms": l.roomList(), "online": len(l.clients), "waiting": len(l.queue)}
+	v := map[string]any{"type": "rooms", "rooms": l.roomList(), "online": len(l.clients)}
 	for _, c := range l.clients {
 		l.send(c, v)
 	}
 }
 func (l *portableLobby) leave(c *lobbyClient) {
-	q := l.queue[:0]
-	for _, id := range l.queue {
-		if id != c.ID {
-			q = append(q, id)
-		}
-	}
-	l.queue = q
 	for id, r := range l.rooms {
 		if r.Host == c.ID {
 			delete(l.rooms, id)
@@ -171,7 +163,7 @@ func (l *portableLobby) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		l.Lock()
 		n := len(l.clients)
 		l.Unlock()
-		jsonResponse(w, 200, map[string]any{"service": "axis-matchmaking", "version": 6, "online": n, "portable": true})
+		jsonResponse(w, 200, map[string]any{"service": "axis-matchmaking", "version": 7, "online": n, "portable": true})
 		return
 	}
 	var body struct {
@@ -240,7 +232,7 @@ func (l *portableLobby) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		c.Connected = true
 		rooms := l.roomList()
-		online, waiting := len(l.clients), len(l.queue)
+		online := len(l.clients)
 		var picks [2]any
 		matched := false
 		if m := l.matches[c.Match]; m != nil {
@@ -266,7 +258,7 @@ func (l *portableLobby) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			flusher.Flush()
 			return err == nil
 		}
-		if !write(map[string]any{"type": "welcome", "id": c.ID}) || !write(map[string]any{"type": "rooms", "rooms": rooms, "online": online, "waiting": waiting}) {
+		if !write(map[string]any{"type": "welcome", "id": c.ID}) || !write(map[string]any{"type": "rooms", "rooms": rooms, "online": online}) {
 			return
 		}
 		if matched {
@@ -299,27 +291,11 @@ func (l *portableLobby) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	m := l.matches[c.Match]
-	if m != nil && (body.Type == "quick" || body.Type == "createRoom" || body.Type == "joinRoom") {
+	if m != nil && (body.Type == "createRoom" || body.Type == "joinRoom") {
 		fail(400, "현재 대전을 먼저 종료하세요.")
 		return
 	}
 	switch body.Type {
-	case "quick":
-		l.leave(c)
-		var candidate *lobbyClient
-		for _, id := range l.queue {
-			if other := l.clients[id]; other != nil && other.Connected && other.Match == "" {
-				candidate = other
-				break
-			}
-		}
-		if candidate != nil {
-			l.pair(candidate, c, "quick")
-		} else {
-			l.queue = append(l.queue, c.ID)
-			l.send(c, map[string]string{"type": "queued", "mode": "quick"})
-			l.broadcast()
-		}
 	case "createRoom":
 		name := shortName(body.Name, 40)
 		if name == "" {

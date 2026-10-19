@@ -14,7 +14,7 @@
         >
         <div class="top-center">
           <span class="live-dot"></span> PIXEL FIGHTERS / FREE AXIS
-          <span class="version">/ VOL. 03.4</span>
+          <span class="version">/ VOL. 03.5</span>
         </div>
         <button id="online-button" class="button small">
           <span class="connection-icon">⌁</span> 온라인 대전 <span>↗</span>
@@ -182,8 +182,10 @@
         <button class="close" aria-label="닫기">×</button>
       </form>
       <div class="eyebrow">ONLINE ARENA / P2P</div>
-      <h2>다음 상대를 찾으세요.</h2>
-      <p class="dialog-intro">퀵 매치 또는 방 입장 → 캐릭터 선택 → P2P 대전</p>
+      <h2>PLAYER MATCH · 대전방</h2>
+      <p class="dialog-intro">
+        ① 같은 호스트에 연결 → ② 방 만들기 또는 입장 → ③ 캐릭터 선택
+      </p>
       <label class="field-label" for="server-url">매칭 호스트 주소</label>
       <div class="server-row">
         <input
@@ -194,19 +196,7 @@
       </div>
       <label class="field-label" for="player-name">플레이어 이름</label
       ><input id="player-name" maxlength="24" placeholder="PLAYER" />
-      <div class="online-tabs">
-        <button id="quick-tab" class="selected">QUICK MATCH</button
-        ><button id="rooms-tab">PLAYER MATCH</button>
-      </div>
-      <div id="quick-panel">
-        <p class="dialog-intro">
-          같은 서버에서 퀵 매치를 찾는 상대와 자동으로 연결됩니다.
-        </p>
-        <button id="quick-match" class="button primary">
-          QUICK MATCH · 상대 찾기
-        </button>
-      </div>
-      <div id="rooms-panel" hidden>
+      <div id="rooms-panel">
         <div class="server-row">
           <input
             id="room-name"
@@ -224,14 +214,15 @@
         </div>
       </div>
       <p id="online-status" role="status">
-        EXE는 먼저 실행한 LAN 호스트에 자동 연결합니다. 퀵 매치 또는 방을
-        선택하세요.
+        EXE는 먼저 실행한 LAN 호스트에 자동 연결합니다. 한 명이 방을 만들고,
+        상대가 목록에서 입장하세요.
       </p>
-      <button id="cancel-queue" class="button" hidden>대기 취소</button>
+      <button id="cancel-queue" class="button" hidden>
+        방 닫기 · 대기 취소
+      </button>
       <p class="network-note">
-        인터넷에서는 먼저 실행한 PC의 접속 주소 또는 공용 서버 URL을 사용해야
-        목록과 대기열을 공유합니다. 일부 NAT 환경에서는 별도 TURN 중계가
-        필요합니다.
+        인터넷에서는 먼저 실행한 PC의 접속 주소 또는 공용 서버 URL을 사용해야 방
+        목록을 공유합니다. 일부 NAT 환경에서는 별도 TURN 중계가 필요합니다.
       </p>
       <button id="disconnect-button" class="text-button">
         대전 종료 · 연습으로 돌아가기
@@ -245,6 +236,21 @@
       <label id="cpu-label" class="field-label" for="cpu-character"
         >연습 상대</label
       ><select id="cpu-character"></select>
+      <fieldset id="practice-settings" class="practice-settings">
+        <legend>연습 상대 설정</legend>
+        <label for="practice-behavior">상대 행동</label>
+        <select id="practice-behavior">
+          <option value="cpu">공격하는 CPU</option>
+          <option value="dummy">정지 샌드백 · 공격하지 않음</option>
+        </select>
+        <label class="health-option"
+          ><input id="infinite-health" type="checkbox" checked /> 무한 체력 ·
+          제한 시간 없음 (양쪽)</label
+        >
+        <p class="network-note">
+          무한 체력에서도 경직·다운·콤보 대미지는 그대로 표시됩니다.
+        </p>
+      </fieldset>
       <div id="character-detail" class="character-detail"></div>
       <div class="selection-slots">
         <span id="your-pick">내 선택: 미정</span
@@ -267,8 +273,8 @@
       <div id="move-character-tabs" class="online-tabs"></div>
       <p class="network-note">
         60 FPS 기준 · S 발동 / A 지속 / R 회수 · G 가드 시 유불리 / H 적중 시
-        유불리 · L 띄우기 / B 공중 바운드(콤보당 1회). 잽 10F, 어퍼 15F(GORO
-        16F). 큰 기술을 막고 반격하세요.
+        유불리 · L 띄우기 / B 공중 바운드(콤보당 1회). 잽 10F, 띄우기는 캐릭터별
+        동작·커맨드가 다릅니다. GORO 큰 기술을 막고 반격하세요.
       </p>
       <p id="move-air-combo" class="network-note"></p>
       <div id="move-list"></div>
@@ -276,8 +282,8 @@
         U 왼손(LP) · I 오른손(RP) · J 왼발(LK) · K 오른발(RK). 상단: 서서 가드 /
         앉아서 회피 · 중단: 뒤로 입력해 서서 가드 · 하단: Shift+뒤 또는 ↙로
         가드. 후퇴 중에도 방어할 수 있습니다. 횡이동으로 공격 축을 피할 수
-        있습니다. U+I 잡기는 근거리에서 가드를 무시합니다. J+K는 하단
-        스윕입니다.
+        있습니다. U+I 잡기는 근거리에서 가드를 무시합니다. J+K는 캐릭터별 하단
+        쓸기입니다.
       </p>
       <p class="network-note">
         연습전은 P1을 조작합니다. 온라인 호스트는 P1, 참가자는 P2입니다. A/D는

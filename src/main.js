@@ -1,9 +1,11 @@
+import { STYLE_MOTIONS } from "./style-motion.js";
 import "./style.css";
-import { createMatch, step, cpuInput, MAX_HP } from "./combat.js";
-import { CHARACTERS, CHARACTER_IDS, character, moveFor } from "./characters.js";
+import { createMatch, step, stepPractice, MAX_HP } from "./combat.js";
+import { CHARACTER_IDS, character, moveFor } from "./characters.js";
 import { KeyboardInput, RemoteInput, keyName } from "./input.js";
 import { createScene, paintPortrait } from "./scene.js";
 import { PeerSession, validSnapshot } from "./network.js";
+import { loadCustomAssets, playCustomHit } from "./custom-assets.js";
 import { LobbyClient } from "./lobby.js";
 const $ = (id) => document.getElementById(id),
   keyboard = new KeyboardInput(),
@@ -18,6 +20,8 @@ let practiceIds = ["kai", "ren"],
   connectionLost = false,
   sound = true,
   audio = null,
+  practiceBehavior = "cpu",
+  infiniteHealth = true,
   lastInputAt = 0,
   lastStateAt = 0,
   activePair = null,
@@ -26,7 +30,13 @@ let practiceIds = ["kai", "ren"],
   chosen = "kai",
   ownLocked = false,
   lobbyReady = false,
+  connectedName = "",
+  ownRoomId = null,
   busy = false;
+loadCustomAssets().then(() => {
+  if (document.getElementById("character-grid").children.length)
+    renderCharacters();
+});
 let scene;
 try {
   scene = createScene($("game"));
@@ -53,15 +63,20 @@ function unlockAudio() {
 }
 function playHit(event) {
   if (!sound || !audio || audio.state !== "running") return;
+  if (playCustomHit(audio, event)) return;
+  const timbre =
+    { kai: 1, ren: 1.3, mira: 1.65, goro: 0.66 }[event.character] ?? 1;
   const now = audio.currentTime,
     blocked = event.type === "block",
     heavy = event.heavy,
-    kick = /Kick|spin|sweep|knee|low/.test(event.kind || "");
+    kick =
+      /Kick|spin|sweep|knee|low/.test(event.kind || "") ||
+      ["foot", "knee"].includes(STYLE_MOTIONS[event.kind]?.[0]);
   const bass = audio.createOscillator(),
     gain = audio.createGain();
   bass.type = "sine";
   bass.frequency.setValueAtTime(
-    blocked ? 180 : kick ? 105 : heavy ? 100 : 165,
+    (blocked ? 180 : kick ? 105 : heavy ? 100 : 165) * timbre,
     now,
   );
   bass.frequency.exponentialRampToValueAtTime(35, now + 0.16);
@@ -87,7 +102,8 @@ function playHit(event) {
     snap = audio.createGain();
   noise.buffer = buffer;
   filter.type = "lowpass";
-  filter.frequency.value = blocked ? 2500 : kick ? 1300 : heavy ? 1100 : 2400;
+  filter.frequency.value =
+    (blocked ? 2500 : kick ? 1300 : heavy ? 1100 : 2400) * timbre;
   snap.gain.setValueAtTime(blocked ? 0.05 : 0.11, now);
   snap.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
   noise.connect(filter);
@@ -125,7 +141,9 @@ function updateMode() {
     ? role === "guest"
       ? "YOU · PEER"
       : "OPPONENT"
-    : "CPU · NORMAL";
+    : practiceBehavior === "cpu"
+      ? "CPU · 공격"
+      : "DUMMY · 정지";
   $("arena-mode").textContent = activePair
     ? "ONLINE P2P MATCH"
     : "PRACTICE MATCH";
@@ -135,7 +153,7 @@ function updateMode() {
       : connected
         ? "캐릭터 선택 대기 · P2P 연결 완료"
         : "매칭 완료 · P2P 연결 중"
-    : "로컬 연습 · CPU 활성";
+    : `연습 · ${practiceBehavior === "cpu" ? "CPU 공격" : "정지 샌드백"} · ${infiniteHealth ? "무한 체력" : "일반 체력"}`;
   $("practice-button").classList.toggle("selected", !activePair);
   $("pvp-button").classList.toggle("selected", !!activePair);
   $("pause-button").innerHTML = paused
@@ -145,8 +163,8 @@ function updateMode() {
   $("reset-button").disabled =
     !!activePair && (!battleActive || role === "guest");
   $("character-button").disabled = !!activePair;
-  for (const id of ["quick-match", "create-room"])
-    $(id).disabled = !!activePair || busy;
+  for (const id of ["create-room"])
+    $(id).disabled = !!activePair || busy || !$("cancel-queue").hidden;
 }
 function startBattle() {
   if (!connected || !lockedRoster || battleActive) return;
@@ -233,18 +251,18 @@ const lobby = new LobbyClient(
           `${event.online} ONLINE / ${event.rooms.length} ROOMS`;
         break;
       case "queued":
+        ownRoomId = event.roomId;
         $("cancel-queue").hidden = false;
-        status(
-          event.mode === "quick"
-            ? "QUICK MATCH · 상대를 찾고 있습니다…"
-            : "PLAYER MATCH · 방을 만들었습니다. 참가자를 기다립니다…",
-        );
+        status("방을 만들었습니다. 상대가 입장하면 캐릭터 선택이 열립니다.");
+        $("create-room").disabled = true;
         break;
       case "idle":
+        ownRoomId = null;
         $("cancel-queue").hidden = true;
         status("대기를 취소했습니다.");
         break;
       case "paired": {
+        ownRoomId = null;
         activePair = event;
         role = event.role;
         lockedRoster = null;
@@ -313,8 +331,7 @@ const lobby = new LobbyClient(
 async function job(task) {
   if (busy) return;
   busy = true;
-  for (const id of ["connect-lobby", "quick-match", "create-room"])
-    $(id).disabled = true;
+  for (const id of ["connect-lobby", "create-room"]) $(id).disabled = true;
   try {
     await task();
   } catch (error) {
@@ -332,17 +349,20 @@ async function ensureLobby() {
     lobbyReady &&
     lobby.session &&
     lobby.source?.readyState === 1 &&
-    lobby.base === new URL(address).origin
+    lobby.base === new URL(address).origin &&
+    connectedName === ($("player-name").value.trim() || "PLAYER")
   )
     return;
   if (activePair) throw Error("서버를 바꾸기 전에 현재 대전을 종료하세요.");
   status("매칭 서버에 연결 중…");
   lobbyReady = false;
-  await lobby.connect(address, $("player-name").value.trim() || "PLAYER");
+  const name = $("player-name").value.trim() || "PLAYER";
+  await lobby.connect(address, name);
+  connectedName = name;
   lobbyReady = true;
   localStorage.setItem("axis-match-server", address);
   localStorage.setItem("axis-player-name", $("player-name").value);
-  status("서버 연결 완료 · 퀵 매치 또는 방을 선택하세요.");
+  status("서버 연결 완료 · 방을 만들거나 아래 목록에서 입장하세요.");
 }
 $("server-url").value = document.querySelector('meta[name="axis-desktop"]')
   ? location.origin
@@ -351,15 +371,12 @@ $("server-url").value = document.querySelector('meta[name="axis-desktop"]')
     location.origin;
 $("player-name").value = localStorage.getItem("axis-player-name") || "PLAYER";
 $("connect-lobby").onclick = () => job(ensureLobby);
-$("quick-match").onclick = () =>
-  job(async () => {
-    await ensureLobby();
-    await lobby.action("quick");
-  });
 $("create-room").onclick = () =>
   job(async () => {
     await ensureLobby();
-    await lobby.action("createRoom", { name: $("room-name").value });
+    await lobby.action("createRoom", {
+      name: $("room-name").value.trim() || `${connectedName}의 대전방`,
+    });
   });
 $("cancel-queue").onclick = () =>
   job(async () => {
@@ -389,8 +406,8 @@ function renderRooms(rooms) {
     title.textContent = room.name;
     details.textContent = `${room.host} · 1 / 2`;
     button.className = "button";
-    button.textContent = "참가";
-    button.disabled = !!activePair;
+    button.textContent = room.id === ownRoomId ? "대기 중" : "입장";
+    button.disabled = !!activePair || room.id === ownRoomId;
     button.onclick = () =>
       job(async () => {
         await ensureLobby();
@@ -401,14 +418,6 @@ function renderRooms(rooms) {
     root.append(row);
   }
 }
-function onlineTab(tab) {
-  $("quick-tab").classList.toggle("selected", tab === "quick");
-  $("rooms-tab").classList.toggle("selected", tab === "rooms");
-  $("quick-panel").hidden = tab !== "quick";
-  $("rooms-panel").hidden = tab !== "rooms";
-}
-$("quick-tab").onclick = () => onlineTab("quick");
-$("rooms-tab").onclick = () => onlineTab("rooms");
 function openOnline() {
   unlockAudio();
   keyboard.clear();
@@ -417,6 +426,7 @@ function openOnline() {
     updateMode();
   }
   $("online-dialog").showModal();
+  if (!activePair) job(ensureLobby);
 }
 $("online-button").onclick = openOnline;
 $("pvp-button").onclick = openOnline;
@@ -446,7 +456,7 @@ function renderCharacters() {
   }
   const p = character(chosen);
   $("character-detail").textContent =
-    `${p.name} · ${p.style} | LP ${p.moves.u.startup}F / RP ${p.moves.i.startup}F / LK ${p.moves.j.startup}F / RK ${p.moves.k.startup}F · 고유기: ${p.moves.qcfPunch.command} ${p.moves.qcfPunch.name}`;
+    `${p.name} · ${p.style} · ${p.specialty} | LP ${p.moves.u.startup}F / RP ${p.moves.i.startup}F / LK ${p.moves.j.startup}F / RK ${p.moves.k.startup}F · 고유기: ${p.moves.qcfPunch.command} ${p.moves.qcfPunch.name}`;
 }
 function openSelection() {
   const online = selectionMode === "online";
@@ -457,10 +467,13 @@ function openSelection() {
     ? "상대가 정해졌습니다. 캐릭터를 선택하세요."
     : "연습할 격투가를 선택하세요.";
   $("select-opponent").textContent = online
-    ? `VS ${activePair.opponent} · ${activePair.mode === "quick" ? "QUICK MATCH" : "PLAYER MATCH"}`
+    ? `VS ${activePair.opponent} · PLAYER MATCH`
     : "내 캐릭터와 CPU 상대를 고를 수 있습니다.";
   $("cpu-character").hidden = online;
   $("cpu-label").hidden = online;
+  $("practice-settings").hidden = online;
+  $("practice-behavior").value = practiceBehavior;
+  $("infinite-health").checked = infiniteHealth;
   $("opponent-pick").hidden = !online;
   $("your-pick").textContent = "내 선택: 미정";
   $("opponent-pick").textContent = "상대 선택: 미정";
@@ -491,6 +504,8 @@ $("confirm-character").onclick = async () => {
     }
   } else {
     practiceIds = [chosen, $("cpu-character").value];
+    practiceBehavior = $("practice-behavior").value;
+    infiniteHealth = $("infinite-health").checked;
     $("select-dialog").close();
     resetMatch(practiceIds);
   }
@@ -606,6 +621,11 @@ function renderMoves(id) {
     frames.className = "frame-data";
     const sign = (n) => (n > 0 ? "+" + n : String(n));
     frames.textContent = `S ${m.startup} / A ${m.active} / R ${m.recovery} | G ${m.level === "throw" ? "—" : sign(m.onBlock)} / H ${m.launch ? "L" : m.knockdown ? "KD" : m.bound ? sign(m.onHit) + " / B" : sign(m.onHit)}`;
+    if (m.armorFrom != null)
+      desc.textContent += ` · ${Math.round(m.armorFrom * 60)}F부터 상·중단 1회 버티기(피해 받음)`;
+    if (m.highCrushFrom != null)
+      desc.textContent += ` · ${Math.round(m.highCrushFrom * 60)}F부터 상단 회피`;
+    if (m.hop) desc.textContent += " · 도약 중 하단 회피";
     info.append(name, desc);
     row.append(command, info, frames);
     $("move-list").append(row);
@@ -745,8 +765,13 @@ function frame(now) {
         !remoteInput.queue.length
       )
         remoteInput.clear();
-      const opponent = battleActive ? remoteInput.sample() : cpuInput(match);
-      step(match, [input, opponent]);
+      const opponent = battleActive ? remoteInput.sample() : null;
+      if (battleActive) step(match, [input, opponent]);
+      else
+        stepPractice(match, input, {
+          behavior: practiceBehavior,
+          infiniteHealth,
+        });
       effects(match.events);
       if (battleActive) {
         remoteEvents.push(...match.events);
@@ -767,6 +792,9 @@ updateMode();
 updateRecommendations();
 requestAnimationFrame(frame);
 window.axis = {
+  get practice() {
+    return { behavior: practiceBehavior, infiniteHealth };
+  },
   get state() {
     return structuredClone(match);
   },

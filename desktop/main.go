@@ -83,7 +83,7 @@ func run() error {
 	defer listener.Close()
 	server := &http.Server{Handler: mux, ReadHeaderTimeout: 5 * time.Second}
 	url := "http://" + listener.Addr().String()
-	fmt.Println("\n  AXIS ADVANCE - Pixel Fighting | v3.4.0")
+	fmt.Println("\n  AXIS ADVANCE - Pixel Fighting | v3.5.0")
 	fmt.Println("  --------------------------------")
 	fmt.Println("  Game ready: " + url)
 	fmt.Println("  Your browser will open the game automatically.")
@@ -91,7 +91,7 @@ func run() error {
 	fmt.Println("  To quit: close this window or press Ctrl+C.")
 	fmt.Println("\n  Move: A/D | Sidestep: W/S | U: Left Punch | I: Right Punch | J: Left Kick | K: Right Kick")
 	fmt.Print("  Guard: Hold Back | Crouch: Shift | 4 unique fighters | Check each fighter frame list\n")
-	fmt.Print("  Online: QUICK MATCH uses the first LAN host automatically; internet: run EXE --host http://HOST-IP:8787\n\n")
+	fmt.Print("  Online: PLAYER MATCH uses the first LAN host automatically; internet: run EXE --host http://HOST-IP:8787\n\n")
 	if !*noBrowser {
 		go func() {
 			if err := openBrowser(url); err != nil {
