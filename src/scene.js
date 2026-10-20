@@ -1,5 +1,6 @@
 import { STAGES } from "./stages.js";
 import { STYLE_MOTIONS, styleStance, styleAttack } from "./style-motion.js";
+import { drawKiAura, drawEnergyShot } from "./energy-effects.js";
 import {
   paintCustomSprite,
   customPortrait,
@@ -1382,6 +1383,25 @@ export function createScene(canvas) {
           const m = moveFor(f),
             delta = f.attack.t - m.windup,
             progress = f.attack.t / m.windup;
+          if (m.kiCost)
+            drawKiAura(c, p, f.facing, clock, f.attack.t / m.duration);
+          if (m.projectile && delta < 0) {
+            const charge = project(
+              f.x + Math.cos(f.attack.angle) * 0.65,
+              f.y + m.impactHeight,
+              f.z + Math.sin(f.attack.angle) * 0.65,
+            );
+            c.save();
+            c.globalAlpha = Math.min(0.85, progress);
+            drawEnergyShot(
+              c,
+              { ...charge, scale: charge.scale * (0.25 + progress * 0.45) },
+              0,
+              clock,
+              !!m.kiCost,
+            );
+            c.restore();
+          }
           const charged = m.onBlock <= -15;
           if (progress >= (charged ? 0.4 : 0.65) && delta < 6 / 60) {
             const height = (f.attack.height ?? m.impactHeight) - f.y;
@@ -1421,20 +1441,14 @@ export function createScene(canvas) {
         }
       }
       for (const shot of match.projectiles) {
-        const p = project(shot.x, shot.y, shot.z),
-          radius = p.scale * (shot.key === "exWave" ? 0.28 : 0.2);
-        c.save();
-        c.shadowColor = "#ffb96d";
-        c.shadowBlur = 8;
-        c.fillStyle = shot.key === "exWave" ? "#a3ffff" : "#ffbc6d";
-        c.beginPath();
-        c.ellipse(p.x, p.y, radius * 1.5, radius, 0, 0, Math.PI * 2);
-        c.fill();
-        c.fillStyle = "#fff4cc";
-        c.beginPath();
-        c.arc(p.x, p.y, radius * 0.5, 0, Math.PI * 2);
-        c.fill();
-        c.restore();
+        const p = project(shot.x, shot.y, shot.z);
+        drawEnergyShot(
+          c,
+          p,
+          Math.cos(shot.angle - match.viewAngle) >= 0 ? 0 : Math.PI,
+          clock,
+          shot.key === "exWave",
+        );
       }
       for (let i = effects.length - 1; i >= 0; i--) {
         const e = effects[i];
@@ -1447,6 +1461,13 @@ export function createScene(canvas) {
         }
         const p = project(e.x, e.y, e.z),
           expand = e.age * (e.heavy ? 130 : 90);
+        const impactMove =
+          e.character && e.key
+            ? moveFor({ character: e.character }, e.key)
+            : null;
+        const kiImpact = !!impactMove?.kiCost;
+        if (kiImpact && e.age < 0.3)
+          drawKiAura(c, { ...p, y: p.y + p.scale }, 1, clock, 0.3 + e.age * 2);
         if (
           e.wallSplat ||
           e.punish ||
@@ -1479,10 +1500,17 @@ export function createScene(canvas) {
           );
         }
         if (e.age > 0.3) continue;
-        c.strokeStyle = e.type === "block" ? "#c4ecf2" : "#ffe2a0";
+        c.strokeStyle =
+          e.type === "block" ? "#c4ecf2" : kiImpact ? "#69caff" : "#ffe2a0";
         c.lineWidth = e.age < 0.1 ? (e.heavy ? 4 : 3) : 1;
         if (e.type === "hit") {
-          c.strokeStyle = e.heavy ? "#ffc26b" : "#ffe9be";
+          c.strokeStyle = kiImpact
+            ? "#57baff"
+            : impactMove?.projectile
+              ? "#6dffe5"
+              : e.heavy
+                ? "#ffc26b"
+                : "#ffe9be";
           c.beginPath();
           c.ellipse(p.x, p.y, 4 + expand, 3 + expand * 0.55, 0, 0, Math.PI * 2);
           c.stroke();
@@ -1501,10 +1529,6 @@ export function createScene(canvas) {
           );
           c.stroke();
         }
-        const impactMove =
-          e.character && e.key
-            ? moveFor({ character: e.character }, e.key)
-            : null;
         if (impactMove && e.type === "hit" && e.age < 0.16) {
           c.save();
           c.translate(p.x, p.y);

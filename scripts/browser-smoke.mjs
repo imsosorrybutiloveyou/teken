@@ -504,7 +504,7 @@ try {
   );
   assert.deepEqual(errors, []);
   console.log(
-    "PASS: v3.16 player match only, player rooms, matched-only character selection, 9 characters + random, unique frame tables, automatic P2P, orbit camera, remote combat, practice selection, responsive layout; no page errors.",
+    "PASS: v3.17 player match only, player rooms, matched-only character selection, 9 characters + random, unique frame tables, automatic P2P, orbit camera, remote combat, practice selection, responsive layout; no page errors.",
   );
 } catch (error) {
   for (const [name, page] of [

@@ -4,7 +4,7 @@ import { CHARACTER_IDS, character } from "./characters.js";
 export function validSnapshot(v) {
   if (
     !v ||
-    v.version !== 18 ||
+    v.version !== 19 ||
     typeof v.stage !== "string" ||
     !Object.hasOwn(STAGES, v.stage) ||
     !["ready", "fight", "roundEnd", "matchEnd"].includes(v.phase) ||

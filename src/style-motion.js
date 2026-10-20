@@ -118,8 +118,8 @@ export function styleStance(p, id, crouch) {
       [22, 59 + down],
       [63, 58 + down],
     ];
-    p.feet[0][0] = 12;
-    p.feet[1][0] = 77;
+    p.feet[0][0] -= 9;
+    p.feet[1][0] += 11;
     p.lean = -4;
   } else if (id === "ren") {
     p.hip[1] -= 3;

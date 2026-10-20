@@ -237,7 +237,7 @@ function fighter(x, id, index) {
 }
 export function createMatch(ids = ["kai", "ren"], stage = "terminal") {
   return {
-    version: 18,
+    version: 19,
     stage: chooseStage(stage),
     axisAngle: 0,
     viewAngle: 0,

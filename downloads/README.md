@@ -1,4 +1,4 @@
-# AXIS ADVANCE v3.16 Windows 다운로드
+# AXIS ADVANCE v3.17 Windows 다운로드
 
 [**AXIS-Windows-x64.exe 다운로드**](https://github.com/imsosorrybutiloveyou/teken/raw/refs/heads/main/downloads/AXIS-Windows-x64.exe)
 
@@ -8,7 +8,7 @@ Windows 10/11 64비트용입니다. 다운로드 후 더블클릭하면 기본 �
 
 **첫 실행자가 매칭 호스트가 되며 같은 LAN의 다음 실행자는 자동 검색해 참가합니다.** 인터넷에서는 첫 PC의 공인/VPN 주소를 온라인 로비에 넣고, 호스트 TCP 8787 접근이 가능해야 합니다. 별도 Node.js 설치는 필요 없습니다. 호스트 EXE는 계속 켜 두세요. 공용 서버 없이 인터넷의 낯선 상대를 주소 없이 검색하는 기능은 없습니다. [상세 접속 방법](../사용설명서.md#6-온라인-준비-첫-pc가-호스트)
 
-v3.16은 달리기 손/발 공격·곰/기계 몸통박치기·큰 기 게이지·RAON 독립 기술과 외형을 포함합니다. [벽꽝·커맨드 설명](../docs/RELEASE_NOTES.md) · [백대시·횡이동·기존 조작](../docs/COMBAT_V312.md). 온라인 양쪽과 첫 호스트 또는 AXIS SERVER를 모두 v3.16으로 교체하세요.
+v3.17은 RAON 보행 수정·기공파/푸른 기 소비 효과·기공탄 피해 하향·광기 AI 벽꽝/달리기/기 운용을 포함합니다. [벽꽝·커맨드 설명](../docs/RELEASE_NOTES.md) · [백대시·횡이동·기존 조작](../docs/COMBAT_V312.md). 온라인 양쪽과 첫 호스트 또는 AXIS SERVER를 모두 v3.17으로 교체하세요.
 
 제작자 인증서로 서명되지 않은 빌드이며 실제 Windows에서의 직접 실행 검증은 아직 하지 않았습니다. [SHA-256](AXIS-Windows-x64.exe.sha256)은 PowerShell에서 다음 명령으로 비교할 수 있습니다.
 

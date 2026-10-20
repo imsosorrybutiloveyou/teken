@@ -8,7 +8,7 @@ finish|잔화 회신축|raonWheel|mid|20|19|24|-14|2.3
 upper|월륜 뒤축|raonHeelRise|mid|15|16|24|-17|2.0
 low|복호 절장|raonLowPalm|low|10|16|19|-13|1.85
 sweep|낙재 발목걸기|raonRootKick|low|19|23|27|-24|2.2
-qcfPunch|여명 기공탄|raonWave|mid|16|18|26|-12|0.65
+qcfPunch|여명 기공탄|raonWave|mid|11|18|26|-12|0.65
 dragon|승화 무릎|raonKnee|mid|19|17|22|-12|1.9
 qcfKick|원광 회전축|raonOrbit|mid|21|21|24|-13|2.5
 dashPunch|흐름 밀어장|raonPivotPalm|mid|22|19|25|-15|2.35
@@ -44,7 +44,7 @@ wakeMid|누운 월륜각|raonHeelRise|mid|17|21|28|-15|2.2
 signature|진공 원무장|raonFan|mid|24|22|25|-14|2.4
 homingStrike|원형 봉쇄축|raonOrbit|mid|19|21|24|-9|2.6
 rushLink|유성 착지장|raonFold|mid|13|12|20|-11|2.15
-exWave|작열 기공탄|raonWave|mid|26|14|24|-8|0.65
+exWave|작열 기공탄|raonWave|mid|20|14|24|-8|0.65
 exDragon|폭련 기둥|raonPillar|mid|28|14|33|-22|2.1
 focusBurst|축기 연환장|raonFan|mid|12|8|18|-16|2.5`;
 const rules = [
@@ -155,7 +155,7 @@ export function addEnergyFighter(roster) {
         : ["i", "k"].includes(key)
           ? 0
           : index % 2,
-      color: cost ? "#b2fff8" : "#6de4d5",
+      color: cost ? "#58b8ff" : "#6de4d5",
       motionWeight: 1.08,
       visual: {
         coil: 0.35 + (index % 4) * 0.07,

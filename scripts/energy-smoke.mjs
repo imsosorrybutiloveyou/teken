@@ -16,7 +16,19 @@ const pc = await browser.newPage({ viewport: { width: 1440, height: 1080 } }),
     isMobile: true,
   }),
   errors = [];
-for (const p of [pc, phone]) p.on("pageerror", (e) => errors.push(e.message));
+for (const p of [pc, phone]) {
+  p.on("pageerror", (e) => errors.push(e.message));
+  await p.addInitScript(() => {
+    window.energyStrokes = {};
+    const stroke = CanvasRenderingContext2D.prototype.stroke;
+    CanvasRenderingContext2D.prototype.stroke = function (...args) {
+      const color = this.strokeStyle;
+      if (["#55c8ff", "#6dffe5", "#58baff"].includes(color))
+        window.energyStrokes[color] = (window.energyStrokes[color] || 0) + 1;
+      return stroke.apply(this, args);
+    };
+  });
+}
 const base = process.env.TEST_BASE_URL || "http://127.0.0.1:8080";
 let original;
 async function choose(page, id) {
@@ -156,7 +168,8 @@ try {
       b.vy > 5
     );
   });
-  await pc.screenshot({ path: "/tmp/axis-v315-ki-combo.png", fullPage: true });
+  assert.ok(await pc.evaluate(() => window.energyStrokes["#55c8ff"] > 0));
+  await pc.screenshot({ path: "/tmp/axis-v317-ki-combo.png", fullPage: true });
   console.log(
     "PASS: 10 slots with centered random, real held dash/run, 20 physical hits earn one stock, physical J+K spends one stock after launcher, native portrait/skin save and reload without GitHub.",
   );
@@ -186,10 +199,53 @@ try {
     );
   assert.equal(await phone.locator("#ki-0").isVisible(), true);
   assert.equal(await phone.locator('[data-chord="u+i"]').isVisible(), true);
-  await phone.screenshot({ path: "/tmp/axis-v315-mobile.png", fullPage: true });
+  await phone.screenshot({ path: "/tmp/axis-v317-mobile.png", fullPage: true });
+  for (const p of [pc, phone])
+    assert.ok(await p.evaluate(() => window.energyStrokes["#6dffe5"] > 0));
+  for (let n = 2; n <= 20; n++) {
+    await pc.waitForFunction(
+      () =>
+        window.axis.state.phase === "fight" &&
+        !window.axis.state.fighters[0].attack &&
+        !window.axis.state.fighters[0].stun,
+    );
+    const gap = await pc.evaluate(() => {
+      const [a, b] = window.axis.state.fighters;
+      return Math.hypot(a.x - b.x, a.z - b.z);
+    });
+    if (gap > 1.2) {
+      await pc.keyboard.down("d");
+      await pc.waitForFunction(() => {
+        const [a, b] = window.axis.state.fighters;
+        return Math.hypot(a.x - b.x, a.z - b.z) < 1.1;
+      });
+      await pc.keyboard.up("d");
+    }
+    await pc.keyboard.press("u");
+    await pc.waitForFunction((n) => window.axis.state.fighters[0].ki >= n, n);
+  }
+  await pc.waitForFunction(
+    () =>
+      window.axis.state.phase === "fight" &&
+      !window.axis.state.fighters[0].attack,
+  );
+  await pc.keyboard.down("u");
+  await pc.keyboard.down("i");
+  await pc.keyboard.up("u");
+  await pc.keyboard.up("i");
+  for (const p of [pc, phone])
+    await p.waitForFunction(
+      () =>
+        window.axis.state.fighters[0].ki === 0 &&
+        window.energyStrokes["#55c8ff"] > 0,
+    );
+  await phone.screenshot({
+    path: "/tmp/axis-v317-mobile-blue-ki.png",
+    fullPage: true,
+  });
   assert.deepEqual(errors, []);
   console.log(
-    "PASS: RAON character selection, traveling fireball, damage and 1/20-bar gain synchronized to mobile LAN relay; no page errors.",
+    "PASS: RAON fireball ring/trail effects, 20 real online hits earn a stock across rounds, paid pillar consumes the stock and draws blue aura on PC and mobile LAN peer; no page errors.",
   );
 } catch (e) {
   console.error(

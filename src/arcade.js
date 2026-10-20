@@ -1,6 +1,6 @@
 import ROUTES from "./combo-routes.json" with { type: "json" };
 import { commandInputs } from "./combo-search.js";
-import { STAGES } from "./stages.js";
+import { STAGES, wallContact } from "./stages.js";
 import { CHARACTER_IDS, character, moveFor } from "./characters.js";
 import { cpuInput, emptyInput, step } from "./combat.js";
 export function createCampaign(id, difficulty = "normal") {
@@ -49,7 +49,10 @@ export function createCPU(difficulty = "normal") {
       p = character(f.character),
       distance = Math.hypot(f.x - o.x, f.z - o.z);
     if (m.phase !== "fight") return emptyInput();
-    if (f.downTime > 0) return { ...emptyInput(), z: -1 };
+    if (f.downTime > 0) {
+      plan = [];
+      return { ...emptyInput(), z: -1 };
+    }
     const command = (key) => {
       usage[key] = (usage[key] ?? 0) + 1;
       plan = commandInputs(f, key);
@@ -87,6 +90,7 @@ export function createCPU(difficulty = "normal") {
       !o.attack.blocked &&
       !o.attack.hit &&
       o.attack.t >= (madness ? 4 : 8) / 60 &&
+      o.attack.t < attack.windup + attack.active / 60 &&
       distance < attack.range + 0.3 &&
       !f.attack
     ) {
@@ -140,9 +144,40 @@ export function createCPU(difficulty = "normal") {
       );
     }
     if (o.y > 0 && o.airOwner === index && (!f.attack || f.attack.connected)) {
-      if (f.character === "raon" && f.ki >= 20 && o.airHits >= 2 && !f.buffer)
+      if (
+        f.character === "raon" &&
+        f.ki >= 20 &&
+        o.airHits >= 2 &&
+        distance < p.moves.focusBurst.range + p.moves.focusBurst.lunge - 0.2 &&
+        o.y < p.moves.focusBurst.airMax &&
+        !f.buffer
+      ) {
+        comboActive = false;
         return command("focusBurst");
+      }
       if (madness) {
+        if (!o.wallSplatUsed && wallContact(o, f.angle, m.stage)) {
+          const wallMove = ["palm", "rushStrike", "sideKick"].find(
+            (key) =>
+              p.moves[key].wallSplat &&
+              distance < p.moves[key].range + p.moves[key].lunge - 0.2,
+          );
+          if (wallMove) {
+            comboActive = false;
+            return command(wallMove);
+          }
+        }
+        if (f.attack?.key === "runningKick" && f.hopCombo)
+          return command("rushLink");
+        if (
+          distance > 2.5 &&
+          distance <
+            p.moves.runningKick.range + p.moves.runningKick.lunge - 0.25 &&
+          !["boru", "atlas"].includes(f.character)
+        ) {
+          comboActive = false;
+          return command("runningKick");
+        }
         if (!comboActive) {
           comboActive = true;
           routeHits = -1;
@@ -163,6 +198,46 @@ export function createCPU(difficulty = "normal") {
       return command(o.airHits >= 3 ? "sideKick" : "u");
     }
     if (f.attack) return emptyInput();
+    if (madness && distance > 1.65) {
+      // Use real command inputs, including the three forward taps and meter costs.
+      if (
+        f.character === "raon" &&
+        distance > 2.8 &&
+        distance < 6 &&
+        !o.effectiveOrbit &&
+        m.tick - lastTick >= 45 &&
+        !m.projectiles.some((s) => s.index === index) &&
+        (usage.qcfPunch ?? 0) + (usage.exWave ?? 0) <=
+          (usage.runningKick ?? 0) + (usage.runningPunch ?? 0)
+      ) {
+        lastTick = m.tick;
+        return command(
+          f.ki >= 20 && (f.ki >= 40 || !!o.attack) ? "exWave" : "qcfPunch",
+        );
+      }
+      const runningKey =
+        p.moves.runningPunch &&
+        (usage.runningKick ?? 0) > (usage.runningPunch ?? 0)
+          ? "runningPunch"
+          : "runningKick";
+      const runningMove = p.moves[runningKey];
+      if (
+        distance > 2.1 &&
+        distance < runningMove.range + runningMove.lunge - 0.3 &&
+        m.tick - lastTick >= 18
+      ) {
+        lastTick = m.tick;
+        return command(runningKey);
+      }
+      if (distance > 3.2 && !f.running && !f.runCharge) {
+        plan = commandInputs(f, "runningKick").map((input) => ({
+          ...input,
+          action: null,
+        }));
+        return plan.shift();
+      }
+      return { ...emptyInput(), x: f.facing };
+    }
     if (distance > 1.65) return { ...emptyInput(), x: f.facing };
     if (madness) {
       if (habits.guard >= 12 && distance < p.moves.throw.range) {
@@ -177,6 +252,12 @@ export function createCPU(difficulty = "normal") {
         return { ...emptyInput(), x: -f.facing, z: 1, crouch: true };
       if (m.tick - lastTick < 12) return { ...emptyInput(), x: -f.facing };
       lastTick = m.tick;
+      if (!o.wallSplatUsed && wallContact(o, f.angle, m.stage)) {
+        const key = ["palm", "rushStrike", "sideKick"].find(
+          (key) => p.moves[key].wallSplat && distance < p.moves[key].range,
+        );
+        if (key) return command(key);
+      }
       const pool = [
         ...new Set([
           ...p.commands.map((r) => r[0]),
@@ -200,6 +281,9 @@ export function createCPU(difficulty = "normal") {
               (usage[key] ? 1 / (usage[key] + 1) : 3) +
               (o.crouch && move.level === "mid" ? 1.6 : 0) +
               (habits.guard > 5 && move.level === "low" ? 1.2 : 0) +
+              (move.kiCost && f.ki >= 20 && (o.attack || o.hp <= move.damage)
+                ? 2
+                : 0) +
               (o.effectiveOrbit && move.homing ? 3 : 0),
           };
         })
