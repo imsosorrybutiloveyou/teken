@@ -39,7 +39,7 @@ function dirInput(dir, index = 0) {
   return { x: f * (index === 0 ? 1 : -1), z: dir <= 3 ? 1 : dir >= 7 ? -1 : 0 };
 }
 test("four fighters have independently authored commands, startup and recovery", () => {
-  assert.equal(CHARACTER_IDS.length, 8);
+  assert.equal(CHARACTER_IDS.length, 9);
   const signatures = ["kai", "ren", "mira", "goro"].map(
     (id) => character(id).moves.qcfPunch.command,
   );
@@ -55,7 +55,13 @@ test("four fighters have independently authored commands, startup and recovery",
   for (const id of CHARACTER_IDS) {
     assert.equal(
       Object.keys(character(id).moves).length,
-      id === "kai" ? 45 : ["ren", "shin"].includes(id) ? 47 : 46,
+      id === "raon"
+        ? 48
+        : id === "kai"
+          ? 45
+          : ["ren", "shin"].includes(id)
+            ? 47
+            : 46,
     );
     for (const move of Object.values(character(id).moves)) {
       assert.equal(
@@ -721,7 +727,7 @@ test("four styles have different special mechanics, not reskinned universal elec
   assert.equal(
     new Set(CHARACTER_IDS.map((id) => character(id).moves.electric.command))
       .size,
-    4,
+    5,
   );
 });
 test("GORO armor absorbs one high/mid but loses to lows and a second strike", () => {
@@ -909,7 +915,7 @@ test("every added button follow-up is a real reachable second hit", () => {
     }
 });
 
-test("eight fighters have counter-only launchers that open a real juggle", () => {
+test("nine fighters have counter-only launchers that open a real juggle", () => {
   for (const id of CHARACTER_IDS) {
     const p = character(id),
       key = Object.keys(p.moves).find(

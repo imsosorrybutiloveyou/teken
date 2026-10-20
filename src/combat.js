@@ -10,6 +10,7 @@ export const BACKWARD_SPEED = 2.6;
 export const GUARD_BUFFER_FRAMES = 6;
 export const SIDESTEP_SPEED = 3.8;
 export const DASH_SPEED = 5.6;
+export const RUN_SPEED = 7;
 export const ACTIONS = ["u", "i", "j", "k", "u+i", "j+k"];
 export const MOVES = CHARACTERS.kai.moves;
 export const COMMAND_WINDOW = 0.85;
@@ -67,11 +68,23 @@ function recordDirection(f, input, dt) {
     f.direction = dir;
     f.commands.push({ dir, at: f.commandTime });
     f.commands = f.commands.slice(-16);
-    if (dir === 6 && matchesCommand(f, [6, 5, 6], 0.3, true)) f.dash = 0.24;
+    if (dir === 6 && matchesCommand(f, [6, 5, 6], 0.3, true)) {
+      f.dash = 0.3;
+      f.runCharge = dt;
+    }
     if (dir === 4 && matchesCommand(f, [4, 5, 4], 0.3, true)) f.backDash = 0.2;
   }
 }
 export function resolveMove(f, action) {
+  if (f.character === "raon") {
+    if (action === "j+k") return "focusBurst";
+    if (action === "u+i")
+      return f.direction === 4
+        ? "throw"
+        : matchesCommand(f, [2, 3, 6])
+          ? "exWave"
+          : "exDragon";
+  }
   if (action === "u+i") return "throw";
   if (action === "j+k") return "sweep";
   const p = character(f.character);
@@ -92,7 +105,11 @@ export function resolveMove(f, action) {
         f.lastMoveAge <= prior.duration + 0.18)
   )
     return follow[2];
-  if (f.character === "kai" && f.direction === 9 && action === "j")
+  if (
+    ["kai", "raon"].includes(f.character) &&
+    f.direction === 9 &&
+    action === "j"
+  )
     return "hopKick";
   if (f.jumpActive || (f.y === 0 && f.direction >= 7))
     return action === "u" || action === "i" ? "jumpPunch" : "jumpKick";
@@ -153,6 +170,10 @@ function fighter(x, id, index) {
     backDash: 0,
     wallHits: 0,
     wallSplatUsed: false,
+    ki: 0,
+    punishCombo: false,
+    runCharge: 0,
+    running: false,
     basicAirHits: 0,
     hopCombo: false,
     throwTime: 0,
@@ -201,11 +222,12 @@ function fighter(x, id, index) {
 }
 export function createMatch(ids = ["kai", "ren"], stage = "terminal") {
   return {
-    version: 16,
+    version: 17,
     stage: chooseStage(stage),
     axisAngle: 0,
     viewAngle: 0,
     hitstop: 0,
+    projectiles: [],
     fighters: [
       fighter(-1.45, character(ids[0]).id, 0),
       fighter(1.45, character(ids[1]).id, 1),
@@ -226,6 +248,15 @@ function emit(m, type, data = {}) {
 }
 function startAttack(m, index, key) {
   const f = m.fighters[index];
+  const cost = moveFor(f, key).kiCost ?? 0;
+  if (f.ki < cost) {
+    f.buffer = null;
+    emit(m, "noKi", { index });
+    return;
+  }
+  f.ki -= cost;
+  f.runCharge = 0;
+  f.running = false;
   f.chain =
     key === character(f.character).chain[0] ? 1 : key === "oneTwo" ? 2 : 0;
   f.chainAge = 0;
@@ -263,13 +294,13 @@ function startAttack(m, index, key) {
     f.commands = [{ dir: f.direction, at: f.commandTime }];
   emit(m, "move", { index, key });
 }
-function resolveHit(m, index, training) {
+function resolveHit(m, index, training, projectile = null) {
   const a = m.fighters[index],
     b = m.fighters[1 - index],
-    atk = a.attack,
+    atk = projectile ?? a.attack,
     move = moveFor(a, atk.key);
-  const dx = b.x - a.x,
-    dz = b.z - a.z,
+  const dx = b.x - (projectile ?? a).x,
+    dz = b.z - (projectile ?? a).z,
     forward = dx * Math.cos(atk.angle) + dz * Math.sin(atk.angle);
   const lateral = Math.abs(
     -dx * Math.sin(atk.angle) + dz * Math.cos(atk.angle),
@@ -344,6 +375,7 @@ function resolveHit(m, index, training) {
   const continuing = airborne
     ? b.airOwner === index
     : b.stun > 0 && !b.blockstun && b.lastHitBy === index;
+  if (!continuing) a.punishCombo = punish;
   if (!airborne && !continuing) {
     b.wallSplatUsed = false;
     b.wallHits = 0;
@@ -363,6 +395,7 @@ function resolveHit(m, index, training) {
     1,
     Math.round(
       (move.damage + tip) *
+        (a.punishCombo ? 0.85 : 1) *
         basicScale *
         (counter ? (move.counterPower ?? 1.15) : 1) *
         (airborne ? 0.8 : 1) *
@@ -399,6 +432,8 @@ function resolveHit(m, index, training) {
   b.hitKind = move.kind;
   b.lastHitBy = index;
   b.hp = Math.max(training ? 1 : 0, b.hp - damage);
+  if (a.character === "raon" && !move.kiCost) a.ki = Math.min(40, a.ki + 1);
+  if (b.character === "raon") b.ki = Math.min(40, b.ki + 0.25);
   if (armored) {
     b.attack.armorUsed = true;
     b.hitFlash = 0.13;
@@ -428,7 +463,7 @@ function resolveHit(m, index, training) {
   b.guard = false;
   b.hitFlash = 0.13;
   const push = airborne
-    ? move.push * (0.46 + b.airHits * 0.22) + b.airHits * 0.28
+    ? move.push * (0.58 + b.airHits * 0.27) + b.airHits * 0.36
     : move.push * (move.launch ? 0.65 : 1);
   b.vx = Math.cos(atk.angle) * push;
   b.vz = Math.sin(atk.angle) * push;
@@ -472,6 +507,13 @@ function resolveHit(m, index, training) {
       b.vy = Math.min(lift, Math.sqrt(Math.max(0, 2 * GRAVITY * (1.85 - b.y))));
     }
     b.stun = Math.max(b.stun, 0.5);
+    if (move.kiExtend && b.downTime === 0) {
+      b.y = Math.min(b.y, 0.9);
+      b.vy = 6.5;
+      b.stun = Math.max(b.stun, 0.85);
+      b.vx *= 0.25;
+      b.vz *= 0.25;
+    }
   }
   if (nearWall) {
     b.vx = b.vz = 0;
@@ -598,13 +640,16 @@ export function step(m, rawInputs, dt = 1 / 60, training = false) {
       } else {
         m.round++;
         m.time = 60;
+        const ki = m.fighters.map((f) => f.ki);
         m.fighters = [
           fighter(-1.45, m.fighters[0].character, 0),
           fighter(1.45, m.fighters[1].character, 1),
         ];
+        m.fighters.forEach((f, i) => (f.ki = ki[i]));
         m.axisAngle = 0;
         m.viewAngle = 0;
         m.hitstop = 0;
+        m.projectiles = [];
         m.phase = "ready";
         m.phaseTime = 1.5;
         m.winner = null;
@@ -735,6 +780,18 @@ export function step(m, rawInputs, dt = 1 / 60, training = false) {
     f.bufferAge += dt;
     f.lastMoveAge += dt;
     f.dash = Math.max(0, f.dash - dt);
+    if (
+      f.runCharge > 0 &&
+      input.x * f.facing > 0.25 &&
+      input.z === 0 &&
+      !f.effectiveOrbit &&
+      !f.crouch &&
+      !f.stun &&
+      !f.attack
+    )
+      f.runCharge += dt;
+    else f.runCharge = 0;
+    f.running = f.runCharge >= 0.3;
     f.hitFlash = Math.max(0, f.hitFlash - dt);
     if (f.statusTick !== m.tick) {
       f.wakeUp = Math.max(0, f.wakeUp - dt);
@@ -913,7 +970,19 @@ export function step(m, rawInputs, dt = 1 / 60, training = false) {
         f.z += Math.sin(f.attack.angle) * amount;
       }
       if (!f.attack.hit && f.attack.t + 1e-9 >= move.windup) {
-        if (f.attack.t < move.windup + move.active / 60 - 1e-9)
+        if (move.projectile) {
+          if (m.projectiles.length < 8)
+            m.projectiles.push({
+              index: i,
+              key: f.attack.key,
+              angle: f.attack.angle,
+              x: f.x + Math.cos(f.attack.angle) * 0.65,
+              z: f.z + Math.sin(f.attack.angle) * 0.65,
+              y: move.impactHeight,
+              life: 1.6,
+            });
+          f.attack.hit = true;
+        } else if (f.attack.t < move.windup + move.active / 60 - 1e-9)
           f.attack.hit = resolveHit(m, i, training);
         else f.attack.hit = true;
       }
@@ -953,15 +1022,17 @@ export function step(m, rawInputs, dt = 1 / 60, training = false) {
         const adjusted =
           (f.crouch
             ? 1.45
-            : dashing
-              ? DASH_SPEED
-              : forward > 0.1
-                ? FORWARD_SPEED
-                : forward < -0.1
-                  ? f.backDash > 0
-                    ? 5.4
-                    : BACKWARD_SPEED
-                  : WALK_SPEED) * character(f.character).speed;
+            : f.running
+              ? RUN_SPEED
+              : dashing
+                ? DASH_SPEED
+                : forward > 0.1
+                  ? FORWARD_SPEED
+                  : forward < -0.1
+                    ? f.backDash > 0
+                      ? 5.4
+                      : BACKWARD_SPEED
+                    : WALK_SPEED) * character(f.character).speed;
         const radial = input.x * adjusted * dt;
         const dx = Math.cos(m.viewAngle) * radial,
           dz = Math.sin(m.viewAngle) * radial;
@@ -989,6 +1060,19 @@ export function step(m, rawInputs, dt = 1 / 60, training = false) {
       }
     }
     // Infinite stages keep world coordinates; bounded stages clamp both fighters below.
+  }
+  for (let n = m.projectiles.length - 1; n >= 0; n--) {
+    const shot = m.projectiles[n];
+    const speed = shot.key === "exWave" ? 12 : 9;
+    shot.life -= dt;
+    shot.x += Math.cos(shot.angle) * speed * dt;
+    shot.z += Math.sin(shot.angle) * speed * dt;
+    if (
+      shot.life <= 0 ||
+      resolveHit(m, shot.index, training, shot) ||
+      wallContact(shot, shot.angle, m.stage)
+    )
+      m.projectiles.splice(n, 1);
   }
   const [a, b] = m.fighters,
     dx = b.x - a.x,

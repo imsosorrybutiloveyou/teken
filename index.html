@@ -14,7 +14,7 @@
         >
         <div class="top-center">
           <span class="live-dot"></span> PIXEL FIGHTERS / FREE AXIS
-          <span class="version">/ VOL. 03.14</span>
+          <span class="version">/ VOL. 03.15</span>
         </div>
         <button id="online-button" class="button small">
           <span class="connection-icon">⌁</span> 온라인 대전 <span>↗</span>
@@ -25,7 +25,7 @@
           <div>
             <div class="eyebrow">HANDHELD SOUL. ARCADE INSTINCT.</div>
             <h1>픽셀 속으로, <em>자유로운 한 수.</em></h1>
-            <p>여덟 명의 격투가. 묵직한 한 방. 횡이동으로 읽어내는 다음 수.</p>
+            <p>아홉 명의 격투가. 묵직한 한 방. 횡이동으로 읽어내는 다음 수.</p>
           </div>
           <div class="mode-switch" aria-label="게임 모드">
             <button id="practice-button" class="selected">
@@ -60,6 +60,10 @@
               <div class="health-track">
                 <div id="health-0" class="health-fill"></div>
               </div>
+              <div id="ki-0" class="ki-meter" hidden>
+                <span>KI</span><progress max="20" value="0"></progress
+                ><progress max="20" value="0"></progress><b></b>
+              </div>
               <div class="round-dots" id="rounds-0">
                 <i></i><i></i><span>AZURE FIST</span>
               </div>
@@ -77,6 +81,10 @@
               </div>
               <div class="health-track">
                 <div id="health-1" class="health-fill"></div>
+              </div>
+              <div id="ki-1" class="ki-meter" hidden>
+                <span>KI</span><progress max="20" value="0"></progress
+                ><progress max="20" value="0"></progress><b></b>
               </div>
               <div class="round-dots" id="rounds-1">
                 <i></i><i></i><span>CRIMSON EDGE</span>
@@ -123,6 +131,8 @@
               ◈ <span>화면 배율</span></button
             ><button id="arena-moves-button" title="기술표 열기 (H)">
               기술표 · H</button
+            ><button id="images-button" title="내 이미지 불러오기">
+              이미지 변경</button
             ><button id="pause-button" title="일시정지">
               Ⅱ <span>일시정지</span></button
             ><button id="reset-button" title="대전 다시 시작">
@@ -155,6 +165,8 @@
               ><button data-key="i">I 오른손</button
               ><button data-key="j">J 왼발</button
               ><button data-key="k">K 오른발</button>
+              <button data-chord="u+i">U+I 잡기/강화</button
+              ><button data-chord="j+k">J+K 하단/연환</button>
             </div>
           </div>
         </section>
@@ -211,7 +223,7 @@
             </div>
             <div class="combo-row">
               <span class="combo-type">ROSTER</span
-              ><span>8 FIGHTERS · UNIQUE COMMANDS</span
+              ><span>9 FIGHTERS · UNIQUE COMMANDS</span
               ><button id="character-button" class="text-button">
                 연습 캐릭터 변경 ↗
               </button>
@@ -357,8 +369,54 @@
         유지 또는 Q/E는 횡보입니다. 카메라는 두 캐릭터를 양쪽에 유지하며
         돌아갑니다. 커맨드의 →/←는 상대 기준 전진/후퇴로, P2는 A/D가 반대입니다.
         ↓는 S, ↑는 W이며 ↘는 전진+S입니다. 방향을 0.85초 안에 순서대로 입력한 뒤
-        공격하세요. →→ 대시는 전진-떼기-전진으로 입력합니다. 경기장에는 벽이나
-        낭떠러지가 없습니다.
+        공격하세요. →→ 대시는 전진-떼기-전진으로 입력하고 두 번째 전진을
+        유지하면 달립니다. 도장과 제철소에는 벽이 있으며 나머지 맵은 무한입니다.
+      </p>
+    </dialog>
+    <dialog id="images-dialog">
+      <form method="dialog">
+        <button class="close" aria-label="닫기">×</button>
+      </form>
+      <div class="eyebrow">YOUR FIGHTER / LOCAL IMAGES</div>
+      <h2>내 이미지 불러오기</h2>
+      <p class="network-note">
+        GitHub 계정이나 Fork 없이 파일을 선택하세요. 초상화는 선택 화면, 격자
+        스킨은 전투 캐릭터에 적용됩니다.
+      </p>
+      <label class="field-label" for="image-character">캐릭터</label
+      ><select id="image-character"></select>
+      <label class="field-label" for="image-kind">이미지 종류</label
+      ><select id="image-kind">
+        <option value="portrait">선택 화면 초상화</option>
+        <option value="skin">전투 스킨 · 4×2 부품 격자</option>
+      </select>
+      <label class="field-label" for="image-file"
+        >PNG · JPG · WebP (8MB 이하)</label
+      ><input
+        id="image-file"
+        type="file"
+        accept="image/png,image/jpeg,image/webp"
+      />
+      <canvas
+        id="image-preview"
+        width="160"
+        height="128"
+        aria-label="캐릭터 이미지 미리보기"
+      ></canvas>
+      <p class="network-note">
+        스킨은 128×64 또는 256×128 등 가로가 세로의 2배인 4×2 격자를 사용합니다.
+        부품을 그리면 기술 애니메이션이 자동 적용됩니다.
+        <a href="/mods/skin-template.png" download>스킨 원본</a> ·
+        <a href="/mods/skin-grid-guide.png" download>격자 안내 예제</a>
+      </p>
+      <button id="image-apply" class="button primary">적용 · 저장</button
+      ><button id="image-reset" class="text-button">
+        이 이미지 기본값 복원
+      </button>
+      <p id="image-status" class="network-note" role="status">
+        PC 실행 파일에서는 EXE 옆 AXIS-custom-images.json에 저장합니다. 서버
+        PC에서 저장한 이미지는 새로 접속한 휴대폰에도 적용됩니다. 휴대폰에서는
+        해당 브라우저에 저장합니다.
       </p>
     </dialog>
     <div id="toast" role="status" hidden></div>

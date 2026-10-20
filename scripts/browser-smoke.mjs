@@ -90,7 +90,7 @@ try {
   await host.locator("#select-dialog").waitFor({ state: "visible" });
   await guest.locator("#select-dialog").waitFor({ state: "visible" });
   await host.screenshot({ path: "/tmp/axis-v38-select.png", fullPage: true });
-  assert.equal(await host.locator(".character-card").count(), 8);
+  assert.equal(await host.locator(".character-card").count(), 10);
   assert.equal(await host.evaluate(() => window.axis.battleActive), false);
   await choose(host, "hana");
   assert.equal(
@@ -166,6 +166,7 @@ try {
   await host.locator("#disconnect-button").click();
   await guest.waitForFunction(() => !window.axis.matched);
   await host.waitForFunction(() => !window.axis.matched);
+  await host.locator("#stage-select").selectOption("dojo");
   await openLobby(host, "ALPHA");
   await host.locator("#room-name").fill("FRAME LAB");
   await host.locator("#create-room").click();
@@ -503,7 +504,7 @@ try {
   );
   assert.deepEqual(errors, []);
   console.log(
-    "PASS: v3.14 player match only, player rooms, matched-only character selection, 8 characters, unique frame tables, automatic P2P, orbit camera, remote combat, practice selection, responsive layout; no page errors.",
+    "PASS: v3.15 player match only, player rooms, matched-only character selection, 9 characters + random, unique frame tables, automatic P2P, orbit camera, remote combat, practice selection, responsive layout; no page errors.",
   );
 } catch (error) {
   for (const [name, page] of [

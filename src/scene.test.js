@@ -142,6 +142,6 @@ test("the same input slot has a different full-body animation for each fighting 
         );
       }),
     );
-    assert.equal(poses.size, 8, key);
+    assert.equal(poses.size, 9, key);
   }
 });

@@ -11,7 +11,7 @@ page.on("pageerror", (e) => errors.push(e.message));
 try {
   await page.goto(process.env.TEST_BASE_URL || "http://127.0.0.1:5173");
   await page.locator("#character-button").click();
-  assert.equal(await page.locator(".character-card").count(), 8);
+  assert.equal(await page.locator(".character-card").count(), 10);
   await page.locator('[data-character="shin"]').first().click();
   await page.locator("#practice-behavior").selectOption("dummy");
   await page.locator("#confirm-character").click();
@@ -76,7 +76,7 @@ try {
   });
   assert.deepEqual(errors, []);
   console.log(
-    "PASS: eight fighters, physical crouch/rising/jump strings, paired throw animation and screen-side exchange",
+    "PASS: nine fighters + random, physical crouch/rising/jump strings, paired throw animation and screen-side exchange",
   );
 } finally {
   await browser.close();

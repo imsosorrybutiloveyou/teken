@@ -1,9 +1,12 @@
 import { STYLE_MOTIONS } from "./style-motion.js";
 import { character, CHARACTER_IDS } from "./characters.js";
+import { loadImagePack, saveImagePack, imageData } from "./local-images.js";
 const images = new Map(),
   sounds = new Map(),
   decoded = new Map();
 let config = { characters: {}, sounds: {} };
+let baseConfig = structuredClone(config),
+  imagePack = {};
 // Mods are local files included in the web build / portable EXE, never remote scripts.
 const localPath = (path) =>
   typeof path === "string" &&
@@ -137,7 +140,7 @@ export function parseAssetConfig(input) {
   for (const [key, path] of Object.entries(input?.sounds ?? {})) {
     if (
       localPath(path) &&
-      /^(hit|kick|heavy|block|kai|ren|mira|goro|hana|shin|boru|atlas)(\.[a-zA-Z]+)?$/.test(
+      /^(hit|kick|heavy|block|kai|ren|mira|goro|hana|shin|boru|atlas|raon)(\.[a-zA-Z]+)?$/.test(
         key,
       )
     )
@@ -183,9 +186,49 @@ export async function loadCustomAssets() {
         sounds.set(path, await r.arrayBuffer());
       }),
     );
+    baseConfig = structuredClone(config);
+    await applyImagePack(await loadImagePack());
   } catch (error) {
     console.warn("커스텀 에셋 설정 확인:", error.message);
   }
+}
+async function applyImagePack(pack) {
+  config = structuredClone(baseConfig);
+  imagePack = pack;
+  for (const id of CHARACTER_IDS)
+    for (const kind of ["portrait", "skin"]) {
+      const data = pack[id]?.[kind];
+      if (
+        typeof data !== "string" ||
+        !data.startsWith("data:image/png;base64,") ||
+        data.length > 2 * 1024 * 1024
+      )
+        continue;
+      try {
+        const img = new Image();
+        img.src = data;
+        await img.decode();
+        const path = `/mods/local-${id}-${kind}.png`;
+        images.set(path, img);
+        const entry = parseAssetConfig({
+          characters: { [id]: { [kind]: path } },
+        }).characters[id];
+        config.characters[id] = { ...config.characters[id], ...entry };
+      } catch {
+        console.warn("저장 이미지 확인:", id, kind);
+      }
+    }
+}
+export async function importCustomImage(id, kind, file) {
+  if (!CHARACTER_IDS.includes(id) || !["portrait", "skin"].includes(kind))
+    throw Error("캐릭터와 이미지 종류를 선택하세요.");
+  const next = structuredClone(imagePack);
+  next[id] ??= {};
+  if (file) next[id][kind] = await imageData(file, kind);
+  else delete next[id][kind];
+  const message = await saveImagePack(next);
+  await applyImagePack(next);
+  return message;
 }
 export function customPortrait(id) {
   return images.get(config.characters[id]?.portrait);

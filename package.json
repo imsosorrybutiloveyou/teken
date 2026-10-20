@@ -1,6 +1,6 @@
 {
   "name": "axis-arena",
-  "version": "3.14.0",
+  "version": "3.15.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -19,7 +19,8 @@
     "docs:combos": "node scripts/build-combo-routes.mjs",
     "test:options": "node scripts/options-smoke.mjs",
     "test:balance": "node scripts/balance-smoke.mjs",
-    "release:verify": "node scripts/verify-release.mjs"
+    "release:verify": "node scripts/verify-release.mjs",
+    "test:energy": "node scripts/energy-smoke.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.55.1",

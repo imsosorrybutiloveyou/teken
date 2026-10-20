@@ -9,11 +9,20 @@ import {
 import { STYLE_MOTIONS } from "./style-motion.js";
 import "./style.css";
 import { createMatch, step, stepPractice, MAX_HP } from "./combat.js";
-import { CHARACTER_IDS, character, moveFor } from "./characters.js";
+import {
+  CHARACTER_IDS,
+  character,
+  moveFor,
+  chooseFighter,
+} from "./characters.js";
 import { KeyboardInput, RemoteInput, keyName } from "./input.js";
 import { createScene, paintPortrait } from "./scene.js";
 import { PeerSession, validSnapshot } from "./network.js";
-import { loadCustomAssets, playCustomHit } from "./custom-assets.js";
+import {
+  loadCustomAssets,
+  playCustomHit,
+  importCustomImage,
+} from "./custom-assets.js";
 import { LobbyClient } from "./lobby.js";
 const $ = (id) => document.getElementById(id),
   keyboard = new KeyboardInput(),
@@ -48,7 +57,7 @@ let practiceIds = ["kai", "ren"],
   connectedName = "",
   ownRoomId = null,
   busy = false;
-loadCustomAssets().then(() => {
+const assetsReady = loadCustomAssets().then(() => {
   if (document.getElementById("character-grid").children.length)
     renderCharacters();
 });
@@ -136,11 +145,14 @@ function playHit(event) {
   noise.start(now);
 }
 function effects(events) {
-  for (const event of events)
+  for (const event of events) {
+    if (event.type === "noKi" && event.index === ownIndex())
+      toast("기가 1칸 필요합니다. 적중 20회로 한 칸을 모읍니다.");
     if (["hit", "block"].includes(event.type)) {
       scene?.event(event);
       playHit(event);
     }
+  }
 }
 function resetMatch(
   ids = activePair && lockedRoster ? lockedRoster : practiceIds,
@@ -148,7 +160,9 @@ function resetMatch(
   if (campaign && !activePair)
     ids = localRoster(
       campaign.id,
-      campaign.opponents[Math.min(campaign.stage, 6)],
+      campaign.opponents[
+        Math.min(campaign.stage, campaign.opponents.length - 1)
+      ],
     );
   const stage =
     campaign && !activePair
@@ -174,7 +188,7 @@ function updateMode() {
   $("arena-mode").textContent = activePair
     ? "ONLINE P2P MATCH"
     : campaign
-      ? `ARCADE ${Math.min(campaign.stage + 1, 7)}/7 · ${campaign.difficulty.toUpperCase()}`
+      ? `ARCADE ${Math.min(campaign.stage + 1, campaign.opponents.length)}/${campaign.opponents.length} · ${campaign.difficulty.toUpperCase()}`
       : "PRACTICE MATCH";
   $("connection-status").textContent = activePair
     ? battleActive
@@ -183,7 +197,7 @@ function updateMode() {
         ? "캐릭터 선택 대기 · P2P 연결 완료"
         : "매칭 완료 · P2P 연결 중"
     : campaign
-      ? `아케이드 ${Math.min(campaign.stage + 1, 7)}/7 · ${campaign.difficulty}`
+      ? `아케이드 ${Math.min(campaign.stage + 1, campaign.opponents.length)}/${campaign.opponents.length} · ${campaign.difficulty}`
       : `연습 · ${practiceBehavior === "cpu" ? "CPU 공격" : "정지 샌드백"} · ${infiniteHealth ? "1.2초 뒤 체력 회복" : "일반 체력"}`;
   $("practice-button").classList.toggle("selected", !activePair && !campaign);
   $("pvp-button").classList.toggle("selected", !!activePair);
@@ -471,20 +485,31 @@ $("pvp-button").onclick = openOnline;
 function renderCharacters() {
   const grid = $("character-grid");
   grid.replaceChildren();
-  for (const id of CHARACTER_IDS) {
-    const p = character(id),
+  const slots = [...CHARACTER_IDS];
+  slots.splice(2, 0, "random");
+  for (const id of slots) {
+    const p = id === "random" ? null : character(id),
       button = document.createElement("button");
     button.type = "button";
     button.className = "character-card" + (chosen === id ? " selected" : "");
-    button.style.setProperty("--fighter-color", p.color);
+    button.style.setProperty("--fighter-color", p?.color ?? "#f6d985");
     button.dataset.character = id;
     button.disabled = ownLocked && selectionMode === "online";
     const canvas = document.createElement("canvas"),
       name = document.createElement("b"),
       style = document.createElement("small");
-    name.textContent = p.name;
-    style.textContent = p.style;
-    paintPortrait(canvas, createMatch([id, "kai"]).fighters[0]);
+    name.textContent = p?.name ?? "RANDOM";
+    style.textContent = p?.style ?? "확정할 때 무작위 선택";
+    if (p) paintPortrait(canvas, createMatch([id, "kai"]).fighters[0]);
+    else {
+      canvas.width = 160;
+      canvas.height = 128;
+      const c = canvas.getContext("2d");
+      c.fillStyle = "#f6d985";
+      c.font = "bold 100px sans-serif";
+      c.textAlign = "center";
+      c.fillText("?", 80, 103);
+    }
     button.append(canvas, name, style);
     button.onclick = () => {
       chosen = id;
@@ -494,7 +519,9 @@ function renderCharacters() {
   }
   const p = character(chosen);
   $("character-detail").textContent =
-    `${p.name} · ${p.style} · ${p.specialty} | LP ${p.moves.u.startup}F / RP ${p.moves.i.startup}F / LK ${p.moves.j.startup}F / RK ${p.moves.k.startup}F · 고유기: ${p.moves.qcfPunch.command} ${p.moves.qcfPunch.name}`;
+    chosen === "random"
+      ? "RANDOM · 캐릭터 확정 시 9명 중 한 명을 선택합니다."
+      : `${p.name} · ${p.style} · ${p.specialty} | LP ${p.moves.u.startup}F / RP ${p.moves.i.startup}F / LK ${p.moves.j.startup}F / RK ${p.moves.k.startup}F · 고유기: ${p.moves.qcfPunch.command} ${p.moves.qcfPunch.name}`;
 }
 function openSelection() {
   const online = selectionMode === "online";
@@ -534,6 +561,7 @@ for (const id of CHARACTER_IDS) {
 $("cpu-character").value = "ren";
 $("confirm-character").onclick = async () => {
   unlockAudio();
+  chosen = chooseFighter(chosen);
   if (selectionMode === "online") {
     if (ownLocked) return;
     $("confirm-character").disabled = true;
@@ -635,6 +663,24 @@ for (const button of document.querySelectorAll("[data-key]")) {
   button.onpointerup = release;
   button.onpointercancel = release;
   button.onlostpointercapture = release;
+}
+for (const button of document.querySelectorAll("[data-chord]")) {
+  const keys = button.dataset.chord.split("+");
+  button.onpointerdown = (event) => {
+    event.preventDefault();
+    button.setPointerCapture(event.pointerId);
+    unlockAudio();
+    const at = performance.now();
+    for (const key of keys) keyboard.down(key, at, !paused);
+  };
+  const release = (event) => {
+    event.preventDefault();
+    for (const key of keys) keyboard.up(key, performance.now());
+  };
+  button.onpointerup =
+    button.onpointercancel =
+    button.onlostpointercapture =
+      release;
 }
 $("camera-button").onclick = () => scene?.toggleCamera();
 $("pause-button").onclick = () => {
@@ -749,6 +795,11 @@ function renderMoves(id) {
     if (m.evadeSide) desc.textContent += " · 측보 회피";
     if (m.wallSplat)
       desc.textContent += " · 벽꽝: 벽 앞 적중 시 콤보당 1회 벽 반동 띄우기";
+    if (m.kiCost) desc.textContent += ` · 기 ${m.kiCost / 20}칸 소비`;
+    if (m.kiExtend)
+      desc.textContent += " · 공중 적중 시 콤보 높이·유지 시간 회복";
+    if (m.projectile)
+      desc.textContent += " · 직선 기공탄 · 양쪽 횡이동으로 회피";
     if (m.armorFrom != null)
       desc.textContent += ` · ${Math.round(m.armorFrom * 60)}F부터 상·중단 1회 버티기(피해 받음)`;
     if (m.highCrushFrom != null)
@@ -780,6 +831,60 @@ function openMoves() {
 }
 $("moves-button").onclick = openMoves;
 $("arena-moves-button").onclick = openMoves;
+let imagesWasPaused = false;
+for (const id of CHARACTER_IDS) {
+  const option = document.createElement("option");
+  option.value = id;
+  option.textContent = character(id).name;
+  $("image-character").append(option);
+}
+function imagePreview() {
+  paintPortrait(
+    $("image-preview"),
+    createMatch([$("image-character").value, "kai"]).fighters[0],
+    $("image-kind").value === "skin",
+  );
+}
+$("images-button").onclick = async () => {
+  await assetsReady;
+  keyboard.clear();
+  imagesWasPaused = paused;
+  if (!activePair) paused = true;
+  $("image-character").value = match.fighters[ownIndex()].character;
+  imagePreview();
+  $("images-dialog").showModal();
+};
+$("image-character").onchange = imagePreview;
+$("image-kind").onchange = imagePreview;
+async function saveImage(reset = false) {
+  const file = $("image-file").files[0];
+  if (!reset && !file) {
+    $("image-status").textContent = "불러올 이미지 파일을 선택하세요.";
+    return;
+  }
+  $("image-apply").disabled = $("image-reset").disabled = true;
+  try {
+    $("image-status").textContent = await importCustomImage(
+      $("image-character").value,
+      $("image-kind").value,
+      reset ? null : file,
+    );
+    imagePreview();
+    renderCharacters();
+    $("image-file").value = "";
+  } catch (e) {
+    $("image-status").textContent = e.message;
+  } finally {
+    $("image-apply").disabled = $("image-reset").disabled = false;
+  }
+}
+$("image-apply").onclick = () => saveImage();
+$("image-reset").onclick = () => saveImage(true);
+$("images-dialog").onclose = () => {
+  if (!activePair) paused = imagesWasPaused;
+  keyboard.clear();
+  updateMode();
+};
 function updateRecommendations() {
   const p = character(match.fighters[ownIndex()].character);
   $("recommended-string").textContent = p.chain.join(" › ").toUpperCase();
@@ -806,6 +911,12 @@ function updateHUD() {
     $(`p${i + 1}-name`).textContent = p.name;
     $(`rounds-${i}`).querySelector("span").textContent = p.title;
     $(`health-${i}`).style.width = Math.max(0, (f.hp / MAX_HP) * 100) + "%";
+    const meter = $(`ki-${i}`);
+    meter.hidden = f.character !== "raon";
+    meter
+      .querySelectorAll("progress")
+      .forEach((bar, n) => (bar.value = Math.max(0, f.ki - n * 20)));
+    meter.querySelector("b").textContent = `${(f.ki / 20).toFixed(2)} / 2`;
     $(`rounds-${i}`)
       .querySelectorAll("i")
       .forEach((dot, n) => dot.classList.toggle("won", match.wins[i] > n));
@@ -851,8 +962,8 @@ function updateHUD() {
         ? "DRAW"
         : `${character(match.fighters[match.winner].character).name} WINS`;
     sub = campaign
-      ? campaign.stage === 7
-        ? "ARCADE CLEAR · 7명 격파"
+      ? campaign.stage === campaign.opponents.length
+        ? `ARCADE CLEAR · ${campaign.opponents.length}명 격파`
         : "GAME OVER · 아케이드 버튼으로 다시 도전"
       : "다시 시작 ↻ 또는 로비로 돌아가기";
   }
@@ -949,7 +1060,7 @@ function frame(now) {
             campaign.finished = true;
             toast(
               result === "cleared"
-                ? "ARCADE CLEAR · 7명 모두 격파!"
+                ? `ARCADE CLEAR · ${campaign.opponents.length}명 모두 격파!`
                 : "GAME OVER · 아케이드를 다시 시작하세요.",
             );
           }

@@ -178,7 +178,7 @@ func (l *portableLobby) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		l.Lock()
 		n := len(l.clients)
 		l.Unlock()
-		jsonResponse(w, 200, map[string]any{"service": "axis-matchmaking", "version": 16, "online": n, "portable": true})
+		jsonResponse(w, 200, map[string]any{"service": "axis-matchmaking", "version": 17, "online": n, "portable": true})
 		return
 	}
 	var body struct {
@@ -357,7 +357,7 @@ func (l *portableLobby) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			fail(400, "매칭된 후 캐릭터를 선택하세요.")
 			return
 		}
-		if body.Character != "kai" && body.Character != "ren" && body.Character != "mira" && body.Character != "goro" && body.Character != "hana" && body.Character != "shin" && body.Character != "boru" && body.Character != "atlas" {
+		if !validCharacter(body.Character) {
 			fail(400, "올바른 캐릭터를 선택하세요.")
 			return
 		}
@@ -416,4 +416,12 @@ func (l *portableLobby) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	jsonResponse(w, 200, map[string]bool{"ok": true})
+}
+
+func validCharacter(id string) bool {
+	switch id {
+	case "kai", "ren", "mira", "goro", "hana", "shin", "boru", "atlas", "raon":
+		return true
+	}
+	return false
 }

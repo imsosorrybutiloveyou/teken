@@ -1,129 +1,60 @@
-# GitHub에서 캐릭터 이미지·애니메이션·타격음 바꾸기
+# 게임 안에서 캐릭터 이미지 바꾸기 — Fork 불필요
 
-**v3.7의 권장 방식은 [팔·다리 부품으로 자동 애니메이션 만들기](BODY_PARTS.md)입니다.** 8개 그림을 한 번 등록하면 기존 관절 모션으로 전 기술이 움직입니다. 아래 스프라이트 시트 방식은 선택 기능입니다.
+v3.15부터 GitHub에 파일을 올리거나 소스를 고치지 않아도 됩니다. 실행한 게임에서 **이미지 변경**을 눌러 PC나 휴대폰의 파일을 고르세요. GitHub에서 Fork를 요구한 것은 저장소 수정 권한 때문이며, 새 방식에는 GitHub 계정이 필요 없습니다.
 
-v3.5부터 `public/custom-assets.json`으로 그림·소리를 교체합니다. 기본 설정은 빈 객체이며 기본 관절 애니메이션과 합성 타격음을 사용합니다. 외부 라이브러리나 원격 스크립트는 필요 없습니다. 사용 권한이 있는 파일을 준비하세요.
+## 초상화 바꾸기
 
-## 1. GitHub에 파일 올리기
+1. 경기 화면 아래 **이미지 변경**을 누릅니다.
+2. 캐릭터를 고르고 종류를 **선택 화면 초상화**로 둡니다.
+3. **파일 선택**으로 PNG/JPG/WebP 이미지를 고릅니다(8MB 이하, 가로·세로 최대 4096).
+4. **적용 · 저장**을 누릅니다. 선택 화면과 창 안 미리보기가 즉시 바뀝니다. 초상화는 160×128 크기로 맞춰 저장합니다.
+5. 원래 그림으로 돌아가려면 같은 캐릭터·종류를 고르고 **이 이미지 기본값 복원**을 누릅니다.
 
-저장소의 `public/mods/` 폴더를 열고 **Add file → Upload files**로 PNG/WebP/SVG 이미지, WAV/OGG/MP3 소리를 올린 뒤 커밋하세요. 다음으로 `public/custom-assets.json`을 열고 연필 아이콘으로 수정합니다. JSON에는 파일 경로를 **`/mods/파일명`**으로 적습니다. `public/`은 경로에 넣지 않습니다. 대소문자를 맞추고 파일명은 영문·숫자·하이픈을 권장합니다. 외부 URL과 `..` 경로는 허용하지 않습니다.
+## 전투 캐릭터 스킨 바꾸기
 
-## 2. 초상화 교체 예시
+종류를 **전투 스킨 · 4×2 부품 격자**로 바꿉니다. 한 장의 이미지를 다음 8칸으로 나눠 각 부품을 그리세요. 오른쪽을 보는 방향으로 그리고 배경은 투명하게 두는 것을 권장합니다.
 
-캐릭터 선택 화면만 바꾸려면 `portrait`만 지정하세요. 가로 160 × 세로 128 이미지가 권장되며 다른 크기는 그 크기로 맞춥니다. 게임 중 동작은 그대로 유지됩니다.
+| 첫째 줄 | 둘째 칸 | 셋째 칸 | 넷째 칸 |
+|---|---|---|---|
+| 머리 | 몸통 | 위팔 | 아래팔 |
+| 손 | 허벅지 | 종아리 | 발 |
+
+허용 크기는 128×64, 256×128, 384×192처럼 가로가 128의 배수이면서 세로의 2배인 이미지입니다(최대 1024×512). 초상화나 통짜 전신 그림을 이 칸에 그대로 넣으면 부품 위치가 맞지 않습니다. 예제에서 각 칸의 그림을 교체하세요.
+
+- [편집용 스킨 원본 다운로드](https://github.com/imsosorrybutiloveyou/teken/raw/refs/heads/main/public/mods/skin-template.png)
+- [격자·부품 위치가 표시된 예제](https://github.com/imsosorrybutiloveyou/teken/raw/refs/heads/main/public/mods/skin-grid-guide.png)
+- 게임의 이미지 변경 창에서도 두 파일을 다운로드할 수 있습니다.
+
+파일을 선택해 적용하면 기존 관절 모션으로 걷기·발차기·잡기 등 전투 애니메이션을 자동으로 만듭니다. 기술별 그림을 따로 그릴 필요가 없습니다. 이미지만 바뀌며 판정·사거리·프레임은 바뀌지 않습니다.
+
+## 어디에 저장되나요?
+
+- **Windows EXE의 PC 브라우저:** EXE와 같은 폴더의 `AXIS-custom-images.json`에 저장합니다. 새 EXE도 이 폴더에서 실행하면 이미지가 유지됩니다. 이 파일을 복사하면 백업/다른 PC로 이동할 수 있습니다. 폴더에 쓸 수 없으면 브라우저 저장으로 전환하고 창에 표시합니다.
+- **AXIS SERVER를 실행한 PC:** PC의 로컬 주소(`http://127.0.0.1:8080`)에서 저장하면 서버 옆 파일에 저장합니다. 같은 서버에 새로 접속하거나 새로고침한 휴대폰도 이 그림을 사용합니다.
+- **휴대폰 또는 웹 개발 서버:** 해당 브라우저의 IndexedDB에 저장합니다. 접속 주소·브라우저가 달라지거나 사이트 데이터를 지우면 유지되지 않습니다. 휴대폰에서 서버 PC의 공유 파일을 덮어쓰지는 않습니다.
+- **온라인 P2P 상대:** 이미지 파일을 상대에게 자동 전송하지 않습니다. 상대도 같은 그림을 보려면 자기 게임에서 적용해야 합니다.
+
+## 고급 사용자: 소리·스프라이트 시트·부품별 원본
+
+기존 `public/custom-assets.json`도 계속 지원합니다. [부품 애니메이션 안내](BODY_PARTS.md), [스킨 안내](SKINS.md)를 참고하세요. 배포용 기본 그림이나 소리를 바꾸려는 개발자에게만 소스 수정과 EXE 재빌드가 필요합니다. 일반 이미지 변경에는 필요 없습니다.
+
+캐릭터 ID는 `kai`, `ren`, `mira`, `goro`, `hana`, `shin`, `boru`, `atlas`, `raon`입니다. JSON의 파일 경로는 `/mods/파일명`이며 외부 URL이나 `..` 경로는 허용하지 않습니다.
 
 ```json
 {
   "characters": {
-    "kai": { "portrait": "/mods/kai-face.png" },
-    "ren": {},
-    "mira": {},
-    "goro": {}
+    "raon": { "portrait": "/mods/raon-face.png", "skin": "/mods/raon-skin.png" }
   },
-  "sounds": {}
-}
-```
-
-캐릭터 ID는 `kai`, `ren`, `mira`, `goro`, `hana`, `shin`, `boru`, `atlas`입니다.
-
-## 3. 전투 애니메이션 교체 예시
-
-투명 배경 스프라이트 시트를 만드세요. **오른쪽을 바라보는** 캐릭터를 칸마다 그립니다. 기본 좌표는 160×128 한 칸, 발밑 기준점 `(64,115)`입니다. 왼쪽을 보는 캐릭터는 게임이 자동으로 뒤집고, 점프·이동·카메라 크기도 게임이 적용합니다. 이미지에는 바닥 그림자를 넣지 않는 편이 좋습니다.
-
-한 줄이 한 동작이고 왼쪽부터 시간 순서입니다. 줄 번호 `row`는 **0부터** 셉니다. 아래 예시는 960×512 시트입니다. 첫 줄은 대기 4칸(남는 2칸은 투명), 둘째 줄은 이동 6칸, 셋째 줄은 기본 왼손 6칸, 넷째 줄은 띄우기 6칸입니다.
-
-```json
-{
-  "characters": {
-    "ren": {
-      "portrait": "/mods/ren-face.png",
-      "sheet": "/mods/ren-sheet.png",
-      "frameWidth": 160,
-      "frameHeight": 128,
-      "animations": {
-        "idle": { "row": 0, "frames": 4, "fps": 8 },
-        "walk": { "row": 1, "frames": 6, "fps": 12 },
-        "u": { "row": 2, "frames": 6 },
-        "upper": { "row": 3, "frames": 6 }
-      }
-    }
-  },
-  "sounds": { "ren.upper": "/mods/ren-heel.wav" }
-}
-```
-
-등록하지 않은 동작은 기본 관절 애니메이션을 사용합니다. 파일·행·칸이 잘못되어도 해당 동작은 기본 그림으로 돌아갑니다. 일반 상태는 `fps`로 반복합니다. **공격은 fps를 무시하고 실제 기술의 S+A+R 시간에 맞춰 전체 칸을 한 번 재생합니다.** 공격 이미지에서 접촉하는 칸은 `S / (S+A+R) × 칸 수` 부근에 배치하세요. 예를 들어 10/2/17F 잽을 29칸으로 그리면 10번째 프레임에 타격 자세가 오도록 그립니다. 이미지 교체는 판정·사거리·프레임을 바꾸지 않습니다.
-
-상태 키: `idle` 대기, `walk` 이동, `guard` 가드, `crouch` 앉기, `hit` 피격, `jump` 공중, `down` 다운. `down`을 등록한다면 눕는 자세부터 일어나는 자세까지 전환은 이미지에서 직접 표현해야 합니다(현재 상태 시트는 fps 반복 방식).
-
-기술 키는 아래와 같습니다. 키는 입력/연계 처리를 위한 슬롯 이름이며 **캐릭터가 같다는 뜻이 아닙니다.** 예를 들어 `upper`는 KAI의 어퍼, REN의 뒤꿈치, MIRA의 탁장, GORO의 어깨받기입니다. `electric`은 KAI의 섬뢰권이며 다른 캐릭터는 훅킥·회피장·헤드차지입니다.
-
-```text
-u i j k oneTwo finish upper low sweep qcfPunch dragon qcfKick
- dashPunch palm backKick hopKick throw hook elbow bodyBlow toeKick
- sideKick axeKick kneeStrike bound rushStrike windGod electric hellSweep runningKick hellFollow styleFollow
-```
-
-## 4. 타격음 교체
-
-`sounds`의 공통 키 `hit`(주먹/기본), `kick`(발·무릎), `heavy`(강타), `block`(가드)에 파일 경로를 지정합니다. 짧은 소리(약 0.05~0.5초)와 적당한 음량을 권장합니다. 브라우저가 지원하는 WAV가 호환성이 좋습니다.
-
-```json
-{
-  "characters": {},
   "sounds": {
     "hit": "/mods/punch.wav",
     "kick": "/mods/kick.wav",
     "heavy": "/mods/heavy.wav",
     "block": "/mods/guard.wav",
-    "goro.heavy": "/mods/goro-impact.wav",
-    "kai.electric": "/mods/electric.wav",
-    "ren.upper": "/mods/heel.wav"
+    "raon.exWave": "/mods/energy.wav"
   }
 }
 ```
 
-우선순위는 **캐릭터.기술 키 → 캐릭터.소리 종류 → 공통 종류 → 기본 합성음**입니다. 강타는 kick보다 heavy를 우선합니다. 파일이 없거나 디코딩되지 않으면 기본 소리가 납니다. 첫 타격 시 디코딩 중이면 합성음이 나오고 준비가 끝난 다음부터 새 소리가 납니다. 사운드 OFF에서는 둘 다 재생하지 않습니다. 에셋은 각 플레이어 EXE에 내장되며 상대에게 파일을 전송하지 않습니다.
+소리는 **캐릭터.기술 → 캐릭터.소리종류 → 공통 종류 → 기본 합성음** 순서로 선택합니다. WAV/OGG/MP3 중 브라우저가 지원하는 형식을 쓰세요. 준비되지 않은 이미지·소리는 기본 에셋으로 돌아갑니다.
 
-## 5. 실제 기술과 관절 모션 수정
-
-- `src/fighter-kits.js`: 캐릭터별 기본 30개 기술의 이름·타격 모션·상중하단/잡기·피해·리치, 특수 판정. 각 행 순서는 `src/characters.js`의 `keys`와 같습니다.
-- `src/characters.js`: 캐릭터별 커맨드와 `[S,A,R,G,H]` 프레임, 연계 순서, 실제 전투 데이터 조립. REN/MIRA/GORO 특수 커맨드는 `specialCommands`에 있습니다.
-- `src/style-motion.js`: REN/MIRA/GORO의 대기 자세와 손·발·어깨 공격의 준비/접촉 좌표. KAI의 카라테 모션은 `src/scene.js`에 있습니다. 공격 버튼 파생기 2개는 `src/characters.js`의 `followData`에 있습니다. 마지막에 IK가 관절 길이와 무릎 방향을 고정합니다.
-- `src/scene.js`: 기본 팔레트·의상·외형·히트 이펙트.
-- `src/main.js`: 에셋을 지정하지 않았을 때의 합성 타격음.
-
-커맨드는 숫자 방향입니다. 6=전진, 4=후퇴, 2=아래, 8=위, 3=아래전진, 1=아래후퇴, 5=중립입니다. 수치만 바꿨을 때에도 게임 내 표와 문서가 맞도록 `npm run docs:frames`를 실행하세요. 판정을 바꾼 버전은 온라인 두 플레이어와 매칭 호스트를 함께 교체해야 합니다.
-
-## 6. 바꾼 파일을 EXE에 넣고 GitHub 다운로드 갱신하기
-
-**GitHub 원본 파일만 수정해도 이미 만들어진 EXE는 바뀌지 않습니다.** Node.js 22.12+와 Go 1.26+가 있는 PC에서 저장소를 내려받고 다음을 실행하세요.
-
-```sh
-npm ci
-npm test
-npm run docs:frames
-npm run package:windows
-```
-
-`package:windows`는 웹 게임·`public/` 에셋을 새로 빌드하고 Go 테스트 후 Windows x64 EXE를 만듭니다. 결과:
-
-```text
-release/AXIS-Windows-x64.exe
-release/AXIS-Windows-x64.exe.sha256
-release/latest.json
-```
-
-세 파일을 `downloads/`에 복사해 기존 파일을 교체하세요. GitHub 웹에서는 `downloads/`의 **Add file → Upload files**로 같은 이름의 세 파일을 함께 업로드해 커밋할 수 있습니다. 소스·JSON·에셋·생성한 프레임표도 함께 반영하세요. 기존 **Windows EXE 다운로드** 링크가 새 파일을 가리킵니다. 이전 버전의 커밋에 고정된 링크는 계속 이전 파일을 받습니다.
-
-로컬 확인은 `npm run dev`로 실행한 뒤 캐릭터 선택·기술·타격음을 확인하세요. 개발자 도구 Console/Network에서 파일명 오타·404·JSON 문법을 확인할 수 있습니다. EXE 배포 뒤에는 두 플레이어가 새 EXE를 다시 다운로드해야 합니다.
-
-새 버전 번호 변경과 업데이트 감지 게시 방법은 [업데이트 안내](UPDATES.md)를 참고하세요.
-
-v3.8의 추가 로스터·앉기/점프/기상 기술·카운터 목록은 `src/expanded-roster.js`에서 조정합니다. `counterLaunch`는 일반 적중이 아닌 카운터 적중일 때 띄우는 판정입니다.
-
-
-v3.9 밸런스는 `src/expanded-roster.js`의 `comboScale`(후속 콤보 피해), `speed`(이동 배율), `anatomy`(위팔/아래팔/허벅지/종아리 길이), 각 기술의 `range`에서 조정합니다. BORU는 27/28/17/18 길이의 전용 골격을 쓰며 부품 rig도 같은 관절을 따릅니다. `wakeLow`/`wakeMid`는 누운 상태 J/K 전용 기술, `jumpPunch.bound`는 공중 내려찍기 바운드입니다. 섬뢰권 입력 허용치는 `justFrames`, 일반판은 `windGod` 슬롯입니다. 파일 수정 후 반드시 EXE를 다시 빌드하세요.
-
-
-v3.10의 `jumpActive`는 직접 점프/공중 버튼 기술에만 사용하며 `hop` 기술의 도약과 구분합니다. `jumpBuffer`는 W 입력을 최대 0.25초 보관합니다. `downTime`이 양수이면 기상 입력 전까지 최소 0.2를 유지합니다. 공중 밀어내기는 `src/combat.js`의 `push` 공식에서 조정합니다.
+개발자 배포는 `npm ci`, `npm test`, `npm run docs:frames`, `npm run package:windows` 후 두 EXE·체크섬·latest.json을 downloads에 복사합니다. [Releases 게시 절차](RELEASE_NOTES.md)에 따라 게임과 서버를 함께 게시하세요.

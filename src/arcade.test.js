@@ -3,16 +3,16 @@ import assert from "node:assert/strict";
 import { createCampaign, advanceCampaign, createCPU } from "./arcade.js";
 import { createMatch, step, emptyInput } from "./combat.js";
 import { CHARACTER_IDS, character } from "./characters.js";
-test("arcade fights seven distinct opponents excluding the selected character and ends after seven wins", () => {
+test("arcade fights eight distinct opponents excluding the selected character and ends after eight wins", () => {
   for (const id of CHARACTER_IDS) {
     const c = createCampaign(id, "hard");
-    assert.equal(c.opponents.length, 7);
-    assert.equal(new Set(c.opponents).size, 7);
+    assert.equal(c.opponents.length, 8);
+    assert.equal(new Set(c.opponents).size, 8);
     assert.ok(!c.opponents.includes(id));
     assert.equal(advanceCampaign(c, 1), "lost");
     assert.equal(c.stage, 0);
-    for (let n = 0; n < 7; n++)
-      assert.equal(advanceCampaign(c, 0), n === 6 ? "cleared" : "next");
+    for (let n = 0; n < 8; n++)
+      assert.equal(advanceCampaign(c, 0), n === 7 ? "cleared" : "next");
     assert.equal(c.finished, true);
   }
 });

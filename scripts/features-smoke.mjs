@@ -56,7 +56,7 @@ try {
   await page.locator("#confirm-character").click();
   await page.waitForFunction(() => window.axis.arcade?.difficulty === "hard");
   const campaign = await page.evaluate(() => window.axis.arcade);
-  assert.equal(campaign.opponents.length, 7);
+  assert.equal(campaign.opponents.length, 8);
   assert.ok(!campaign.opponents.includes(campaign.id));
   assert.ok((await page.locator("#arena-mode").innerText()).includes("ARCADE"));
   await page.locator("#fullscreen-button").click();
@@ -88,7 +88,7 @@ try {
   });
   assert.deepEqual(errors, []);
   console.log(
-    "PASS: eight atlas cells, physical sky knee, practice level display, seven-opponent hard arcade selection, fullscreen, touch crouch",
+    "PASS: eight atlas cells, physical sky knee, practice level display, eight-opponent hard arcade selection, fullscreen, touch crouch",
   );
 } finally {
   await browser.close();

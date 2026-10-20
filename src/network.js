@@ -4,7 +4,7 @@ import { CHARACTER_IDS, character } from "./characters.js";
 export function validSnapshot(v) {
   if (
     !v ||
-    v.version !== 16 ||
+    v.version !== 17 ||
     typeof v.stage !== "string" ||
     !Object.hasOwn(STAGES, v.stage) ||
     !["ready", "fight", "roundEnd", "matchEnd"].includes(v.phase) ||
@@ -28,6 +28,24 @@ export function validSnapshot(v) {
     !v.wins.every((n) => Number.isInteger(n) && n >= 0 && n <= 2) ||
     !Array.isArray(v.fighters) ||
     v.fighters.length !== 2
+  )
+    return false;
+  if (
+    !Array.isArray(v.projectiles) ||
+    v.projectiles.length > 8 ||
+    !v.projectiles.every(
+      (s) =>
+        s &&
+        [0, 1].includes(s.index) &&
+        character(v.fighters[s.index]?.character).moves[s.key]?.projectile &&
+        ["x", "z", "y", "angle", "life"].every(
+          (k) => Number.isFinite(s[k]) && Math.abs(s[k]) < 1e12,
+        ) &&
+        s.life >= 0 &&
+        s.life <= 1.6 &&
+        s.y >= 0 &&
+        s.y <= 3,
+    )
   )
     return false;
   return v.fighters.every(
@@ -85,6 +103,14 @@ export function validSnapshot(v) {
       f.wallHits >= 0 &&
       f.wallHits <= 3 &&
       typeof f.wallSplatUsed === "boolean" &&
+      Number.isFinite(f.ki) &&
+      f.ki >= 0 &&
+      f.ki <= 40 &&
+      Number.isFinite(f.runCharge) &&
+      f.runCharge >= 0 &&
+      f.runCharge < 1e7 &&
+      typeof f.running === "boolean" &&
+      typeof f.punishCombo === "boolean" &&
       Number.isInteger(f.basicAirHits) &&
       f.basicAirHits >= 0 &&
       f.basicAirHits < 1000000 &&

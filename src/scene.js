@@ -277,6 +277,21 @@ export function spritePose(f, t) {
     lean: 0,
   };
   styleStance(pose, character(f.character).skeleton, !!crouch);
+  if (f.character === "raon") {
+    pose.hands = [
+      [43, 50 + crouch],
+      [72, 36 + crouch],
+    ];
+    pose.feet[0][0] -= 4;
+    pose.hip[1] += 2;
+  }
+  if (f.running) {
+    pose.lean += 8;
+    pose.hands = [
+      [27 + walk * 12, 56],
+      [67 - walk * 12, 49],
+    ];
+  }
   if (crouch) {
     pose.knees = [
       [26, 94],
@@ -590,23 +605,31 @@ function paintSprite(c, f, index, t) {
       ...palettes[{ kai: 0, ren: 1, mira: 2, goro: 3 }[profile.skeleton]],
       ...(profile.id === "hana"
         ? { cloth: "#e3e7e5", pants: "#d8e0df", belt: "#242a34" }
-        : profile.id === "boru"
+        : profile.id === "raon"
           ? {
-              cloth: "#795337",
-              pants: "#795337",
-              skin: "#9f724c",
-              hair: "#5d402d",
-              glove: "#68482e",
+              cloth: "#dc773b",
+              pants: "#b9512e",
+              belt: "#244c53",
+              glove: "#315863",
+              hair: "#332b39",
             }
-          : profile.id === "atlas"
+          : profile.id === "boru"
             ? {
-                cloth: "#738d98",
-                pants: "#596f7c",
-                skin: "#a3b2b8",
-                glove: "#607481",
-                hair: "#445566",
+                cloth: "#795337",
+                pants: "#795337",
+                skin: "#9f724c",
+                hair: "#5d402d",
+                glove: "#68482e",
               }
-            : {}),
+            : profile.id === "atlas"
+              ? {
+                  cloth: "#738d98",
+                  pants: "#596f7c",
+                  skin: "#a3b2b8",
+                  glove: "#607481",
+                  hair: "#445566",
+                }
+              : {}),
     },
     pose = spritePose(f, t);
   c.clearRect(0, 0, c.canvas.width, c.canvas.height);
@@ -1341,6 +1364,22 @@ export function createScene(canvas) {
           }
         }
       }
+      for (const shot of match.projectiles) {
+        const p = project(shot.x, shot.y, shot.z),
+          radius = p.scale * (shot.key === "exWave" ? 0.28 : 0.2);
+        c.save();
+        c.shadowColor = "#ffb96d";
+        c.shadowBlur = 8;
+        c.fillStyle = shot.key === "exWave" ? "#a3ffff" : "#ffbc6d";
+        c.beginPath();
+        c.ellipse(p.x, p.y, radius * 1.5, radius, 0, 0, Math.PI * 2);
+        c.fill();
+        c.fillStyle = "#fff4cc";
+        c.beginPath();
+        c.arc(p.x, p.y, radius * 0.5, 0, Math.PI * 2);
+        c.fill();
+        c.restore();
+      }
       for (let i = effects.length - 1; i >= 0; i--) {
         const e = effects[i];
         e.age += dt;
@@ -1455,10 +1494,10 @@ export function createScene(canvas) {
     },
   };
 }
-export function paintPortrait(canvas, fighter) {
+export function paintPortrait(canvas, fighter, body = false) {
   canvas.width = 160;
   canvas.height = 128;
-  const portrait = customPortrait(fighter.character);
+  const portrait = !body && customPortrait(fighter.character);
   if (portrait) canvas.getContext("2d").drawImage(portrait, 0, 0, 160, 128);
   else paintSprite(canvas.getContext("2d"), fighter, 0, 0);
 }

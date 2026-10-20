@@ -92,7 +92,7 @@ test("seven identities add distinct commands and keep KAI move data unchanged", 
   assert.equal(character("kai").moves.traitStrike, undefined);
   assert.equal(character("kai").moves.u.damage, 8);
   assert.equal(character("kai").moves.electric.damage, 26);
-  for (const id of CHARACTER_IDS.filter((x) => x !== "kai")) {
+  for (const id of Object.keys(FIGHTER_IDENTITIES)) {
     const p = character(id);
     assert.ok(p.identity);
     assert.ok(p.moves.traitStrike);

@@ -23,3 +23,6 @@ v3.13은 프로토콜 15입니다. 게임 양쪽과 서버를 함께 업데이�
 
 
 v3.14는 프로토콜 16이며 벽꽝을 지원합니다. 양쪽 게임과 서버를 함께 교체하세요. 앞으로 서버 EXE도 [GitHub Releases](https://github.com/imsosorrybutiloveyou/teken/releases/latest)에 게임 EXE와 함께 게시합니다. [변경 설명](RELEASE_NOTES.md)
+
+
+v3.15는 프로토콜 17, RAON·랜덤 선택·기 게이지·장풍·강화기를 지원합니다. 서버 PC의 로컬 주소에서 이미지 변경으로 저장하면 새로 접속한 휴대폰에도 적용됩니다. 휴대폰에서 저장하면 해당 브라우저에만 저장됩니다. [이미지 안내](CUSTOMIZATION.md)

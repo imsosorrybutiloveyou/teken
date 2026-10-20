@@ -123,6 +123,11 @@ func run() error {
 	}
 	defer closeHost()
 	mux := http.NewServeMux()
+	exe, err := os.Executable()
+	if err != nil {
+		return err
+	}
+	mux.Handle("/api/custom-images", customImagesHandler(filepath.Join(filepath.Dir(exe), "AXIS-custom-images.json")))
 	mux.Handle("/api/", api)
 	mux.Handle("/", handler)
 	// Keep the actual game in a localhost secure context for WebRTC.
@@ -155,7 +160,7 @@ func run() error {
 	fmt.Println("  Keep this window open while playing.")
 	fmt.Println("  To quit: close this window or press Ctrl+C.")
 	fmt.Println("\n  Move: A/D | Orbit: Q/E | Crouch: S | Jump: W | U: Left Punch | I: Right Punch | J: Left Kick | K: Right Kick")
-	fmt.Print("  Guard: Hold Back | Crouch: Shift | 8 unique fighters | Check each fighter frame list\n")
+	fmt.Print("  Guard: Hold Back | Crouch: Shift | 9 unique fighters | Check each fighter frame list\n")
 	if lanMode {
 		fmt.Println("  LAN online: open the same :8080 URL on both devices and choose PLAYER MATCH.")
 	} else {

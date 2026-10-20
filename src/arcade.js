@@ -140,6 +140,8 @@ export function createCPU(difficulty = "normal") {
       );
     }
     if (o.y > 0 && o.airOwner === index && (!f.attack || f.attack.connected)) {
+      if (f.character === "raon" && f.ki >= 20 && o.airHits >= 2 && !f.buffer)
+        return command("focusBurst");
       if (madness) {
         if (!comboActive) {
           comboActive = true;
@@ -184,7 +186,9 @@ export function createCPU(difficulty = "normal") {
           "k",
           "throw",
         ]),
-      ].filter((k) => !k.startsWith("wake"));
+      ].filter(
+        (k) => !k.startsWith("wake") && (p.moves[k].kiCost ?? 0) <= f.ki,
+      );
       const scored = pool
         .map((key) => {
           const move = p.moves[key];
