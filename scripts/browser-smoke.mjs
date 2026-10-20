@@ -55,7 +55,7 @@ try {
     () => window.axis && document.getElementById("loading").hidden,
   );
   await host.locator("#arena-moves-button").click();
-  assert.equal(await host.locator(".move-item").count(), 45);
+  assert.equal(await host.locator(".move-item").count(), 46);
   await host.locator('#move-character-tabs [data-character="goro"]').click();
   assert.ok(
     (await host.locator(".frame-data").first().innerText()).includes("10"),
@@ -477,7 +477,7 @@ try {
   );
   await host.keyboard.press("h");
   await host.locator("#moves-dialog").waitFor();
-  assert.equal(await host.locator(".move-item").count(), 46);
+  assert.equal(await host.locator(".move-item").count(), 47);
   await host.locator("#moves-dialog .close").click();
   await host.locator("#character-button").click();
   await host.locator("#practice-behavior").selectOption("cpu");
@@ -504,7 +504,7 @@ try {
   );
   assert.deepEqual(errors, []);
   console.log(
-    "PASS: v3.15 player match only, player rooms, matched-only character selection, 9 characters + random, unique frame tables, automatic P2P, orbit camera, remote combat, practice selection, responsive layout; no page errors.",
+    "PASS: v3.16 player match only, player rooms, matched-only character selection, 9 characters + random, unique frame tables, automatic P2P, orbit camera, remote combat, practice selection, responsive layout; no page errors.",
   );
 } catch (error) {
   for (const [name, page] of [

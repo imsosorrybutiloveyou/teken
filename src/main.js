@@ -913,6 +913,8 @@ function updateHUD() {
     $(`health-${i}`).style.width = Math.max(0, (f.hp / MAX_HP) * 100) + "%";
     const meter = $(`ki-${i}`);
     meter.hidden = f.character !== "raon";
+    meter.classList.toggle("ready", f.ki >= 20);
+    meter.setAttribute("aria-label", `RAON 기 ${(f.ki / 20).toFixed(2)} / 2칸`);
     meter
       .querySelectorAll("progress")
       .forEach((bar, n) => (bar.value = Math.max(0, f.ki - n * 20)));

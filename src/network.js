@@ -4,7 +4,7 @@ import { CHARACTER_IDS, character } from "./characters.js";
 export function validSnapshot(v) {
   if (
     !v ||
-    v.version !== 17 ||
+    v.version !== 18 ||
     typeof v.stage !== "string" ||
     !Object.hasOwn(STAGES, v.stage) ||
     !["ready", "fight", "roundEnd", "matchEnd"].includes(v.phase) ||
@@ -160,6 +160,8 @@ export function validSnapshot(v) {
       typeof f.crouch === "boolean" &&
       (!f.attack ||
         (Object.hasOwn(character(f.character).moves, f.attack.key) &&
+          (f.attack.fromRun === undefined ||
+            typeof f.attack.fromRun === "boolean") &&
           Number.isFinite(f.attack.t) &&
           Number.isFinite(f.attack.angle) &&
           (f.attack.height === undefined ||

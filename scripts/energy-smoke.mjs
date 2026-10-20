@@ -134,7 +134,7 @@ try {
   await pc.waitForFunction(() => !window.axis.state.fighters[0].attack);
   await pc.keyboard.down("s");
   await pc.keyboard.down("d");
-  await pc.keyboard.press("i");
+  await pc.keyboard.press("j");
   await pc.keyboard.up("s");
   await pc.keyboard.up("d");
   await pc.waitForFunction(() => window.axis.state.fighters[1].airOwner === 0);

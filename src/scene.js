@@ -277,20 +277,23 @@ export function spritePose(f, t) {
     lean: 0,
   };
   styleStance(pose, character(f.character).skeleton, !!crouch);
-  if (f.character === "raon") {
-    pose.hands = [
-      [43, 50 + crouch],
-      [72, 36 + crouch],
-    ];
-    pose.feet[0][0] -= 4;
-    pose.hip[1] += 2;
-  }
   if (f.running) {
-    pose.lean += 8;
-    pose.hands = [
-      [27 + walk * 12, 56],
-      [67 - walk * 12, 49],
-    ];
+    // Swing bent arms about the shoulders; wrists stay in front of elbows.
+    pose.lean = 6;
+    for (const arm of [0, 1]) {
+      const phase = arm ? -walk : walk,
+        shoulder = [pose.shoulders[arm][0] + pose.lean, pose.shoulders[arm][1]],
+        angle = 0.25 + phase * 0.6,
+        elbow = [
+          shoulder[0] + Math.sin(angle) * 18,
+          shoulder[1] + Math.cos(angle) * 18,
+        ];
+      pose.elbows[arm] = elbow;
+      pose.hands[arm] = [
+        elbow[0] + Math.cos(angle) * 18,
+        elbow[1] - Math.sin(angle) * 18,
+      ];
+    }
   }
   if (crouch) {
     pose.knees = [
@@ -602,16 +605,18 @@ function paintSprite(c, f, index, t) {
   const lowPose = f.crouch || f.attack?.key.startsWith("crouch");
   const profile = character(f.character),
     p = {
-      ...palettes[{ kai: 0, ren: 1, mira: 2, goro: 3 }[profile.skeleton]],
+      ...palettes[
+        { kai: 0, ren: 1, mira: 2, goro: 3, raon: 2 }[profile.skeleton]
+      ],
       ...(profile.id === "hana"
         ? { cloth: "#e3e7e5", pants: "#d8e0df", belt: "#242a34" }
         : profile.id === "raon"
           ? {
-              cloth: "#dc773b",
-              pants: "#b9512e",
-              belt: "#244c53",
-              glove: "#315863",
-              hair: "#332b39",
+              cloth: "#284c60",
+              pants: "#dad2b0",
+              belt: "#a9535d",
+              glove: "#dfad66",
+              hair: "#522e46",
             }
           : profile.id === "boru"
             ? {
@@ -739,10 +744,19 @@ function paintSprite(c, f, index, t) {
       p.skinLight,
     );
     const hand = pose.hands[i];
+    c.save();
+    if (f.running) {
+      c.translate(hand[0], hand[1]);
+      c.rotate(
+        Math.atan2(hand[1] - pose.elbows[i][1], hand[0] - pose.elbows[i][0]),
+      );
+      c.translate(-hand[0], -hand[1]);
+    }
     rect(c, hand[0] - 5, hand[1] - 5, 11, 11, OUTLINE);
     rect(c, hand[0] - 4, hand[1] - 4, 9, 8, p.glove);
     rect(c, hand[0] - 4, hand[1] - 3, 7, 2, p.light);
     rect(c, hand[0] - 5, hand[1] + 3, 9, 3, p.belt);
+    c.restore();
   };
   pants(0);
   arm(0);
@@ -850,6 +864,20 @@ function paintSprite(c, f, index, t) {
     for (let n = 0; n < 3; n++)
       rect(c, 43 + lx, 45 + n * 6 + (lowPose ? 16 : 0), 8, 2, p.belt);
   }
+  if (profile.id === "raon") {
+    polygon(
+      c,
+      [
+        [hip[0] - 12, hip[1] - 4],
+        [hip[0] + 10, hip[1] - 4],
+        [hip[0] + 17, hip[1] + 20],
+        [hip[0] + 3, hip[1] + 12],
+        [hip[0] - 14, hip[1] + 22],
+      ],
+      p.cloth,
+    );
+    rect(c, hip[0] - 12, hip[1] - 5, 24, 4, p.belt);
+  }
   pants(1);
   rect(c, head[0] - 3, head[1] + 8, 9, 9, p.skinDark);
   c.save();
@@ -888,33 +916,61 @@ function paintSprite(c, f, index, t) {
   rect(c, head[0] + 5, head[1], 5, 2, OUTLINE);
   rect(c, head[0] + 7, head[1], 2, 1, "#fff1c5");
   rect(c, head[0] + 5, head[1] + 7, 4, 1, p.skinDark);
-  polygon(
-    c,
-    [
-      [head[0] - 10, head[1] - 1],
-      [head[0] - 12, head[1] - 12],
-      [head[0] - 6, head[1] - 10],
-      [head[0] - 3, head[1] - 18],
-      [head[0] + 1, head[1] - 11],
-      [head[0] + 7, head[1] - 16],
-      [head[0] + 9, head[1] - 7],
-      [head[0] + 5, head[1] - 3],
-      [head[0] - 5, head[1] - 5],
-      [head[0] - 5, head[1] + 2],
-    ],
-    p.hair,
-  );
-  polygon(
-    c,
-    [
-      [head[0] - 7, head[1] - 10],
-      [head[0] - 3, head[1] - 14],
-      [head[0] - 2, head[1] - 8],
-      [head[0] + 6, head[1] - 12],
-      [head[0] + 3, head[1] - 6],
-    ],
-    p.hairLight,
-  );
+  if (profile.id === "raon") {
+    polygon(
+      c,
+      [
+        [head[0] - 10, head[1] - 3],
+        [head[0] - 8, head[1] - 12],
+        [head[0] + 5, head[1] - 13],
+        [head[0] + 9, head[1] - 4],
+      ],
+      p.hair,
+    );
+    c.fillStyle = p.hair;
+    c.beginPath();
+    c.arc(head[0] - 10, head[1] - 12, 5, 0, Math.PI * 2);
+    c.fill();
+    rect(c, head[0] - 10, head[1] - 5, 19, 3, p.belt);
+    polygon(
+      c,
+      [
+        [head[0] - 9, head[1] - 3],
+        [head[0] - 21, head[1] + 4],
+        [head[0] - 18, head[1] + 10],
+        [head[0] - 7, head[1]],
+      ],
+      p.belt,
+    );
+  } else {
+    polygon(
+      c,
+      [
+        [head[0] - 10, head[1] - 1],
+        [head[0] - 12, head[1] - 12],
+        [head[0] - 6, head[1] - 10],
+        [head[0] - 3, head[1] - 18],
+        [head[0] + 1, head[1] - 11],
+        [head[0] + 7, head[1] - 16],
+        [head[0] + 9, head[1] - 7],
+        [head[0] + 5, head[1] - 3],
+        [head[0] - 5, head[1] - 5],
+        [head[0] - 5, head[1] + 2],
+      ],
+      p.hair,
+    );
+    polygon(
+      c,
+      [
+        [head[0] - 7, head[1] - 10],
+        [head[0] - 3, head[1] - 14],
+        [head[0] - 2, head[1] - 8],
+        [head[0] + 6, head[1] - 12],
+        [head[0] + 3, head[1] - 6],
+      ],
+      p.hairLight,
+    );
+  }
   if (f.character === "mira") {
     polygon(
       c,

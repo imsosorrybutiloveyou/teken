@@ -1,13 +1,41 @@
 // Authored chamber/contact targets. Anatomy is constrained by scene.js after blending.
 // arm / foot / knee / body determine the actual striking part, not just an effect tint.
 export const STYLE_MOTIONS = {
+  raonTouch: ["arm", [34, 51], [84, 34]],
+  raonBackPalm: ["arm", [25, 29], [91, 56]],
+  raonTwin: ["both", [30, 67], [83, 38]],
+  raonHeelRise: ["foot", [42, 91], [78, 24]],
+  raonRootKick: ["foot", [20, 86], [94, 110]],
+  raonLowPalm: ["arm", [28, 65], [82, 90]],
+  raonWave: ["both", [20, 57], [84, 46]],
+  raonKnee: ["knee", [29, 79], [75, 57]],
+  raonOrbit: ["foot", [22, 69], [90, 33]],
+  raonWheel: ["foot", [17, 82], [92, 32]],
+  raonPivotPalm: ["arm", [19, 43], [91, 55]],
+  raonCrescent: ["foot", [28, 60], [88, 39]],
+  raonFloatKick: ["foot", [44, 74], [95, 48]],
+  raonThrow: ["both", [74, 33], [34, 67]],
+  raonRake: ["arm", [25, 18], [85, 57]],
+  raonFold: ["arm", [57, 66], [76, 32]],
+  raonArcKick: ["foot", [26, 83], [96, 58]],
+  raonStamp: ["foot", [50, 18], [88, 81]],
+  raonDrop: ["both", [34, 10], [84, 73]],
+  raonAirWheel: ["foot", [33, 73], [99, 43]],
+  raonAirPalm: ["both", [31, 18], [89, 61]],
+  raonFan: ["both", [23, 34], [82, 56]],
+  raonPillar: ["both", [30, 74], [64, 13]],
+  runDivePalm: ["arm", [50, 12], [91, 61]],
+  runDiveElbow: ["arm", [66, 15], [79, 59]],
+  runTwinPalm: ["both", [37, 19], [87, 61]],
+  runSwordFall: ["both", [52, 7], [94, 65]],
+  bearRunCrash: ["body", [47, 63], [91, 57]],
+  steelRunCrash: ["body", [44, 67], [96, 55]],
   emberPalm: ["arm", [41, 58], [94, 45]],
   emberRise: ["arm", [38, 75], [79, 18]],
   emberWave: ["both", [25, 63], [91, 51]],
   emberBurst: ["both", [39, 45], [92, 65]],
   hipToss: ["both", [72, 66], [54, 23]],
   divingElbow: ["arm", [60, 15], [84, 68]],
-  fallingPalm: ["arm", [42, 12], [90, 72]],
   craneChop: ["arm", [68, 10], [86, 70]],
   swordThrust: ["arm", [46, 50], [97, 40]],
   swordSlash: ["arm", [32, 19], [91, 58]],
@@ -75,7 +103,25 @@ const blend = (point, target, weight) =>
   point.map((v, i) => v + (target[i] - v) * weight);
 export function styleStance(p, id, crouch) {
   const down = crouch ? 16 : 0;
-  if (id === "ren") {
+  if (id === "raon") {
+    p.hip = [43, 71 + down];
+    p.head[0] = 39;
+    p.shoulders = [
+      [33, 42 + down],
+      [49, 44 + down],
+    ];
+    p.hands = [
+      [31, 49 + down],
+      [78, 33 + down],
+    ];
+    p.elbows = [
+      [22, 59 + down],
+      [63, 58 + down],
+    ];
+    p.feet[0][0] = 12;
+    p.feet[1][0] = 77;
+    p.lean = -4;
+  } else if (id === "ren") {
     p.hip[1] -= 3;
     p.hands = [
       [62, 25 + down],
@@ -185,6 +231,20 @@ export function styleAttack(p, m, chamber, extension, aimOffset) {
     if (m.kind === "bearThrow") {
       p.head[1] -= e * 6;
       p.hip[1] -= e * 4;
+    }
+  }
+  if (m.kind.startsWith("raon")) {
+    const turn = Math.sin(Math.PI * e) * chamber;
+    p.shoulders[0][0] -= turn * 8;
+    p.shoulders[1][0] += turn * 6;
+    p.hip[0] -= chamber * 3;
+    if (type === "arm") set("hands", 1 - side, [32, 39], chamber);
+    if (["raonWheel", "raonOrbit", "raonAirWheel"].includes(m.kind)) {
+      p.lean -= e * 7;
+      p.hands = [
+        blend(p.hands[0], [19, 35], chamber),
+        blend(p.hands[1], [73, 66], chamber),
+      ];
     }
   }
 }

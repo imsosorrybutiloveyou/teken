@@ -1,5 +1,6 @@
 import { applyIdentities } from "./identities.js";
 import { addEnergyFighter } from "./energy-fighter.js";
+import { addRunningMoves } from "./running-moves.js";
 import { upgradeRoster } from "./roster-v12.js";
 import { expandRoster } from "./expanded-roster.js";
 import { KIT_MOVES, KIT_RULES } from "./fighter-kits.js";
@@ -1037,6 +1038,7 @@ for (const p of Object.values(CHARACTERS))
     if (m.level !== "low" && !m.launch) m.wallSplat = true;
   }
 addEnergyFighter(CHARACTERS);
+addRunningMoves(CHARACTERS);
 export const CHARACTER_IDS = Object.keys(CHARACTERS);
 export function chooseFighter(id, random = Math.random) {
   return id === "random"

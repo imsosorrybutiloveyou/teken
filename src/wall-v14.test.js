@@ -101,7 +101,7 @@ test("new combos regain a wall rebound, all fighters have advancing wall moves, 
   for (const p of Object.values(CHARACTERS)) {
     assert.ok(p.moves.rushStrike.wallSplat, p.id);
     assert.ok(p.moves.sideKick.wallSplat, p.id);
-    assert.equal(p.moves.u.wallSplat, undefined);
+    assert.equal(!!p.moves.u.wallSplat, false);
   }
   m.fighters[1].wallSplatUsed = "yes";
   assert.equal(validSnapshot(m), false);

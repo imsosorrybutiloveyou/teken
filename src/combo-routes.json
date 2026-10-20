@@ -484,82 +484,82 @@
           "palm",
           "palm",
           "palm",
-          "palm",
-          "upper"
-        ],
-        "damage": 81
-      },
-      {
-        "keys": [
-          "palm",
-          "palm",
-          "palm",
-          "palm",
-          "palm",
-          "palm",
-          "dragon"
-        ],
-        "damage": 81
-      },
-      {
-        "keys": [
-          "palm",
-          "palm",
-          "palm",
-          "palm",
-          "palm",
-          "palm",
-          "dashPunch"
-        ],
-        "damage": 81
-      },
-      {
-        "keys": [
-          "palm",
-          "palm",
-          "palm",
-          "palm",
-          "palm",
-          "palm",
-          "signature"
-        ],
-        "damage": 81
-      },
-      {
-        "keys": [
-          "palm",
-          "palm",
-          "palm",
-          "palm",
-          "palm",
-          "dragon",
-          "qcfPunch"
-        ],
-        "damage": 81
-      },
-      {
-        "keys": [
-          "palm",
-          "palm",
-          "palm",
-          "palm",
-          "palm",
-          "dragon",
-          "qcfKick"
-        ],
-        "damage": 81
-      },
-      {
-        "keys": [
-          "palm",
-          "palm",
-          "palm",
-          "palm",
-          "palm",
-          "dragon",
+          "runningKick",
           "rushStrike"
         ],
-        "damage": 81
+        "damage": 82
+      },
+      {
+        "keys": [
+          "palm",
+          "palm",
+          "palm",
+          "palm",
+          "runningKick",
+          "palm",
+          "rushStrike"
+        ],
+        "damage": 82
+      },
+      {
+        "keys": [
+          "palm",
+          "palm",
+          "palm",
+          "palm",
+          "runningKick",
+          "runningKick",
+          "rushStrike"
+        ],
+        "damage": 82
+      },
+      {
+        "keys": [
+          "palm",
+          "palm",
+          "runningKick",
+          "palm",
+          "palm",
+          "palm",
+          "rushStrike"
+        ],
+        "damage": 82
+      },
+      {
+        "keys": [
+          "palm",
+          "palm",
+          "runningKick",
+          "palm",
+          "palm",
+          "runningKick",
+          "rushStrike"
+        ],
+        "damage": 82
+      },
+      {
+        "keys": [
+          "palm",
+          "palm",
+          "runningKick",
+          "palm",
+          "runningKick",
+          "palm",
+          "rushStrike"
+        ],
+        "damage": 82
+      },
+      {
+        "keys": [
+          "palm",
+          "palm",
+          "runningKick",
+          "palm",
+          "runningKick",
+          "runningKick",
+          "rushStrike"
+        ],
+        "damage": 82
       }
     ],
     "dojo": [
@@ -575,6 +575,46 @@
         "keys": [
           "palm",
           "palm",
+          "runningKick"
+        ],
+        "damage": 60
+      },
+      {
+        "keys": [
+          "palm",
+          "runningKick",
+          "palm"
+        ],
+        "damage": 59
+      },
+      {
+        "keys": [
+          "palm",
+          "runningKick",
+          "runningKick"
+        ],
+        "damage": 59
+      },
+      {
+        "keys": [
+          "runningKick",
+          "palm",
+          "palm"
+        ],
+        "damage": 59
+      },
+      {
+        "keys": [
+          "runningKick",
+          "palm",
+          "runningKick"
+        ],
+        "damage": 59
+      },
+      {
+        "keys": [
+          "palm",
+          "palm",
           "qcfKick"
         ],
         "damage": 58
@@ -586,46 +626,6 @@
           "axeKick"
         ],
         "damage": 58
-      },
-      {
-        "keys": [
-          "qcfPunch",
-          "palm",
-          "palm"
-        ],
-        "damage": 58
-      },
-      {
-        "keys": [
-          "palm",
-          "palm",
-          "rushStrike"
-        ],
-        "damage": 57
-      },
-      {
-        "keys": [
-          "palm",
-          "palm",
-          "homingStrike"
-        ],
-        "damage": 57
-      },
-      {
-        "keys": [
-          "palm",
-          "qcfKick",
-          "palm"
-        ],
-        "damage": 57
-      },
-      {
-        "keys": [
-          "palm",
-          "axeKick",
-          "palm"
-        ],
-        "damage": 57
       }
     ],
     "foundry": [
@@ -641,6 +641,46 @@
         "keys": [
           "palm",
           "palm",
+          "runningKick"
+        ],
+        "damage": 60
+      },
+      {
+        "keys": [
+          "palm",
+          "runningKick",
+          "palm"
+        ],
+        "damage": 59
+      },
+      {
+        "keys": [
+          "palm",
+          "runningKick",
+          "runningKick"
+        ],
+        "damage": 59
+      },
+      {
+        "keys": [
+          "runningKick",
+          "palm",
+          "palm"
+        ],
+        "damage": 59
+      },
+      {
+        "keys": [
+          "runningKick",
+          "palm",
+          "runningKick"
+        ],
+        "damage": 59
+      },
+      {
+        "keys": [
+          "palm",
+          "palm",
           "qcfKick"
         ],
         "damage": 58
@@ -652,46 +692,6 @@
           "axeKick"
         ],
         "damage": 58
-      },
-      {
-        "keys": [
-          "qcfPunch",
-          "palm",
-          "palm"
-        ],
-        "damage": 58
-      },
-      {
-        "keys": [
-          "palm",
-          "palm",
-          "rushStrike"
-        ],
-        "damage": 57
-      },
-      {
-        "keys": [
-          "palm",
-          "palm",
-          "homingStrike"
-        ],
-        "damage": 57
-      },
-      {
-        "keys": [
-          "palm",
-          "qcfKick",
-          "palm"
-        ],
-        "damage": 57
-      },
-      {
-        "keys": [
-          "palm",
-          "axeKick",
-          "palm"
-        ],
-        "damage": 57
       }
     ]
   },
@@ -739,10 +739,11 @@
           "qcfPunch",
           "qcfPunch",
           "rushStrike",
-          "dashPunch",
-          "electric"
+          "electric",
+          "electric",
+          "jumpPunch"
         ],
-        "damage": 80
+        "damage": 81
       },
       {
         "keys": [
@@ -750,7 +751,7 @@
           "qcfPunch",
           "qcfPunch",
           "rushStrike",
-          "runningKick",
+          "dashPunch",
           "electric"
         ],
         "damage": 80
@@ -772,22 +773,24 @@
           "qcfPunch",
           "qcfPunch",
           "qcfPunch",
-          "dashPunch",
           "rushStrike",
-          "electric"
+          "electric",
+          "electric",
+          "u"
         ],
-        "damage": 79
+        "damage": 80
       },
       {
         "keys": [
           "qcfPunch",
           "qcfPunch",
           "qcfPunch",
-          "dashPunch",
+          "rushStrike",
           "electric",
-          "electric"
+          "electric",
+          "i"
         ],
-        "damage": 79
+        "damage": 80
       }
     ],
     "dojo": [
@@ -796,22 +799,6 @@
           "qcfPunch",
           "qcfPunch",
           "dashPunch"
-        ],
-        "damage": 62
-      },
-      {
-        "keys": [
-          "qcfPunch",
-          "qcfPunch",
-          "runningKick"
-        ],
-        "damage": 62
-      },
-      {
-        "keys": [
-          "qcfPunch",
-          "runningKick",
-          "qcfPunch"
         ],
         "damage": 62
       },
@@ -850,8 +837,24 @@
       {
         "keys": [
           "qcfPunch",
-          "runningKick",
-          "dashPunch"
+          "dashPunch",
+          "qcfPunch"
+        ],
+        "damage": 61
+      },
+      {
+        "keys": [
+          "qcfPunch",
+          "rushStrike",
+          "qcfPunch"
+        ],
+        "damage": 61
+      },
+      {
+        "keys": [
+          "dashPunch",
+          "qcfPunch",
+          "qcfPunch"
         ],
         "damage": 61
       }
@@ -869,22 +872,6 @@
         "keys": [
           "qcfPunch",
           "qcfPunch",
-          "runningKick"
-        ],
-        "damage": 62
-      },
-      {
-        "keys": [
-          "qcfPunch",
-          "runningKick",
-          "qcfPunch"
-        ],
-        "damage": 62
-      },
-      {
-        "keys": [
-          "qcfPunch",
-          "qcfPunch",
           "qcfKick"
         ],
         "damage": 61
@@ -916,8 +903,24 @@
       {
         "keys": [
           "qcfPunch",
-          "runningKick",
-          "dashPunch"
+          "dashPunch",
+          "qcfPunch"
+        ],
+        "damage": 61
+      },
+      {
+        "keys": [
+          "qcfPunch",
+          "rushStrike",
+          "qcfPunch"
+        ],
+        "damage": 61
+      },
+      {
+        "keys": [
+          "dashPunch",
+          "qcfPunch",
+          "qcfPunch"
         ],
         "damage": 61
       }
@@ -980,18 +983,6 @@
           "qcfPunch",
           "qcfPunch",
           "qcfPunch",
-          "qcfPunch",
-          "runningKick"
-        ],
-        "damage": 92
-      },
-      {
-        "keys": [
-          "qcfPunch",
-          "qcfPunch",
-          "qcfPunch",
-          "qcfPunch",
-          "qcfPunch",
           "palm",
           "qcfPunch"
         ],
@@ -1018,6 +1009,18 @@
           "qcfPunch",
           "palm",
           "palm"
+        ],
+        "damage": 92
+      },
+      {
+        "keys": [
+          "qcfPunch",
+          "qcfPunch",
+          "qcfPunch",
+          "qcfPunch",
+          "qcfPunch",
+          "palm",
+          "electric"
         ],
         "damage": 92
       }
@@ -1177,6 +1180,54 @@
           "palm",
           "justStrike",
           "palm",
+          "runningKick"
+        ],
+        "damage": 79
+      },
+      {
+        "keys": [
+          "justStrike",
+          "palm",
+          "justStrike",
+          "palm",
+          "justStrike",
+          "palm",
+          "justStrike"
+        ],
+        "damage": 79
+      },
+      {
+        "keys": [
+          "justStrike",
+          "palm",
+          "justStrike",
+          "palm",
+          "justStrike",
+          "runningKick",
+          "palm"
+        ],
+        "damage": 79
+      },
+      {
+        "keys": [
+          "justStrike",
+          "palm",
+          "justStrike",
+          "palm",
+          "justStrike",
+          "runningKick",
+          "runningKick"
+        ],
+        "damage": 79
+      },
+      {
+        "keys": [
+          "justStrike",
+          "palm",
+          "justStrike",
+          "palm",
+          "justStrike",
+          "runningKick",
           "justStrike"
         ],
         "damage": 79
@@ -1202,54 +1253,6 @@
           "justStrike",
           "justStrike",
           "palm"
-        ],
-        "damage": 79
-      },
-      {
-        "keys": [
-          "justStrike",
-          "palm",
-          "justStrike",
-          "palm",
-          "justStrike",
-          "justStrike",
-          "runningKick"
-        ],
-        "damage": 79
-      },
-      {
-        "keys": [
-          "justStrike",
-          "palm",
-          "justStrike",
-          "palm",
-          "justStrike",
-          "justStrike",
-          "justStrike"
-        ],
-        "damage": 79
-      },
-      {
-        "keys": [
-          "justStrike",
-          "palm",
-          "justStrike",
-          "justStrike",
-          "justStrike",
-          "palm",
-          "palm"
-        ],
-        "damage": 79
-      },
-      {
-        "keys": [
-          "justStrike",
-          "palm",
-          "justStrike",
-          "justStrike",
-          "justStrike",
-          "palm",
-          "justStrike"
         ],
         "damage": 79
       }
@@ -1282,8 +1285,24 @@
       {
         "keys": [
           "justStrike",
+          "palm",
+          "runningKick"
+        ],
+        "damage": 57
+      },
+      {
+        "keys": [
+          "justStrike",
           "justStrike",
           "palm"
+        ],
+        "damage": 57
+      },
+      {
+        "keys": [
+          "justStrike",
+          "justStrike",
+          "runningKick"
         ],
         "damage": 57
       },
@@ -1297,27 +1316,11 @@
       },
       {
         "keys": [
-          "palm",
-          "palm",
+          "justStrike",
+          "runningKick",
           "justStrike"
         ],
         "damage": 57
-      },
-      {
-        "keys": [
-          "palm",
-          "justStrike",
-          "justStrike"
-        ],
-        "damage": 57
-      },
-      {
-        "keys": [
-          "justStrike",
-          "justStrike",
-          "qcfPunch"
-        ],
-        "damage": 56
       }
     ],
     "foundry": [
@@ -1348,6 +1351,14 @@
       {
         "keys": [
           "justStrike",
+          "palm",
+          "runningKick"
+        ],
+        "damage": 57
+      },
+      {
+        "keys": [
+          "justStrike",
           "justStrike",
           "palm"
         ],
@@ -1356,6 +1367,14 @@
       {
         "keys": [
           "justStrike",
+          "justStrike",
+          "runningKick"
+        ],
+        "damage": 57
+      },
+      {
+        "keys": [
+          "justStrike",
           "qcfPunch",
           "justStrike"
         ],
@@ -1363,44 +1382,16 @@
       },
       {
         "keys": [
-          "palm",
-          "palm",
+          "justStrike",
+          "runningKick",
           "justStrike"
         ],
         "damage": 57
-      },
-      {
-        "keys": [
-          "palm",
-          "justStrike",
-          "justStrike"
-        ],
-        "damage": 57
-      },
-      {
-        "keys": [
-          "justStrike",
-          "justStrike",
-          "qcfPunch"
-        ],
-        "damage": 56
       }
     ]
   },
   "boru": {
     "terminal": [
-      {
-        "keys": [
-          "qcfPunch",
-          "qcfPunch",
-          "qcfPunch",
-          "rushStrike",
-          "rushStrike",
-          "u",
-          "electric"
-        ],
-        "damage": 82
-      },
       {
         "keys": [
           "qcfPunch",
@@ -1484,6 +1475,18 @@
           "jumpPunch"
         ],
         "damage": 81
+      },
+      {
+        "keys": [
+          "qcfPunch",
+          "qcfPunch",
+          "qcfPunch",
+          "electric",
+          "rushStrike",
+          "jumpPunch",
+          "jumpKick"
+        ],
+        "damage": 81
       }
     ],
     "dojo": [
@@ -1546,8 +1549,8 @@
       {
         "keys": [
           "qcfPunch",
-          "runningKick",
-          "rushStrike"
+          "dashPunch",
+          "palm"
         ],
         "damage": 63
       }
@@ -1612,8 +1615,8 @@
       {
         "keys": [
           "qcfPunch",
-          "runningKick",
-          "rushStrike"
+          "dashPunch",
+          "palm"
         ],
         "damage": 63
       }
@@ -1729,31 +1732,7 @@
         "keys": [
           "qcfPunch",
           "qcfPunch",
-          "runningKick"
-        ],
-        "damage": 65
-      },
-      {
-        "keys": [
-          "qcfPunch",
-          "qcfPunch",
           "rushStrike"
-        ],
-        "damage": 64
-      },
-      {
-        "keys": [
-          "qcfPunch",
-          "runningKick",
-          "dashPunch"
-        ],
-        "damage": 64
-      },
-      {
-        "keys": [
-          "qcfPunch",
-          "runningKick",
-          "runningKick"
         ],
         "damage": 64
       },
@@ -1767,19 +1746,43 @@
       },
       {
         "keys": [
-          "runningKick",
           "qcfPunch",
-          "dashPunch"
+          "dashPunch",
+          "qcfPunch"
         ],
         "damage": 64
       },
       {
         "keys": [
-          "runningKick",
           "qcfPunch",
-          "runningKick"
+          "rushStrike",
+          "qcfPunch"
         ],
         "damage": 64
+      },
+      {
+        "keys": [
+          "dashPunch",
+          "qcfPunch",
+          "qcfPunch"
+        ],
+        "damage": 64
+      },
+      {
+        "keys": [
+          "qcfPunch",
+          "qcfPunch",
+          "dragon"
+        ],
+        "damage": 63
+      },
+      {
+        "keys": [
+          "qcfPunch",
+          "qcfPunch",
+          "qcfKick"
+        ],
+        "damage": 63
       }
     ],
     "foundry": [
@@ -1795,31 +1798,7 @@
         "keys": [
           "qcfPunch",
           "qcfPunch",
-          "runningKick"
-        ],
-        "damage": 65
-      },
-      {
-        "keys": [
-          "qcfPunch",
-          "qcfPunch",
           "rushStrike"
-        ],
-        "damage": 64
-      },
-      {
-        "keys": [
-          "qcfPunch",
-          "runningKick",
-          "dashPunch"
-        ],
-        "damage": 64
-      },
-      {
-        "keys": [
-          "qcfPunch",
-          "runningKick",
-          "runningKick"
         ],
         "damage": 64
       },
@@ -1833,19 +1812,43 @@
       },
       {
         "keys": [
-          "runningKick",
           "qcfPunch",
-          "dashPunch"
+          "dashPunch",
+          "qcfPunch"
         ],
         "damage": 64
       },
       {
         "keys": [
-          "runningKick",
           "qcfPunch",
-          "runningKick"
+          "rushStrike",
+          "qcfPunch"
         ],
         "damage": 64
+      },
+      {
+        "keys": [
+          "dashPunch",
+          "qcfPunch",
+          "qcfPunch"
+        ],
+        "damage": 64
+      },
+      {
+        "keys": [
+          "qcfPunch",
+          "qcfPunch",
+          "dragon"
+        ],
+        "damage": 63
+      },
+      {
+        "keys": [
+          "qcfPunch",
+          "qcfPunch",
+          "qcfKick"
+        ],
+        "damage": 63
       }
     ]
   },
@@ -1853,231 +1856,231 @@
     "terminal": [
       {
         "keys": [
-          "palm",
-          "palm",
-          "palm",
-          "palm",
-          "palm",
-          "styleFollow",
-          "rushStrike"
-        ],
-        "damage": 85
-      },
-      {
-        "keys": [
-          "palm",
-          "palm",
-          "palm",
-          "palm",
+          "runningKick",
+          "runningKick",
+          "runningKick",
           "dashPunch",
-          "dashPunch",
-          "rushStrike"
-        ],
-        "damage": 85
-      },
-      {
-        "keys": [
           "palm",
-          "palm",
-          "palm",
-          "palm",
-          "palm",
-          "rushStrike",
-          "toeKick"
-        ],
-        "damage": 84
-      },
-      {
-        "keys": [
-          "palm",
-          "palm",
-          "palm",
-          "palm",
-          "palm",
-          "rushStrike",
-          "jumpPunch"
-        ],
-        "damage": 84
-      },
-      {
-        "keys": [
-          "palm",
-          "palm",
-          "palm",
-          "palm",
-          "palm",
-          "styleFollow",
-          "windGod"
-        ],
-        "damage": 84
-      },
-      {
-        "keys": [
-          "palm",
-          "palm",
-          "palm",
-          "palm",
-          "dashPunch",
-          "dashPunch",
-          "upper"
-        ],
-        "damage": 84
-      },
-      {
-        "keys": [
-          "palm",
-          "palm",
-          "palm",
-          "palm",
-          "dashPunch",
-          "dashPunch",
+          "runningKick",
           "dragon"
         ],
-        "damage": 84
+        "damage": 73
       },
       {
         "keys": [
-          "palm",
-          "palm",
-          "palm",
-          "palm",
+          "runningKick",
+          "runningKick",
+          "runningKick",
           "dashPunch",
-          "dashPunch",
-          "hopKick"
+          "palm",
+          "runningKick",
+          "kneeStrike"
         ],
-        "damage": 84
+        "damage": 73
+      },
+      {
+        "keys": [
+          "runningKick",
+          "runningKick",
+          "runningKick",
+          "dashPunch",
+          "palm",
+          "signature",
+          "kneeStrike"
+        ],
+        "damage": 73
+      },
+      {
+        "keys": [
+          "runningKick",
+          "runningKick",
+          "runningKick",
+          "dashPunch",
+          "palm",
+          "signature",
+          "jumpKick"
+        ],
+        "damage": 73
+      },
+      {
+        "keys": [
+          "runningKick",
+          "runningKick",
+          "runningKick",
+          "dashPunch",
+          "runningKick",
+          "runningKick",
+          "kneeStrike"
+        ],
+        "damage": 73
+      },
+      {
+        "keys": [
+          "runningKick",
+          "runningKick",
+          "runningKick",
+          "runningKick",
+          "runningKick",
+          "runningKick",
+          "kneeStrike"
+        ],
+        "damage": 73
+      },
+      {
+        "keys": [
+          "runningKick",
+          "runningKick",
+          "runningKick",
+          "dashPunch",
+          "palm",
+          "runningKick",
+          "rushLink"
+        ],
+        "damage": 72
+      },
+      {
+        "keys": [
+          "runningKick",
+          "runningKick",
+          "runningKick",
+          "dashPunch",
+          "palm",
+          "runningKick",
+          "k"
+        ],
+        "damage": 72
       }
     ],
     "dojo": [
       {
         "keys": [
-          "palm",
-          "palm",
-          "palm"
-        ],
-        "damage": 63
-      },
-      {
-        "keys": [
-          "palm",
-          "palm",
-          "dashPunch"
-        ],
-        "damage": 61
-      },
-      {
-        "keys": [
-          "palm",
-          "palm",
+          "runningKick",
+          "runningKick",
           "runningKick"
         ],
-        "damage": 61
+        "damage": 55
       },
       {
         "keys": [
-          "palm",
-          "dashPunch",
-          "palm"
-        ],
-        "damage": 61
-      },
-      {
-        "keys": [
-          "palm",
-          "palm",
-          "rushStrike"
-        ],
-        "damage": 60
-      },
-      {
-        "keys": [
-          "palm",
-          "palm",
+          "runningKick",
+          "runningKick",
           "signature"
         ],
-        "damage": 60
+        "damage": 55
       },
       {
         "keys": [
-          "palm",
-          "rushStrike",
-          "palm"
+          "runningKick",
+          "signature",
+          "runningKick"
         ],
-        "damage": 60
+        "damage": 55
       },
       {
         "keys": [
-          "dashPunch",
-          "palm",
-          "palm"
+          "runningKick",
+          "signature",
+          "signature"
         ],
-        "damage": 60
+        "damage": 55
+      },
+      {
+        "keys": [
+          "signature",
+          "runningKick",
+          "runningKick"
+        ],
+        "damage": 55
+      },
+      {
+        "keys": [
+          "signature",
+          "runningKick",
+          "signature"
+        ],
+        "damage": 55
+      },
+      {
+        "keys": [
+          "runningKick",
+          "runningKick",
+          "dashPunch"
+        ],
+        "damage": 54
+      },
+      {
+        "keys": [
+          "runningKick",
+          "signature",
+          "dashPunch"
+        ],
+        "damage": 54
       }
     ],
     "foundry": [
       {
         "keys": [
-          "palm",
-          "palm",
-          "palm"
-        ],
-        "damage": 63
-      },
-      {
-        "keys": [
-          "palm",
-          "palm",
-          "dashPunch"
-        ],
-        "damage": 61
-      },
-      {
-        "keys": [
-          "palm",
-          "palm",
+          "runningKick",
+          "runningKick",
           "runningKick"
         ],
-        "damage": 61
+        "damage": 55
       },
       {
         "keys": [
-          "palm",
-          "dashPunch",
-          "palm"
-        ],
-        "damage": 61
-      },
-      {
-        "keys": [
-          "palm",
-          "palm",
-          "rushStrike"
-        ],
-        "damage": 60
-      },
-      {
-        "keys": [
-          "palm",
-          "palm",
+          "runningKick",
+          "runningKick",
           "signature"
         ],
-        "damage": 60
+        "damage": 55
       },
       {
         "keys": [
-          "palm",
-          "rushStrike",
-          "palm"
+          "runningKick",
+          "signature",
+          "runningKick"
         ],
-        "damage": 60
+        "damage": 55
       },
       {
         "keys": [
-          "dashPunch",
-          "palm",
-          "palm"
+          "runningKick",
+          "signature",
+          "signature"
         ],
-        "damage": 60
+        "damage": 55
+      },
+      {
+        "keys": [
+          "signature",
+          "runningKick",
+          "runningKick"
+        ],
+        "damage": 55
+      },
+      {
+        "keys": [
+          "signature",
+          "runningKick",
+          "signature"
+        ],
+        "damage": 55
+      },
+      {
+        "keys": [
+          "runningKick",
+          "runningKick",
+          "dashPunch"
+        ],
+        "damage": 54
+      },
+      {
+        "keys": [
+          "runningKick",
+          "signature",
+          "dashPunch"
+        ],
+        "damage": 54
       }
     ]
   }

@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { validSnapshot } from "./network.js";
 import { createMatch } from "./combat.js";
-test("v17 snapshots accept nine-fighter roster and infinite world coordinates", () => {
+test("v18 snapshots accept nine-fighter roster and infinite world coordinates", () => {
   const m = createMatch(["mira", "goro"]);
   m.fighters[0].x = 30000;
   m.fighters[1].z = -12000;

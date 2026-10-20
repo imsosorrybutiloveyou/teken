@@ -72,10 +72,29 @@ function recordDirection(f, input, dt) {
       f.dash = 0.3;
       f.runCharge = dt;
     }
+    if (dir === 6 && matchesCommand(f, [6, 5, 6, 5, 6], 0.55, true)) {
+      f.runCharge = 0.3;
+      f.running = true;
+    }
     if (dir === 4 && matchesCommand(f, [4, 5, 4], 0.3, true)) f.backDash = 0.2;
   }
 }
+function runInput(f) {
+  const triple =
+    matchesCommand(f, [6, 5, 6, 5, 6], 0.55, true) ||
+    (matchesCommand(f, [6, 5, 6, 5, 6, 5], 0.55, true) &&
+      f.commandTime - f.commands.at(-1).at < 0.15);
+  return f.running || triple;
+}
 export function resolveMove(f, action) {
+  if (runInput(f) && f.y === 0 && !f.crouch) {
+    if (["boru", "atlas"].includes(f.character)) {
+      if (action === "u+i") return "runningKick";
+    } else {
+      if (["u", "i"].includes(action)) return "runningPunch";
+      if (["j", "k"].includes(action)) return "runningKick";
+    }
+  }
   if (f.character === "raon") {
     if (action === "j+k") return "focusBurst";
     if (action === "u+i")
@@ -105,11 +124,7 @@ export function resolveMove(f, action) {
         f.lastMoveAge <= prior.duration + 0.18)
   )
     return follow[2];
-  if (
-    ["kai", "raon"].includes(f.character) &&
-    f.direction === 9 &&
-    action === "j"
-  )
+  if (f.character === "kai" && f.direction === 9 && action === "j")
     return "hopKick";
   if (f.jumpActive || (f.y === 0 && f.direction >= 7))
     return action === "u" || action === "i" ? "jumpPunch" : "jumpKick";
@@ -222,7 +237,7 @@ function fighter(x, id, index) {
 }
 export function createMatch(ids = ["kai", "ren"], stage = "terminal") {
   return {
-    version: 17,
+    version: 18,
     stage: chooseStage(stage),
     axisAngle: 0,
     viewAngle: 0,
@@ -248,6 +263,7 @@ function emit(m, type, data = {}) {
 }
 function startAttack(m, index, key) {
   const f = m.fighters[index];
+  const fromRun = runInput(f);
   const cost = moveFor(f, key).kiCost ?? 0;
   if (f.ki < cost) {
     f.buffer = null;
@@ -260,7 +276,14 @@ function startAttack(m, index, key) {
   f.chain =
     key === character(f.character).chain[0] ? 1 : key === "oneTwo" ? 2 : 0;
   f.chainAge = 0;
-  f.attack = { key, t: 0, hit: false, connected: false, angle: f.angle };
+  f.attack = {
+    key,
+    t: 0,
+    hit: false,
+    connected: false,
+    angle: f.angle,
+    fromRun,
+  };
   if (key.startsWith("jump")) f.jumpActive = true;
   if (!key.startsWith("jump") && !f.jumpActive && f.airOwner === -1) {
     f.y = 0;
@@ -914,14 +937,20 @@ export function step(m, rawInputs, dt = 1 / 60, training = false) {
         (f.blockstun && f.stun <= GUARD_BUFFER_FRAMES / 60 + 1e-9))
     ) {
       // Correct a split-frame chord before the basic strike becomes active.
+      const runChord =
+        ["boru", "atlas"].includes(f.character) &&
+        input.action === "u+i" &&
+        f.attack?.fromRun &&
+        f.attack.t <= 2 / 60 &&
+        !f.attack.hit;
       if (
         ["u+i", "j+k"].includes(input.action) &&
-        ["u", "i", "j", "k"].includes(f.attack?.key) &&
+        (["u", "i", "j", "k"].includes(f.attack?.key) || runChord) &&
         f.attack.t <= 2 / 60 &&
         !f.attack.hit
       )
         f.attack = null;
-      f.buffer = resolveMove(f, input.action);
+      f.buffer = runChord ? "runningKick" : resolveMove(f, input.action);
       f.bufferAge = 0;
     }
     // The input frame is startup frame 1, rather than an extra idle frame.

@@ -396,7 +396,17 @@ export function paintCustomRig(c, f, pose) {
   const arm = (i) => {
     limb("upperArm", shoulder[i], pose.elbows[i]);
     limb("forearm", pose.elbows[i], pose.hands[i]);
-    stamp("hand", pose.hands[i]);
+    stamp(
+      "hand",
+      pose.hands[i],
+      f.running
+        ? Math.atan2(
+            pose.hands[i][1] - pose.elbows[i][1],
+            pose.hands[i][0] - pose.elbows[i][0],
+          ) -
+            Math.PI / 2
+        : 0,
+    );
   };
   leg(0);
   arm(0);
