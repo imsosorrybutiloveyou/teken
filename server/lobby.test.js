@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import http from "node:http";
 import { once } from "node:events";
 import { createLobby } from "./lobby.js";
+import { createMatch } from "../src/combat.js";
 async function fixture(t) {
   const lobby = createLobby({ graceMs: 70 }),
     server = http.createServer((req, res) => {
@@ -98,6 +99,12 @@ async function fixture(t) {
   }
   return { base, lobby, client };
 }
+test("standalone matchmaking advertises the current combat protocol", async (t) => {
+  const f = await fixture(t);
+  const health = await fetch(f.base + "/api/health").then((r) => r.json());
+  assert.equal(health.service, "axis-matchmaking");
+  assert.equal(health.version, createMatch().version);
+});
 test("player match pairs the room host and chosen guest and selects characters only after matching", async (t) => {
   const f = await fixture(t),
     a = await f.client("Alpha"),
