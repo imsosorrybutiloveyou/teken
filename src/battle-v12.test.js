@@ -185,7 +185,7 @@ test("training can put the player on 2P while CPU/dummy occupies 1P", () => {
 });
 test("madness has generated damage-ranked routes and whiff/throw decisions from observed states", () => {
   for (const id of CHARACTER_IDS)
-    for (const stage of ["terminal", "dojo"]) {
+    for (const stage of ["terminal", "dojo", "foundry"]) {
       const routes = ROUTES[id]?.[stage];
       assert.ok(routes?.length);
       assert.ok(routes[0].damage >= routes.at(-1).damage);
@@ -283,7 +283,7 @@ test("wide linear strike catches a short sidestep but continuous sidewalk evades
 test("stored highest-damage routes replay through real inputs and reproduce their recorded damage", async () => {
   const { commandInputs } = await import("./combo-search.js");
   for (const id of CHARACTER_IDS)
-    for (const stage of ["terminal", "dojo"]) {
+    for (const stage of ["terminal", "dojo", "foundry"]) {
       const m = createMatch([id, "kai"], stage);
       m.phase = "fight";
       m.fighters[0].x = -0.5;
@@ -291,6 +291,10 @@ test("stored highest-damage routes replay through real inputs and reproduce thei
       if (stage === "dojo") {
         m.fighters[1].x = 6.45;
         m.fighters[0].x = 5.45;
+      }
+      if (stage === "foundry") {
+        m.fighters[1].x = 8.45;
+        m.fighters[0].x = 7.45;
       }
       let queue = commandInputs(m.fighters[0], "upper");
       for (let n = 0; n < 90; n++) {

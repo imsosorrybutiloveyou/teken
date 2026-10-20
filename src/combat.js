@@ -1,4 +1,4 @@
-import { STAGES, chooseStage } from "./stages.js";
+import { STAGES, chooseStage, constrainToStage, wallImpact } from "./stages.js";
 import { CHARACTERS, character, moveFor } from "./characters.js";
 export { CHARACTERS, moveFor };
 export const MAX_HP = 120;
@@ -152,6 +152,7 @@ function fighter(x, id, index) {
     effectiveOrbit: 0,
     backDash: 0,
     wallHits: 0,
+    basicAirHits: 0,
     hopCombo: false,
     throwTime: 0,
     throwRole: 0,
@@ -199,7 +200,7 @@ function fighter(x, id, index) {
 }
 export function createMatch(ids = ["kai", "ren"], stage = "terminal") {
   return {
-    version: 14,
+    version: 15,
     stage: chooseStage(stage),
     axisAngle: 0,
     viewAngle: 0,
@@ -246,6 +247,11 @@ function startAttack(m, index, key) {
   }
   f.wasCrouch = false;
   f.riseWindow = 0;
+  const evade = moveFor(f, key).evadeSide ?? 0;
+  if (evade) {
+    f.x -= Math.sin(f.angle) * evade;
+    f.z += Math.cos(f.angle) * evade;
+  }
   f.backDash = 0;
   f.buffer = null;
   f.guard = false;
@@ -308,6 +314,8 @@ function resolveHit(m, index, training) {
     b.statusTick = m.tick;
     b.vx = Math.cos(atk.angle) * move.blockPush;
     b.vz = Math.sin(atk.angle) * move.blockPush;
+    const chip = Math.max(0, Math.min(b.hp - 1, move.chip ?? 0));
+    b.hp -= chip;
     m.hitstop = Math.max(m.hitstop, 2 / 60);
     emit(m, "block", {
       index: 1 - index,
@@ -318,6 +326,7 @@ function resolveHit(m, index, training) {
       kind: move.kind,
       key: atk.key,
       character: a.character,
+      chip,
       advantage: -move.onBlock,
       launcherWindow:
         -move.onBlock >= character(b.character).moves.upper.startup &&
@@ -334,11 +343,23 @@ function resolveHit(m, index, training) {
   const continuing = airborne
     ? b.airOwner === index
     : b.stun > 0 && !b.blockstun && b.lastHitBy === index;
+  const basicAir =
+    airborne &&
+    continuing &&
+    ["u", "i", "j", "k", "oneTwo", "finish"].includes(atk.key);
+  const basicScale = basicAir
+    ? 0.6 * Math.max(0.65, 1 - b.basicAirHits * 0.1)
+    : 1;
+  const tip =
+    move.tipBonus && forward >= move.range * (move.tipStart ?? 0.75)
+      ? move.tipBonus
+      : 0;
   let damage = Math.max(
     1,
     Math.round(
-      move.damage *
-        (counter ? 1.15 : 1) *
+      (move.damage + tip) *
+        basicScale *
+        (counter ? (move.counterPower ?? 1.15) : 1) *
         (airborne ? 0.8 : 1) *
         (continuing
           ? Math.max(0.2, 1 - a.combo * 0.12) *
@@ -346,12 +367,7 @@ function resolveHit(m, index, training) {
           : 1),
     ),
   );
-  const wall = STAGES[m.stage]?.wall ?? 0;
-  const nearWall =
-    airborne &&
-    wall > 0 &&
-    (Math.abs(b.x + Math.cos(atk.angle) * 0.65) > wall - 0.5 ||
-      Math.abs(b.z + Math.sin(atk.angle) * 0.65) > wall - 0.5);
+  const nearWall = airborne && wallImpact(b, atk.angle, m.stage);
   const wallBonus = nearWall
     ? b.wallHits === 0
       ? 6
@@ -361,6 +377,7 @@ function resolveHit(m, index, training) {
     : 0;
   damage += wallBonus;
   if (nearWall) b.wallHits++;
+  if (basicAir) b.basicAirHits++;
   b.hitLevel = move.level;
   b.hitKind = move.kind;
   b.lastHitBy = index;
@@ -421,6 +438,7 @@ function resolveHit(m, index, training) {
     b.airHits = 0;
     b.airOwner = index;
     b.wallHits = 0;
+    b.basicAirHits = 0;
     b.bounceUsed = false;
     b.bouncePending = false;
   } else if (airborne) {
@@ -495,6 +513,8 @@ function resolveHit(m, index, training) {
     counter,
     launch: !!launch,
     knockdown: !!move.knockdown && !airborne && !launch,
+    tip: !!tip,
+    basicAir,
     wall: nearWall,
     wallBonus,
     bound: !!move.bound && airborne && b.bouncePending,
@@ -744,6 +764,7 @@ export function step(m, rawInputs, dt = 1 / 60, training = false) {
       const kick = wakeKey === "wakeLow" || wakeKey === "wakeMid";
       if (input.z < -0.25 || back || kick) {
         f.downTime = 0;
+        f.verticalUsed = true;
         f.jumpBuffer = 0;
         f.wakeUp = 0;
         f.stun = 0;
@@ -948,12 +969,7 @@ export function step(m, rawInputs, dt = 1 / 60, training = false) {
     b.x += nx * p;
     b.z += nz * p;
   }
-  const wall = STAGES[m.stage]?.wall ?? 0;
-  if (wall)
-    for (const f of m.fighters) {
-      f.x = clamp(f.x, -wall + 0.5, wall - 0.5);
-      f.z = clamp(f.z, -wall + 0.5, wall - 0.5);
-    }
+  for (const f of m.fighters) constrainToStage(f, m.stage);
   updateAxis(m);
   if (m.time === 0 || m.fighters.some((f) => f.hp === 0)) finishRound(m);
 }

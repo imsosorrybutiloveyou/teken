@@ -4,7 +4,7 @@ import { CHARACTER_IDS, character } from "./characters.js";
 export function validSnapshot(v) {
   if (
     !v ||
-    v.version !== 14 ||
+    v.version !== 15 ||
     typeof v.stage !== "string" ||
     !Object.hasOwn(STAGES, v.stage) ||
     !["ready", "fight", "roundEnd", "matchEnd"].includes(v.phase) ||
@@ -84,6 +84,9 @@ export function validSnapshot(v) {
       Number.isInteger(f.wallHits) &&
       f.wallHits >= 0 &&
       f.wallHits <= 3 &&
+      Number.isInteger(f.basicAirHits) &&
+      f.basicAirHits >= 0 &&
+      f.basicAirHits < 1000000 &&
       typeof f.verticalUsed === "boolean" &&
       typeof f.hopCombo === "boolean" &&
       Number.isFinite(f.effectiveOrbit) &&

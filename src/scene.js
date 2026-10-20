@@ -1192,16 +1192,10 @@ export function createScene(canvas) {
       background();
       ground();
       if (stage.wall) {
-        const w = stage.wall,
-          corners = [
-            [-w, -w],
-            [w, -w],
-            [w, w],
-            [-w, w],
-          ];
-        for (let i = 0; i < 4; i++) {
+        const corners = stage.arena;
+        for (let i = 0; i < corners.length; i++) {
           const a = corners[i],
-            b = corners[(i + 1) % 4],
+            b = corners[(i + 1) % corners.length],
             pa = project(a[0], 0, a[1]),
             pb = project(b[0], 0, b[1]),
             ta = project(a[0], 1.3, a[1]),

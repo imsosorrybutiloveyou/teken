@@ -5,7 +5,7 @@ import { writeFileSync } from "node:fs";
 const result = {};
 for (const id of CHARACTER_IDS) {
   result[id] = {};
-  for (const stage of ["terminal", "dojo"]) {
+  for (const stage of ["terminal", "dojo", "foundry"]) {
     const m = createMatch([id, "kai"], stage);
     m.phase = "fight";
     m.fighters[0].x = -0.5;
@@ -13,6 +13,10 @@ for (const id of CHARACTER_IDS) {
     if (stage === "dojo") {
       m.fighters[1].x = 6.45;
       m.fighters[0].x = 5.45;
+    }
+    if (stage === "foundry") {
+      m.fighters[1].x = 8.45;
+      m.fighters[0].x = 7.45;
     }
     const queue = commandInputs(m.fighters[0], "upper");
     for (let n = 0; n < 90; n++) {

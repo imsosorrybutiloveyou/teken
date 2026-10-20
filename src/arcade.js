@@ -2,7 +2,7 @@ import ROUTES from "./combo-routes.json" with { type: "json" };
 import { commandInputs } from "./combo-search.js";
 import { STAGES } from "./stages.js";
 import { CHARACTER_IDS, character, moveFor } from "./characters.js";
-import { cpuInput, emptyInput } from "./combat.js";
+import { cpuInput, emptyInput, step } from "./combat.js";
 export function createCampaign(id, difficulty = "normal") {
   return {
     id,
@@ -10,6 +10,7 @@ export function createCampaign(id, difficulty = "normal") {
     opponents: CHARACTER_IDS.filter((x) => x !== id),
     stage: 0,
     finished: false,
+    arenaHistory: [],
   };
 }
 export function advanceCampaign(c, winner) {
@@ -17,6 +18,19 @@ export function advanceCampaign(c, winner) {
   c.stage++;
   c.finished = c.stage === c.opponents.length;
   return c.finished ? "cleared" : "next";
+}
+export function nextArcadeStage(c, previous, random = Math.random) {
+  const ids = Object.keys(STAGES).filter((id) => id !== previous),
+    id = ids[Math.min(ids.length - 1, Math.floor(random() * ids.length))];
+  c.arenaHistory ??= [];
+  c.arenaHistory.push(id);
+  return id;
+}
+export function stepArcade(m, inputs, c) {
+  const previous = m.stage;
+  step(m, inputs);
+  if (m.events.some((e) => e.type === "ready"))
+    m.stage = nextArcadeStage(c, previous);
 }
 export function createCPU(difficulty = "normal") {
   let plan = [],
@@ -132,7 +146,7 @@ export function createCPU(difficulty = "normal") {
           routeHits = -1;
           route = [
             ...(ROUTES[f.character]?.[
-              STAGES[m.stage]?.wall ? "dojo" : "terminal"
+              STAGES[m.stage]?.wall ? m.stage : "terminal"
             ]?.[0]?.keys ?? []),
           ];
         }

@@ -1620,3 +1620,31 @@ button:disabled {
 .match-options span {
   font-size: 10px;
 }
+
+.combo-display {
+  max-width: 43%;
+  background: #12141d66;
+  padding: 5px;
+}
+.combo-display b {
+  display: block;
+  font-size: 10px;
+  letter-spacing: 1px;
+}
+.opponent-combo {
+  color: #ffa592;
+}
+@media (max-width: 700px) {
+  .combo-display > strong {
+    font-size: 38px;
+  }
+  .combo-display > span {
+    font-size: 12px;
+  }
+  .combo-display small {
+    font-size: 10px;
+  }
+  .combo-display b {
+    font-size: 8px;
+  }
+}

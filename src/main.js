@@ -1,5 +1,11 @@
 import { STAGES, chooseStage } from "./stages.js";
-import { createCampaign, advanceCampaign, createCPU } from "./arcade.js";
+import {
+  createCampaign,
+  advanceCampaign,
+  createCPU,
+  nextArcadeStage,
+  stepArcade,
+} from "./arcade.js";
 import { STYLE_MOTIONS } from "./style-motion.js";
 import "./style.css";
 import { createMatch, step, stepPractice, MAX_HP } from "./combat.js";
@@ -144,7 +150,11 @@ function resetMatch(
       campaign.id,
       campaign.opponents[Math.min(campaign.stage, 6)],
     );
-  match = createMatch(ids, activePair?.stage ?? stageChoice);
+  const stage =
+    campaign && !activePair
+      ? nextArcadeStage(campaign, campaign.arenaHistory?.at(-1))
+      : (activePair?.stage ?? stageChoice);
+  match = createMatch(ids, stage);
   paused = false;
   connectionLost = false;
   keyboard.clear();
@@ -157,6 +167,9 @@ function resetMatch(
 function updateMode() {
   $("p1-role").textContent = ownIndex() === 0 ? "YOU" : "OPPONENT";
   $("p2-role").textContent = ownIndex() === 1 ? "YOU" : "OPPONENT";
+  if (campaign) $("stage-select").value = "random";
+  else if (activePair?.stage) $("stage-select").value = activePair.stage;
+  $("stage-select").disabled = !!campaign || !!activePair;
   $("arcade-button").classList.toggle("selected", !!campaign);
   $("arena-mode").textContent = activePair
     ? "ONLINE P2P MATCH"
@@ -730,6 +743,10 @@ function renderMoves(id) {
     frames.className = "frame-data";
     const sign = (n) => (n > 0 ? "+" + n : String(n));
     frames.textContent = `S ${m.startup} / A ${m.active} / R ${m.recovery} | G ${m.level === "throw" ? "—" : sign(m.onBlock)} / H ${m.launch ? "L" : m.knockdown ? "KD" : m.bound ? sign(m.onHit) + " / B" : sign(m.onHit)}`;
+    if (m.tipBonus) desc.textContent += ` · 검끝 +${m.tipBonus} 피해`;
+    if (m.chip) desc.textContent += ` · 가드 피해 ${m.chip}(체력 1 유지)`;
+    if (m.counterPower) desc.textContent += ` · 카운터 ×${m.counterPower}`;
+    if (m.evadeSide) desc.textContent += " · 측보 회피";
     if (m.armorFrom != null)
       desc.textContent += ` · ${Math.round(m.armorFrom * 60)}F부터 상·중단 1회 버티기(피해 받음)`;
     if (m.highCrushFrom != null)
@@ -875,9 +892,25 @@ function updateHUD() {
     `${STAGES[match.stage]?.name} · ${STAGES[match.stage]?.wall ? "WALL" : "∞"}`;
   $("stage-depth").textContent =
     `${STAGES[match.stage]?.name} · ${STAGES[match.stage]?.wall ? "WALL" : "∞"} · AXIS ${((match.axisAngle * 180) / Math.PI).toFixed(0)}°`;
+  const own = ownIndex(),
+    other = 1 - own,
+    o = match.fighters[other];
   $("combo-display").hidden = f.combo < 2 || f.comboAge > 1.5;
   $("combo-count").textContent = f.combo;
   $("combo-damage").textContent = `${f.comboDamage} DAMAGE`;
+  $("combo-owner").textContent = `YOU · ${character(f.character).name}`;
+  $("opponent-combo-display").hidden = o.combo < 2 || o.comboAge > 1.5;
+  $("opponent-combo-count").textContent = o.combo;
+  $("opponent-combo-damage").textContent = `${o.comboDamage} DAMAGE`;
+  $("opponent-combo-owner").textContent =
+    `OPPONENT · ${character(o.character).name}`;
+  for (const [id, side] of [
+    ["combo-display", own],
+    ["opponent-combo-display", other],
+  ]) {
+    $(id).style.left = side === 0 ? "5%" : "auto";
+    $(id).style.right = side === 1 ? "5%" : "auto";
+  }
 }
 let previous = performance.now(),
   accumulator = 0,
@@ -919,11 +952,12 @@ function frame(now) {
             );
           }
         } else
-          step(
+          stepArcade(
             match,
             localSide === 0
               ? [input, arcadeCPU(match, 1)]
               : [arcadeCPU(match, 0), input],
+            campaign,
           );
       } else
         stepPractice(match, input, {

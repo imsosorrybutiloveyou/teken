@@ -55,7 +55,7 @@ test("four fighters have independently authored commands, startup and recovery",
   for (const id of CHARACTER_IDS) {
     assert.equal(
       Object.keys(character(id).moves).length,
-      ["ren", "shin"].includes(id) ? 46 : 45,
+      id === "kai" ? 45 : ["ren", "shin"].includes(id) ? 47 : 46,
     );
     for (const move of Object.values(character(id).moves)) {
       assert.equal(

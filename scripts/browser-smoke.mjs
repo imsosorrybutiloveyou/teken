@@ -240,6 +240,21 @@ try {
       window.axis.state.fighters[0].combo === 5 &&
       window.axis.state.fighters[1].bounceUsed,
   );
+  await host.waitForFunction(
+    () => document.getElementById("combo-count").textContent === "5",
+  );
+  await guest.waitForFunction(
+    () => document.getElementById("opponent-combo-count").textContent === "5",
+  );
+  assert.equal(await guest.locator("#opponent-combo-count").innerText(), "5");
+  assert.equal(
+    await host.locator("#combo-damage").innerText(),
+    await guest.locator("#opponent-combo-damage").innerText(),
+  );
+  assert.equal(
+    await guest.locator("#opponent-combo-display").isVisible(),
+    true,
+  );
   await host.screenshot({
     path: "/tmp/axis-v38-air-combo.png",
     fullPage: true,
@@ -432,7 +447,7 @@ try {
   );
   await host.keyboard.press("h");
   await host.locator("#moves-dialog").waitFor();
-  assert.equal(await host.locator(".move-item").count(), 45);
+  assert.equal(await host.locator(".move-item").count(), 46);
   await host.locator("#moves-dialog .close").click();
   await host.locator("#character-button").click();
   await host.locator("#practice-behavior").selectOption("cpu");
@@ -459,7 +474,7 @@ try {
   );
   assert.deepEqual(errors, []);
   console.log(
-    "PASS: v3.12 player match only, player rooms, matched-only character selection, 8 characters, unique frame tables, automatic P2P, orbit camera, remote combat, practice selection, responsive layout; no page errors.",
+    "PASS: v3.13 player match only, player rooms, matched-only character selection, 8 characters, unique frame tables, automatic P2P, orbit camera, remote combat, practice selection, responsive layout; no page errors.",
   );
 } catch (error) {
   for (const [name, page] of [
