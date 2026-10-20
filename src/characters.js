@@ -1030,6 +1030,11 @@ export const CHARACTERS = Object.fromEntries(
 expandRoster(CHARACTERS);
 upgradeRoster(CHARACTERS);
 applyIdentities(CHARACTERS);
+for (const p of Object.values(CHARACTERS))
+  for (const key of ["dashPunch", "rushStrike", "signature", "sideKick"]) {
+    const m = p.moves[key];
+    if (m.level !== "low" && !m.launch) m.wallSplat = true;
+  }
 export const CHARACTER_IDS = Object.keys(CHARACTERS);
 export function character(id) {
   return CHARACTERS[id] ?? CHARACTERS.kai;

@@ -1,4 +1,4 @@
-# AXIS ADVANCE v3.13
+# AXIS ADVANCE v3.14
 
 2D 픽셀 캐릭터로 싸우면서 상대를 중심으로 횡이동하는 격투 게임입니다. 카메라는 두 격투가가 화면 양쪽에 있는 대치 구도를 유지합니다. 모든 그래픽은 직접 만든 오리지널 캐릭터·배경입니다.
 
@@ -7,6 +7,15 @@
 Windows 10/11 64비트용입니다. EXE를 더블클릭하면 기본 브라우저에서 열리고, Node.js 설치가 필요 없습니다. 함께 열린 실행 창은 게임 중 유지하세요. 제작자 인증서로 서명되지 않았으며 실제 Windows에서의 직접 실행 검증은 아직 하지 않았습니다. [SHA-256](downloads/AXIS-Windows-x64.exe.sha256)
 
 **EXE를 먼저 실행한 PC가 매칭 호스트가 됩니다.** 같은 LAN의 다음 EXE는 자동 검색으로 그 PC에 연결합니다. 인터넷 친구는 첫 PC의 공개 접속 주소를 입력해야 합니다. TCP 8787 접근을 허용하고 공유기 사용 시 포트 전달 또는 서로 연결되는 VPN이 필요합니다. 전투는 WebRTC P2P입니다. [접속 방법](사용설명서.md#6-온라인-준비-첫-pc가-호스트)
+
+## v3.14 변경 사항
+
+- 벽을 밝은 난간·기둥·굵은 바닥 경계로 표시. 도장과 제철소의 색을 구분
+- 청류 돌파·통발 등 전진기/밀어차기를 벽 앞에서 맞히면 **벽꽝 → 반동 띄우기**. 콤보당 1회, 바닥 바운드와 별개. 재벽꽝과 세 번째 벽 타격은 강제 다운
+- 기술표(H)에 벽꽝 성능 표시, 벽 충돌 문구·강한 타격 효과
+- **모든 업데이트는 GitHub Releases에 게임 EXE와 AXIS SERVER EXE를 함께 게시합니다.** 동일한 파일과 체크섬을 저장소 downloads에도 유지하며, 새 버전 푸시 시 Actions가 자동 게시
+- [Releases 다운로드](https://github.com/imsosorrybutiloveyou/teken/releases/latest) · [게임 EXE](https://github.com/imsosorrybutiloveyou/teken/releases/latest/download/AXIS-Windows-x64.exe) · [서버 EXE](https://github.com/imsosorrybutiloveyou/teken/releases/latest/download/AXIS-SERVER-Windows-x64.exe)
+- [벽꽝 커맨드·배포 설명](docs/RELEASE_NOTES.md). 프로토콜 16: 게임과 서버 모두 v3.14 필요
 
 ## v3.13 변경 사항
 

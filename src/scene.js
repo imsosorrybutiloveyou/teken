@@ -1198,8 +1198,8 @@ export function createScene(canvas) {
             b = corners[(i + 1) % corners.length],
             pa = project(a[0], 0, a[1]),
             pb = project(b[0], 0, b[1]),
-            ta = project(a[0], 1.3, a[1]),
-            tb = project(b[0], 1.3, b[1]);
+            ta = project(a[0], 1.7, a[1]),
+            tb = project(b[0], 1.7, b[1]);
           polygon(
             c,
             [
@@ -1208,14 +1208,38 @@ export function createScene(canvas) {
               [tb.x, tb.y],
               [ta.x, ta.y],
             ],
-            stage.id === "dojo" ? "#84607966" : "#9c684c66",
+            stage.id === "dojo" ? "#443855b8" : "#4e4141b8",
           );
-          c.strokeStyle = "#e5bf88";
-          c.lineWidth = 2;
-          c.beginPath();
-          c.moveTo(ta.x, ta.y);
-          c.lineTo(tb.x, tb.y);
-          c.stroke();
+          const trim = stage.id === "dojo" ? "#b9eeff" : "#ffcd72";
+          for (const height of [0, 0.85, 1.7]) {
+            const p = project(a[0], height, a[1]),
+              q = project(b[0], height, b[1]);
+            c.beginPath();
+            c.moveTo(p.x, p.y);
+            c.lineTo(q.x, q.y);
+            c.strokeStyle = "#171823";
+            c.lineWidth = 5;
+            c.stroke();
+            c.strokeStyle = trim;
+            c.lineWidth = height === 0 ? 3 : 2;
+            c.stroke();
+          }
+          const posts = Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / 1.6);
+          for (let n = 0; n <= posts; n++) {
+            const x = mix(a[0], b[0], n / posts),
+              z = mix(a[1], b[1], n / posts),
+              p = project(x, 0, z),
+              q = project(x, n === 0 ? 1.95 : 1.7, z);
+            c.beginPath();
+            c.moveTo(p.x, p.y);
+            c.lineTo(q.x, q.y);
+            c.strokeStyle = "#171823";
+            c.lineWidth = n === 0 ? 7 : 3;
+            c.stroke();
+            c.strokeStyle = trim;
+            c.lineWidth = n === 0 ? 3 : 1;
+            c.stroke();
+          }
         }
       }
       c.imageSmoothingEnabled = false;
@@ -1320,13 +1344,22 @@ export function createScene(canvas) {
       for (let i = effects.length - 1; i >= 0; i--) {
         const e = effects[i];
         e.age += dt;
-        if (e.age > (e.punish || e.type === "block" ? 0.65 : 0.3)) {
+        if (
+          e.age > (e.wallSplat || e.punish || e.type === "block" ? 0.65 : 0.3)
+        ) {
           effects.splice(i, 1);
           continue;
         }
         const p = project(e.x, e.y, e.z),
           expand = e.age * (e.heavy ? 130 : 90);
-        if (e.punish || e.armor || e.counter || e.throw || e.type === "block") {
+        if (
+          e.wallSplat ||
+          e.punish ||
+          e.armor ||
+          e.counter ||
+          e.throw ||
+          e.type === "block"
+        ) {
           c.font = "bold 8px monospace";
           c.textAlign = "center";
           c.fillStyle = e.punish
@@ -1335,15 +1368,17 @@ export function createScene(canvas) {
               ? "#ffac8f"
               : "#b5e5ed";
           c.fillText(
-            e.counter
-              ? "COUNTER"
-              : e.throw
-                ? "THROW"
-                : e.armor
-                  ? "ARMOR"
-                  : e.punish
-                    ? "PUNISH"
-                    : `GUARD ${e.advantage >= 0 ? "+" : ""}${e.advantage}F${e.launcherWindow ? " / UPPER" : ""}`,
+            e.wallSplat
+              ? "WALL SPLAT"
+              : e.counter
+                ? "COUNTER"
+                : e.throw
+                  ? "THROW"
+                  : e.armor
+                    ? "ARMOR"
+                    : e.punish
+                      ? "PUNISH"
+                      : `GUARD ${e.advantage >= 0 ? "+" : ""}${e.advantage}F${e.launcherWindow ? " / UPPER" : ""}`,
             p.x,
             p.y - 18 - e.age * 25,
           );
@@ -1411,8 +1446,8 @@ export function createScene(canvas) {
     event(e) {
       effects.push({ ...e, age: 0 });
       if (e.type === "hit") {
-        shake = e.heavy ? 0.18 : 0.1;
-        impactFlash = e.heavy ? 0.065 : 0.035;
+        shake = e.wallSplat ? 0.25 : e.heavy ? 0.18 : 0.1;
+        impactFlash = e.wallSplat ? 0.09 : e.heavy ? 0.065 : 0.035;
       }
     },
     toggleCamera() {

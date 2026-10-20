@@ -1,4 +1,4 @@
-# AXIS ADVANCE v3.13 Windows 다운로드
+# AXIS ADVANCE v3.14 Windows 다운로드
 
 [**AXIS-Windows-x64.exe 다운로드**](https://github.com/imsosorrybutiloveyou/teken/raw/refs/heads/main/downloads/AXIS-Windows-x64.exe)
 
@@ -8,7 +8,7 @@ Windows 10/11 64비트용입니다. 다운로드 후 더블클릭하면 기본 �
 
 **첫 실행자가 매칭 호스트가 되며 같은 LAN의 다음 실행자는 자동 검색해 참가합니다.** 인터넷에서는 첫 PC의 공인/VPN 주소를 온라인 로비에 넣고, 호스트 TCP 8787 접근이 가능해야 합니다. 별도 Node.js 설치는 필요 없습니다. 호스트 EXE는 계속 켜 두세요. 공용 서버 없이 인터넷의 낯선 상대를 주소 없이 검색하는 기능은 없습니다. [상세 접속 방법](../사용설명서.md#6-온라인-준비-첫-pc가-호스트)
 
-v3.13은 기본기 공중 콤보 약화, 아케이드 매 라운드 랜덤 맵, 서로 다른 벽 배치, 상대 콤보 표시, KAI 외 7명 캐릭터 특성 강화를 포함합니다. [변경 설명서](../docs/BALANCE_V313.md) · [백대시·횡이동·기존 조작](../docs/COMBAT_V312.md). 온라인 양쪽과 첫 호스트 또는 AXIS SERVER를 모두 v3.13으로 교체하세요.
+v3.14는 더 선명한 벽 난간·기둥과 콤보당 1회 벽 반동 띄우기를 포함합니다. [벽꽝·커맨드 설명](../docs/RELEASE_NOTES.md) · [백대시·횡이동·기존 조작](../docs/COMBAT_V312.md). 온라인 양쪽과 첫 호스트 또는 AXIS SERVER를 모두 v3.14으로 교체하세요.
 
 제작자 인증서로 서명되지 않은 빌드이며 실제 Windows에서의 직접 실행 검증은 아직 하지 않았습니다. [SHA-256](AXIS-Windows-x64.exe.sha256)은 PowerShell에서 다음 명령으로 비교할 수 있습니다.
 
@@ -20,3 +20,5 @@ Get-FileHash .\AXIS-Windows-x64.exe -Algorithm SHA256
 
 
 [AXIS SERVER 다운로드](AXIS-SERVER-Windows-x64.exe) · [같은 네트워크 접속 설명서](../docs/AXIS_SERVER.md) · [격자 스킨 편집](../docs/SKINS.md)
+
+[GitHub Releases](https://github.com/imsosorrybutiloveyou/teken/releases/latest)에도 매 업데이트마다 게임 EXE와 서버 EXE, 각 체크섬을 함께 게시합니다.

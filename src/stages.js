@@ -108,12 +108,15 @@ export function constrainToStage(f, stage) {
       }
     }
 }
-export function wallImpact(f, angle, stage) {
+export function wallContact(f, angle, stage) {
   const dx = Math.cos(angle),
     dz = Math.sin(angle);
-  return wallEdges(stage).some(
+  return wallEdges(stage).find(
     ({ a, nx, nz }) =>
       dx * nx + dz * nz < -0.05 &&
       (f.x + dx * 0.65 - a[0]) * nx + (f.z + dz * 0.65 - a[1]) * nz < 0.5,
   );
+}
+export function wallImpact(f, angle, stage) {
+  return !!wallContact(f, angle, stage);
 }

@@ -1,4 +1,4 @@
-import { STAGES, chooseStage, constrainToStage, wallImpact } from "./stages.js";
+import { chooseStage, constrainToStage, wallContact } from "./stages.js";
 import { CHARACTERS, character, moveFor } from "./characters.js";
 export { CHARACTERS, moveFor };
 export const MAX_HP = 120;
@@ -152,6 +152,7 @@ function fighter(x, id, index) {
     effectiveOrbit: 0,
     backDash: 0,
     wallHits: 0,
+    wallSplatUsed: false,
     basicAirHits: 0,
     hopCombo: false,
     throwTime: 0,
@@ -200,7 +201,7 @@ function fighter(x, id, index) {
 }
 export function createMatch(ids = ["kai", "ren"], stage = "terminal") {
   return {
-    version: 15,
+    version: 16,
     stage: chooseStage(stage),
     axisAngle: 0,
     viewAngle: 0,
@@ -343,6 +344,10 @@ function resolveHit(m, index, training) {
   const continuing = airborne
     ? b.airOwner === index
     : b.stun > 0 && !b.blockstun && b.lastHitBy === index;
+  if (!airborne && !continuing) {
+    b.wallSplatUsed = false;
+    b.wallHits = 0;
+  }
   const basicAir =
     airborne &&
     continuing &&
@@ -367,7 +372,19 @@ function resolveHit(m, index, training) {
           : 1),
     ),
   );
-  const nearWall = airborne && wallImpact(b, atk.angle, m.stage);
+  const armored =
+    defendingMove?.armorFrom != null &&
+    b.attack.t >= defendingMove.armorFrom &&
+    b.attack.t < defendingMove.windup &&
+    !b.attack.armorUsed &&
+    !airborne &&
+    ["high", "mid"].includes(move.level);
+  const contact =
+    !armored && (airborne || (move.wallSplat && b.downTime === 0))
+      ? wallContact(b, atk.angle, m.stage)
+      : null;
+  const nearWall = !!contact;
+  const wallSplat = nearWall && !!move.wallSplat && !b.wallSplatUsed;
   const wallBonus = nearWall
     ? b.wallHits === 0
       ? 6
@@ -382,13 +399,6 @@ function resolveHit(m, index, training) {
   b.hitKind = move.kind;
   b.lastHitBy = index;
   b.hp = Math.max(training ? 1 : 0, b.hp - damage);
-  const armored =
-    defendingMove?.armorFrom != null &&
-    b.attack.t >= defendingMove.armorFrom &&
-    b.attack.t < defendingMove.windup &&
-    !b.attack.armorUsed &&
-    !airborne &&
-    ["high", "mid"].includes(move.level);
   if (armored) {
     b.attack.armorUsed = true;
     b.hitFlash = 0.13;
@@ -437,7 +447,8 @@ function resolveHit(m, index, training) {
     b.stun = 0.85;
     b.airHits = 0;
     b.airOwner = index;
-    b.wallHits = 0;
+    b.wallHits = nearWall ? 1 : 0;
+    b.wallSplatUsed = false;
     b.basicAirHits = 0;
     b.bounceUsed = false;
     b.bouncePending = false;
@@ -464,12 +475,34 @@ function resolveHit(m, index, training) {
   }
   if (nearWall) {
     b.vx = b.vz = 0;
-    if (b.wallHits >= 3) {
+    if (b.wallHits >= 3 || (move.wallSplat && b.wallSplatUsed)) {
       b.bouncePending = false;
       b.airOwner = -1;
       b.downTime = 0.85;
       b.wakeUp = 0.95;
       b.vy = -8;
+    } else if (wallSplat) {
+      // One wall rebound per combo, independent of the floor bound.
+      if (!airborne) {
+        b.airHits = b.basicAirHits = 0;
+        b.bounceUsed = false;
+      }
+      const distance =
+        (b.x - contact.a[0]) * contact.nx +
+        (b.z - contact.a[1]) * contact.nz -
+        0.5;
+      b.x -= contact.nx * distance;
+      b.z -= contact.nz * distance;
+      b.wallSplatUsed = true;
+      b.bouncePending = false;
+      b.downTime = b.wakeUp = 0;
+      b.y = Math.max(0.18, Math.min(b.y, 0.85));
+      b.vy = 6.2;
+      b.vx = contact.nx * 2.2;
+      b.vz = contact.nz * 2.2;
+      b.airOwner = index;
+      b.stun = Math.max(b.stun, 0.8);
+      m.hitstop = Math.max(m.hitstop, 7 / 60);
     } else b.vy = Math.min(b.vy, 3.5);
   }
   if (move.level === "throw" && !airborne) {
@@ -516,6 +549,7 @@ function resolveHit(m, index, training) {
     tip: !!tip,
     basicAir,
     wall: nearWall,
+    wallSplat: wallSplat && b.wallSplatUsed && b.downTime === 0,
     wallBonus,
     bound: !!move.bound && airborne && b.bouncePending,
     heavy: move.damage >= 23,

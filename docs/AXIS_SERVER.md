@@ -20,3 +20,6 @@ v3.12에서는 경기 위에서 자리와 맵을 선택하고 방을 만듭니�
 
 
 v3.13은 프로토콜 15입니다. 게임 양쪽과 서버를 함께 업데이트하세요. [최신 밸런스·벽 배치](BALANCE_V313.md)
+
+
+v3.14는 프로토콜 16이며 벽꽝을 지원합니다. 양쪽 게임과 서버를 함께 교체하세요. 앞으로 서버 EXE도 [GitHub Releases](https://github.com/imsosorrybutiloveyou/teken/releases/latest)에 게임 EXE와 함께 게시합니다. [변경 설명](RELEASE_NOTES.md)

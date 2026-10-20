@@ -408,6 +408,35 @@ try {
     "P2P advanced techniques: just-frame electric launch, hellsweep beats standing guard, advancing palm knockdown, running jump kick synchronized",
   );
 
+  await newRound();
+  await host.keyboard.down("d");
+  await host.waitForFunction(
+    () => window.axis.state.fighters[1].x > 6.1,
+    {},
+    { timeout: 15000 },
+  );
+  await host.keyboard.up("d");
+  await host.waitForTimeout(100);
+  await host.keyboard.press("d");
+  await host.keyboard.down("d");
+  await host.keyboard.press("i");
+  await host.keyboard.up("d");
+  for (const page of [host, guest])
+    await page.waitForFunction(() => {
+      const b = window.axis.state.fighters[1];
+      return b.wallSplatUsed && b.y > 0 && b.downTime === 0;
+    });
+  await host.screenshot({
+    path: "/tmp/axis-v314-wall-splat.png",
+    fullPage: true,
+  });
+  await host.keyboard.press("u");
+  for (const page of [host, guest])
+    await page.waitForFunction(() => window.axis.state.fighters[0].combo === 2);
+  console.log(
+    "Physical advancing punch at the dojo wall rebounds once and chains into a synchronized 2-hit P2P combo",
+  );
+
   await host.locator("#online-button").click();
   await host.locator("#disconnect-button").click();
   await guest.waitForFunction(() => !window.axis.matched);
@@ -474,7 +503,7 @@ try {
   );
   assert.deepEqual(errors, []);
   console.log(
-    "PASS: v3.13 player match only, player rooms, matched-only character selection, 8 characters, unique frame tables, automatic P2P, orbit camera, remote combat, practice selection, responsive layout; no page errors.",
+    "PASS: v3.14 player match only, player rooms, matched-only character selection, 8 characters, unique frame tables, automatic P2P, orbit camera, remote combat, practice selection, responsive layout; no page errors.",
   );
 } catch (error) {
   for (const [name, page] of [

@@ -747,6 +747,8 @@ function renderMoves(id) {
     if (m.chip) desc.textContent += ` · 가드 피해 ${m.chip}(체력 1 유지)`;
     if (m.counterPower) desc.textContent += ` · 카운터 ×${m.counterPower}`;
     if (m.evadeSide) desc.textContent += " · 측보 회피";
+    if (m.wallSplat)
+      desc.textContent += " · 벽꽝: 벽 앞 적중 시 콤보당 1회 벽 반동 띄우기";
     if (m.armorFrom != null)
       desc.textContent += ` · ${Math.round(m.armorFrom * 60)}F부터 상·중단 1회 버티기(피해 받음)`;
     if (m.highCrushFrom != null)

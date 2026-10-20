@@ -159,7 +159,7 @@ export function createLobby({
         response.end(
           JSON.stringify({
             service: "axis-matchmaking",
-            version: 15,
+            version: 16,
             online: clients.size,
           }),
         );

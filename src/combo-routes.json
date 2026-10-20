@@ -1508,7 +1508,23 @@
       {
         "keys": [
           "qcfPunch",
+          "dashPunch",
+          "qcfPunch"
+        ],
+        "damage": 64
+      },
+      {
+        "keys": [
+          "qcfPunch",
           "rushStrike",
+          "qcfPunch"
+        ],
+        "damage": 64
+      },
+      {
+        "keys": [
+          "dashPunch",
+          "qcfPunch",
           "qcfPunch"
         ],
         "damage": 64
@@ -1534,22 +1550,6 @@
           "qcfPunch",
           "runningKick",
           "rushStrike"
-        ],
-        "damage": 63
-      },
-      {
-        "keys": [
-          "qcfPunch",
-          "runningKick",
-          "electric"
-        ],
-        "damage": 63
-      },
-      {
-        "keys": [
-          "qcfPunch",
-          "rushStrike",
-          "runningKick"
         ],
         "damage": 63
       }
@@ -1574,7 +1574,23 @@
       {
         "keys": [
           "qcfPunch",
+          "dashPunch",
+          "qcfPunch"
+        ],
+        "damage": 64
+      },
+      {
+        "keys": [
+          "qcfPunch",
           "rushStrike",
+          "qcfPunch"
+        ],
+        "damage": 64
+      },
+      {
+        "keys": [
+          "dashPunch",
+          "qcfPunch",
           "qcfPunch"
         ],
         "damage": 64
@@ -1600,22 +1616,6 @@
           "qcfPunch",
           "runningKick",
           "rushStrike"
-        ],
-        "damage": 63
-      },
-      {
-        "keys": [
-          "qcfPunch",
-          "runningKick",
-          "electric"
-        ],
-        "damage": 63
-      },
-      {
-        "keys": [
-          "qcfPunch",
-          "rushStrike",
-          "runningKick"
         ],
         "damage": 63
       }

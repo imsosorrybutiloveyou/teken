@@ -1,0 +1,45 @@
+name: Publish Windows game and server
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - downloads/latest.json
+      - .github/workflows/release.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: axis-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm ci
+      - run: npm test
+      - name: Verify the committed game and server executables
+        run: npm run release:verify
+      - name: Publish both executables, checksums and update manifest
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          version=$(node -p 'JSON.parse(require("fs").readFileSync("package.json")).version')
+          tag="v$version"
+          if ! gh release view "$tag" >/dev/null 2>&1; then
+            gh release create "$tag" --target "$GITHUB_SHA" \
+              --title "AXIS ADVANCE $tag" --notes-file docs/RELEASE_NOTES.md --latest
+          fi
+          gh release upload "$tag" --clobber \
+            downloads/AXIS-Windows-x64.exe downloads/AXIS-Windows-x64.exe.sha256 \
+            downloads/AXIS-SERVER-Windows-x64.exe downloads/AXIS-SERVER-Windows-x64.exe.sha256 \
+            downloads/latest.json docs/RELEASE_NOTES.md
